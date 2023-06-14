@@ -257,8 +257,8 @@ function pvewhmcs_output($vars) {
 	';
 			// License Tab
 	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
-	echo ('<h3>Updates</h3>Proxmox for WHMCS is open-source and free to use!<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>');
-	echo ('<h3>Support</h3>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
+	echo ('<h3>Updates:</h3>Proxmox for WHMCS is open-source and free to use!<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>');
+	echo ('<h3>Support:</h3>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank">Issue</a> on GitHub - include logs, steps to reproduce, etc. Thank you.');
 	echo '</div>';
 
 	echo '</div>'; // end of tab-content
