@@ -153,7 +153,7 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['cpu'] = $plan->cpuemu;
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
-				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config'. $cloned_tweaks);
+				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
 				return true;
 			} else {
 				if (is_array($response) && isset($response['data']['errors'])) {
