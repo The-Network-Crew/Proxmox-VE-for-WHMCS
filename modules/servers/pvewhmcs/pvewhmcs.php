@@ -546,9 +546,15 @@ function pvewhmcs_TerminateAccount(array $params) {
 		unset($nodes);
 		// find virtual machine type
 		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+		$pve_cmdparam = array();
 		// stop the service before terminating
-		$proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop') ;
-		sleep(30) ;
+		//获取状态 如果状态不是stopped，则先stop
+		$ct_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
+		if ($ct_specific['status'] != 'stopped') {
+			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam) ;
+			sleep(30) ;
+		}
+
 		if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
 			// delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
@@ -847,8 +853,12 @@ function pvewhmcs_ClientArea($params) {
 			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
 
 			if ($guest->vtype == 'lxc') {
-				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'] .'/status/current') ;
-				$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
+				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'].'/status/current');
+				if ($ct_specific['maxswap'] != 0) {
+					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
+				} else {
+					$vm_status['swapusepercent'] = 0; // 当maxswap为0时，swap使用率为0
+				}
 			}
 		} else {
 	    		// Handle the VM not found in the cluster resources (Optional)
@@ -1157,8 +1167,14 @@ function pvewhmcs_vmReboot($params) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam);
+		$ct_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
+        if ($ct_specific['status'] = 'stopped') {
+		    $logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
+		    $response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam);
+		} else {
+			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot';
+			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam);
+		}
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
