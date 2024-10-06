@@ -187,6 +187,7 @@ function pvewhmcs_CreateAccount($params)
                         'id'         => $params['serviceid'],
                         'user_id'    => $params['clientsdetails']['userid'],
                         'vtype'      => 'qemu',
+                        'node'       => $first_node,
                         'ipaddress'  => $ip->ipaddress,
                         'subnetmask' => $ip->mask,
                         'gateway'    => $ip->gateway,
@@ -399,6 +400,7 @@ function pvewhmcs_CreateAccount($params)
                             'id'         => $params['serviceid'],
                             'user_id'    => $params['clientsdetails']['userid'],
                             'vtype'      => $v,
+                            'node'       => $first_node,
                             'ipaddress'  => $ip->ipaddress,
                             'subnetmask' => $ip->mask,
                             'gateway'    => $ip->gateway,
@@ -470,17 +472,23 @@ function pvewhmcs_SuspendAccount(array $params)
     $serverip = $params["serverip"];
     $serverusername = $params["serverusername"];
     $serverpassword = $params["serverpassword"];
+    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 
     $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
     if ($proxmox->login()) {
         # Get first node name.
-        $nodes = $proxmox->get_node_list();
-        $first_node = $nodes[0];
-        unset($nodes);
+        //$nodes = $proxmox->get_node_list();
+        $first_node = $guest->node;
+        //unset($nodes);
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
         $pve_cmdparam = [];
         $logrequest = '/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop';
-        $response = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', $pve_cmdparam);
+        try {
+            $response = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', $pve_cmdparam);
+        } catch(\Exception $e) {
+            return "success";
+        }
+
     }
     // DEBUG - Log the request parameters before it's fired
     if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -507,13 +515,13 @@ function pvewhmcs_UnsuspendAccount(array $params)
     $serverip = $params["serverip"];
     $serverusername = $params["serverusername"];
     $serverpassword = $params["serverpassword"];
-
+    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
     $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
     if ($proxmox->login()) {
         # Get first node name.
-        $nodes = $proxmox->get_node_list();
-        $first_node = $nodes[0];
-        unset($nodes);
+        //$nodes = $proxmox->get_node_list();
+        $first_node = $guest->node;
+        //unset($nodes);
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
         $pve_cmdparam = [];
         $logrequest = '/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start';
@@ -544,13 +552,15 @@ function pvewhmcs_TerminateAccount(array $params)
     $serverip = $params["serverip"];
     $serverusername = $params["serverusername"];
     $serverpassword = $params["serverpassword"];
+    // Retrieve virtual machine info from table mod_pvewhmcs_vms
+    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 
     $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
     if ($proxmox->login()) {
         # Get first node name.
-        $nodes = $proxmox->get_node_list();
-        $first_node = $nodes[0];
-        unset($nodes);
+        //$nodes = $proxmox->get_node_list();
+        $first_node = $guest->node;
+        //unset($nodes);
         // find virtual machine type
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
         // stop the service before terminating
