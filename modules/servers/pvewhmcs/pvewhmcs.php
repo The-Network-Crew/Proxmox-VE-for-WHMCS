@@ -250,7 +250,7 @@ function pvewhmcs_CreateAccount($params)
             if (!empty($plan->vlanid)) {
                 $vm_settings['net0'] .= ',trunk='.$plan->vlanid;
             }
-            $vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
+            $vm_settings['nameserver'] = '8.8.8.8 1.1.1.1';
             $vm_settings['onboot'] = $plan->onboot;
             $vm_settings['password'] = $params['customfields']['Password'];
         } else {
@@ -326,7 +326,10 @@ function pvewhmcs_CreateAccount($params)
         $vm_settings['cpuunits'] = $plan->cpuunits;
         $vm_settings['cpulimit'] = $plan->cpulimit;
         $vm_settings['memory'] = $plan->memory;
-
+        if($params['domain'] != "") {
+            $vm_settings['hostname'] = $params['domain'];
+        }
+        //var_dump('/nodes/vm1/lxc', $vm_settings);exit;
         ////////////////////////////////////////////////////
         // CREATION: Attempt to Create Guest via PVE2 API //
         ////////////////////////////////////////////////////
@@ -1062,7 +1065,6 @@ function pvewhmcs_noVNC($params)
     $serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
 
     $proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
-
     if ($proxmox->login()) {
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
         $first_node = $guest->node;
