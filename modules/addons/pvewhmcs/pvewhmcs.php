@@ -232,6 +232,9 @@ function pvewhmcs_output($vars) {
 		PVE Store
 		</th>
 		<th>
+		PVE OS Storage
+		</th>
+		<th>
 		I/O Cap
 		</th>
 		<th>
@@ -273,6 +276,7 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->disk . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disktype . PHP_EOL .'</td>';
 			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
+			echo '<td>'.$vm->os_storage . PHP_EOL .'</td>';
 			echo '<td>'.$vm->diskio . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmode . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bridge.$vm->vmbr . PHP_EOL .'</td>';
@@ -620,6 +624,13 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
+	<td class="fieldlabel">PVE Template Store - Location</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="os_storage" id="os_storage" value="local" required>
+	Name of VM/CT Template Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
 	<td class="fieldlabel">I/O - Throttling</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
@@ -929,6 +940,13 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
+	<td class="fieldlabel">PVE Template Store</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="os_storage" id="os_storage" required value="'.$plan->os_storage.'">
+	Name of VM/CT Template Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
 	<td class="fieldlabel">I/O Cap - Write</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
@@ -1086,6 +1104,13 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
+	<td class="fieldlabel">PVE Template Store</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="os_storage" id="os_storage" value="local" required>
+	Location of VM/CT Template Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
 	<td class="fieldlabel">I/O - Throttling</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
@@ -1218,6 +1243,13 @@ function lxc_plan_edit($id) {
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="'.$plan->storage.'" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">PVE Template Store</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="storage" id="storage" value="'.$plan->os_storage.'" required>
+	Location of VM/CT Template Storage on Proxmox VE hypervisor. local/local-lvm/etc.
 	</td>
 	</tr>
 	<tr>
