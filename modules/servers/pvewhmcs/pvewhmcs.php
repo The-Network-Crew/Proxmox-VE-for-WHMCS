@@ -515,17 +515,15 @@ function pvewhmcs_UnsuspendAccount(array $params)
     $serverip = $params["serverip"];
     $serverusername = $params["serverusername"];
     $serverpassword = $params["serverpassword"];
-    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+
     $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
     if ($proxmox->login()) {
         # Get first node name.
-        //$nodes = $proxmox->get_node_list();
-        $first_node = $guest->node;
-        //unset($nodes);
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
         $pve_cmdparam = [];
-        $logrequest = '/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start';
-        $response = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start');
+        $logrequest = '/nodes/'.$guest->node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start';
+        $response = $proxmox->post('/nodes/'.$guest->node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start', $pve_cmdparam);
+        //var_dump($response);exit;
     }
     // DEBUG - Log the request parameters before it's fired
     if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
