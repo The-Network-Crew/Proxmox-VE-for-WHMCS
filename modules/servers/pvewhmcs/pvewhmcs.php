@@ -872,13 +872,8 @@ function pvewhmcs_ClientArea($params)
     if ($proxmox->login()) {
         //$proxmox->setCookie();
         # Get first node name.
-        //$test = $proxmox->get_vms();
-
-        //var_dump($params['serviceid'], $guest);exit;
-        //$nodes = $proxmox->get_node_list();
         $first_node = $guest->node;
         unset($nodes);
-
         # Get and set VM variables
         $vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/config');
         $cluster_resources = $proxmox->get('/cluster/resources');
@@ -1065,13 +1060,13 @@ function pvewhmcs_noVNC($params)
     $serverip = $params["serverip"];
     $serverusername = 'vnc';
     $serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-    var_dump($serverpassword, $serverip);exit;
+
     $proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
-    var_dump($proxmox);exit;
+
     if ($proxmox->login()) {
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
         $first_node = $guest->node;
-var_dump($first_node);exit;
+
         $vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/vncproxy', ['websocket' => '1']);
         // Get both tickets prepared
         $pveticket = $proxmox->getTicket();
