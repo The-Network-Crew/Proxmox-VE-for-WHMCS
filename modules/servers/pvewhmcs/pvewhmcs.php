@@ -563,15 +563,43 @@ function pvewhmcs_TerminateAccount(array $params)
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
         // stop the service before terminating
         try {
+            // Send the stop command to the container
             $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', []);
-            sleep(30);
-            if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1])) {
-                // delete entry from module table once service terminated in PVE
+
+            // Check if the container has been stopped, with a timeout mechanism to avoid infinite loops
+            $timeout = 30; // Maximum wait time in seconds (1 minute)
+            $interval = 2; // Interval between checks in seconds
+            $elapsed_time = 0;
+            $stopped = false;
+            while ($elapsed_time < $timeout) {
+                $status = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
+                // If the container is stopped, proceed with deletion
+                if (isset($status['status']) && $status['status'] === 'stopped') {
+                    $stopped = true;
+                    break;
+                }
+                // Wait for the next check
+                sleep($interval);
+                $elapsed_time += $interval;
+            }
+
+            // If the container is stopped, proceed with deletion
+            if ($stopped && $proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1])) {
+                // Delete entry from the module table once the service is terminated in PVE
                 Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
                 return "success";
+            } else {
+                return "failed to stop or delete the container";
             }
         } catch (\Exception $e) {
-            return "failed to be deleted";
+            // VM is Already stop, let delete the VM
+            try {
+                $proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1]);
+                Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+                return "success";
+            } catch (\Exception $e) {
+                return "Unable to delete ". $e->getMessage();
+            }
         }
     }
     $response_message = json_encode($proxmox['data']['errors']);
