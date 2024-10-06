@@ -485,7 +485,7 @@ function pvewhmcs_SuspendAccount(array $params)
         $logrequest = '/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop';
         try {
             $response = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', $pve_cmdparam);
-        } catch(\Exception $e) {
+        } catch (\Exception $e) {
             return "success";
         }
 
@@ -562,12 +562,16 @@ function pvewhmcs_TerminateAccount(array $params)
         // find virtual machine type
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
         // stop the service before terminating
-        $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop');
-        sleep(30);
-        if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1])) {
-            // delete entry from module table once service terminated in PVE
-            Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-            return "success";
+        try {
+            $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', []);
+            sleep(30);
+            if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1])) {
+                // delete entry from module table once service terminated in PVE
+                Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+                return "success";
+            }
+        } catch (\Exception $e) {
+            return "failed to be deleted";
         }
     }
     $response_message = json_encode($proxmox['data']['errors']);
