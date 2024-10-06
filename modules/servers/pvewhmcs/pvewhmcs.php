@@ -1057,7 +1057,7 @@ function pvewhmcs_noVNC($params)
     if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret')) < 15) {
         throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
     }
-    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+
 
     // Get login credentials then make the Proxmox connection attempt.
     $serverip = $params["serverip"];
@@ -1066,12 +1066,9 @@ function pvewhmcs_noVNC($params)
 
     $proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
     if ($proxmox->login()) {
-        // Get first node name
-        //$nodes = $proxmox->get_node_list();
+        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
         $first_node = $guest->node;
-        //unset($nodes);
-        // Early prep work
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+
         $vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/vncproxy', ['websocket' => '1']);
         // Get both tickets prepared
         $pveticket = $proxmox->getTicket();
