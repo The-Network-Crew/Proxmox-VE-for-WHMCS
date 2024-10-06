@@ -560,7 +560,7 @@ function pvewhmcs_TerminateAccount(array $params)
         $first_node = $guest->node;
         //unset($nodes);
         // find virtual machine type
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
         // stop the service before terminating
         try {
             // Send the stop command to the container
