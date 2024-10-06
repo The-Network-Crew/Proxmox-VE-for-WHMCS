@@ -853,7 +853,9 @@ function pvewhmcs_ClientArea($params)
 {
     // Retrieve virtual machine info from table mod_pvewhmcs_vms
     $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-
+    if(!$guest) {
+        return "no server defined";
+    }
     // Gather access credentials for PVE, as these are no longer passed for Client Area
     $pveservice = Capsule::table('tblhosting')->find($params['serviceid']);
     $pveserver = Capsule::table('tblservers')->where('id', '=', $pveservice->server)->first();
@@ -1063,12 +1065,13 @@ function pvewhmcs_noVNC($params)
     $serverip = $params["serverip"];
     $serverusername = 'vnc';
     $serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-
+    var_dump($serverpassword, $serverip);exit;
     $proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+    var_dump($proxmox);exit;
     if ($proxmox->login()) {
         $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
         $first_node = $guest->node;
-
+var_dump($first_node);exit;
         $vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/vncproxy', ['websocket' => '1']);
         // Get both tickets prepared
         $pveticket = $proxmox->getTicket();
