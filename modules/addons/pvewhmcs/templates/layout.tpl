@@ -10,15 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
       rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
-{if isset($smarty.session.pvewhmcs.infomsg)}
-<div class="infobox">
-    <strong>
-        <span class="title">{$smarty.session.pvewhmcs.infomsg.title}</span>
-    </strong><br/>
-    {$smarty.session.pvewhmcs.infomsg.message}
-</div>
 
-{/if}
 {assign var="currentTAB" value="{$smarty.server.REQUEST_URI}"}
 
 <div id="proxmox-addon">
