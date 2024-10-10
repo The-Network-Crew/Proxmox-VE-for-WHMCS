@@ -136,9 +136,12 @@ class Controller {
     public function removePlan($vars, $data): void
     {
         Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $_REQUEST['id'])->delete();
+        $_SESSION['pvewhmcs']['notification'] = [
+            'title' => 'Plan Deleted!',
+            'message' => 'Selected Item deleted successfuly.',
+            'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+        ];
         header("Location: ".$vars['modulelink']."&tab=vmplans&action=planlist");
-        $_SESSION['pvewhmcs']['infomsg']['title'] = 'Plan Deleted.';
-        $_SESSION['pvewhmcs']['infomsg']['message'] = 'Selected Item deleted successfuly.';
     }
 
     /**
@@ -218,19 +221,23 @@ class Controller {
     {
         Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->delete();
         Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $_GET['id'])->delete();
-
-        $_SESSION['pvewhmcs']['infomsg']['title'] = 'IP Pool Deleted.';
-        $_SESSION['pvewhmcs']['infomsg']['message'] = 'Deleted the IP Pool successfully.';
+        $_SESSION['pvewhmcs']['notification'] = [
+            'title' => 'IP Pool Deleted!',
+            'message' => 'Deleted the IP Pool successfully.',
+            'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+        ];
         header("Location: ".$vars['modulelink']."&tab=ippools&action=listIpPool");
     }
 
     public function removeIp($vars, $data)
     {
         Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $_GET['id'])->delete();
+        $_SESSION['pvewhmcs']['notification'] = [
+            'title' => 'IP Address deleted!',
+            'message' => 'Deleted selected item successfuly.',
+            'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+        ];
         header("Location: ".$vars['modulelink']."&tab=ippools&action=listIps&id=".$_GET['pool_id']);
-
-        $_SESSION['pvewhmcs']['infomsg']['title'] = 'IP Address deleted.';
-        $_SESSION['pvewhmcs']['infomsg']['message'] = 'Deleted selected item successfuly.';
     }
 
     public function vncConfig($vars, $data)
