@@ -1,4 +1,51 @@
-<div class="row">
+<style>
+ .img-fluid {
+ max-width: 100%;
+ height: auto;
+ display: block;
+ margin: 20px auto;
+ }
+
+ .nav-tabs {
+ border-bottom: 1px solid #ddd;
+ }
+
+ .nav-tabs .nav-item {
+ margin-bottom: -1px;
+ }
+
+ .nav-tabs .nav-link {
+ border-radius: 0;
+ padding: 10px 15px;
+ color: #007bff;
+ }
+
+ .nav-tabs .nav-link.active {
+ color: #fff;
+ background-color: #007bff;
+ border-color: #007bff;
+ }
+
+ .tab-content {
+ padding: 20px;
+ }
+
+ /* Responsive design */
+ @media (max-width: 768px) {
+ .nav-tabs .nav-link {
+ padding: 8px 12px;
+ }
+
+ .img-fluid {
+ margin: 10px 0;
+ }
+ }
+
+ /* Optimize image arrangement */
+ .tab-pane img {
+ margin-bottom: 15px;
+ }
+ </style><div class="row">
 	<div style="text-align : left;">
 	</div>
 	<div class="col col-md-12">
@@ -94,38 +141,46 @@
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
 	<h4>VM Statistics</h4>
-	<ul class="nav nav-tabs client-tabs" role="tab-list">
-		<li class="active"><a id="dailytab" data-toggle="tab" role="tab" href="#dailystat">Daily</a></li>
-		<li><a id="dailytab" data-toggle="tab" role="tab" href="#weeklystat">Weekly</a></li>
-		<li><a id="dailytab" data-toggle="tab" role="tab" href="#monthlystat">Monthly</a></li>
-		<li><a id="dailytab" data-toggle="tab" role="tab" href="#yearlystat">Yearly</a></li>
-	</ul>
-	<div class="tab-content admin-tabs">
-		<div id="dailystat" class="tab-pane active">
-			<img src="data:image/png;base64,{$vm_statistics['cpu']['day']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['day']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['netinout']['day']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['diskrw']['day']}"/>
-		</div>
-		<div id="weeklystat" class="tab-pane">
-			<img src="data:image/png;base64,{$vm_statistics['cpu']['week']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['week']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['netinout']['week']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['diskrw']['week']}"/>
-		</div>
-		<div id="monthlystat" class="tab-pane">
-			<img src="data:image/png;base64,{$vm_statistics['cpu']['month']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['month']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['netinout']['month']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['diskrw']['month']}"/>
-		</div>
-		<div id="yearlystat" class="tab-pane">
-			<img src="data:image/png;base64,{$vm_statistics['cpu']['year']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['year']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['netinout']['year']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['diskrw']['year']}"/>
-		</div>
-	</div>
+<ul class="nav nav-tabs client-tabs" role="tablist">
+    <li class="active">
+        <a id="daily-tab" data-toggle="tab" role="tab" href="#dailystat">Daily</a>
+    </li>
+    <li>
+        <a id="weekly-tab" data-toggle="tab" role="tab" href="#weeklystat">Weekly</a>
+    </li>
+    <li>
+        <a id="monthly-tab" data-toggle="tab" role="tab" href="#monthlystat">Monthly</a>
+    </li>
+    <li>
+        <a id="yearly-tab" data-toggle="tab" role="tab" href="#yearlystat">Yearly</a>
+    </li>
+</ul>
+<div class="tab-content admin-tabs">
+    <div id="dailystat" class="tab-pane active">
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['cpu']['day']}" alt="Daily CPU Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['maxmem']['day']}" alt="Daily Memory Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['netinout']['day']}" alt="Daily Network Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['diskrw']['day']}" alt="Daily Disk Usage"/>
+    </div>
+    <div id="weeklystat" class="tab-pane">
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['cpu']['week']}" alt="Weekly CPU Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['maxmem']['week']}" alt="Weekly Memory Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['netinout']['week']}" alt="Weekly Network Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['diskrw']['week']}" alt="Weekly Disk Usage"/>
+    </div>
+    <div id="monthlystat" class="tab-pane">
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['cpu']['month']}" alt="Monthly CPU Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['maxmem']['month']}" alt="Monthly Memory Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['netinout']['month']}" alt="Monthly Network Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['diskrw']['month']}" alt="Monthly Disk Usage"/>
+    </div>
+    <div id="yearlystat" class="tab-pane">
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['cpu']['year']}" alt="Yearly CPU Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['maxmem']['year']}" alt="Yearly Memory Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['netinout']['year']}" alt="Yearly Network Usage"/>
+        <img class="img-fluid" src="data:image/png;base64,{$vm_statistics['diskrw']['year']}" alt="Yearly Disk Usage"/>
+    </div>
+</div>
 	{/if}
 
 	
