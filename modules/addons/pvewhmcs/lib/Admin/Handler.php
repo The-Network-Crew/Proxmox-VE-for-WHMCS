@@ -62,9 +62,9 @@ class Handler
                 }
             );
             $_SESSION['pvewhmcs']['notification'] = [
-                'title' => 'Success!',
+                'title'   => 'Success!',
                 'message' => 'Saved the LXC Plan successfuly.',
-                'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+                'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
             ];
             header("Location: ".$vars['modulelink']."&tab=vmplans&action=planlist");
         } catch (\Exception $e) {
@@ -94,6 +94,7 @@ class Handler
                             'cpulimit'   => $data['cpulimit'],
                             'cpuunits'   => $data['cpuunits'],
                             'memory'     => $data['memory'],
+                            'balloon'    => $data['balloon'],
                             'disk'       => $data['disk'],
                             'diskformat' => $data['diskformat'],
                             'diskcache'  => $data['diskcache'],
@@ -115,9 +116,9 @@ class Handler
                 }
             );
             $_SESSION['pvewhmcs']['notification'] = [
-                'title' => 'Success!',
+                'title'   => 'Success!',
                 'message' => 'Saved the KVM Plan successfuly.',
-                'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+                'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
             ];
             header("Location: ".$vars['modulelink']."&tab=vmplans&action=planlist");
         } catch (\Exception $e) {
@@ -179,9 +180,9 @@ class Handler
                 ]
             );
         $_SESSION['pvewhmcs']['notification'] = [
-            'title' => 'Success!',
+            'title'   => 'Success!',
             'message' => 'Updated the LXC Plan successfully.',
-            'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+            'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
         ];
     }
 
@@ -200,6 +201,7 @@ class Handler
                     'cpulimit'   => $data['cpulimit'],
                     'cpuunits'   => $data['cpuunits'],
                     'memory'     => $data['memory'],
+                    'balloon'    => $data['balloon'],
                     'disk'       => $data['disk'],
                     'diskformat' => $data['diskformat'],
                     'diskcache'  => $data['diskcache'],
@@ -220,9 +222,9 @@ class Handler
                 ]
             );
         $_SESSION['pvewhmcs']['notification'] = [
-            'title' => 'Success!',
+            'title'   => 'Success!',
             'message' => 'Updated the KVM Plan successfuly.',
-            'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+            'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
         ];
     }
 
@@ -264,9 +266,9 @@ class Handler
             }
         }
         $_SESSION['pvewhmcs']['notification'] = [
-            'title' => 'Success!',
+            'title'   => 'Success!',
             'message' => 'You can remove IP Addresses from the pool.',
-            'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+            'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
         ];
         header("Location: ".$vars['modulelink']."&tab=ippools&action=listIps&id=".$data['pool_id']);
 
@@ -292,9 +294,9 @@ class Handler
                 }
             );
             $_SESSION['pvewhmcs']['notification'] = [
-                'title' => 'Success!',
+                'title'   => 'Success!',
                 'message' => 'New IP Pool saved successfully.',
-                'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+                'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
             ];
             header("Location: ".$vars['modulelink']."&tab=ippools&action=listIpPool");
         } catch (\Exception $e) {
@@ -322,9 +324,9 @@ class Handler
                 }
             );
             $_SESSION['pvewhmcs']['notification'] = [
-                'title' => 'Success!',
+                'title'   => 'Success!',
                 'message' => 'New options have been successfully saved.',
-                'type' => 'success' // can be 'success', 'info', 'warning', or 'error'
+                'type'    => 'success' // can be 'success', 'info', 'warning', or 'error'
             ];
             header("Location: ".$vars['modulelink']."&tab=settings&action=vncConfig");
         } catch (\Exception $e) {

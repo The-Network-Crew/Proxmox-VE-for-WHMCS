@@ -30,6 +30,7 @@
                     <th name="cpus">CPUs</th>
                     <th name="cores">Cores</th>
                     <th name="ram">RAM</th>
+                    <th name="balloon">Balloon</th>
                     <th name="swap">Swap</th>
                     <th name="disk">Disk</th>
                     <th name="disktype">Disk Type</th>
@@ -56,6 +57,7 @@
                     <td>{$vm->cpus|escape}</td>
                     <td>{$vm->cores|escape}</td>
                     <td>{$vm->memory|escape}</td>
+                    <td>{$vm->balloon|escape}</td>
                     <td>{$vm->swap|escape}</td>
                     <td>{$vm->disk|escape}</td>
                     <td>{$vm->disktype|escape}</td>

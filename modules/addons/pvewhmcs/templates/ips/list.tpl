@@ -51,7 +51,7 @@
             </table>
         </div>
         <div class="dataTables__footer">
-            <div class="dataTable_paginate">
+            <!--<div class="dataTable_paginate">
                 <a href="" data-table-page="prev" class="paginate-button">
                     <i class="fa-solid fa-chevron-left"></i>
                 </a>
@@ -64,7 +64,7 @@
                 <a href="" class="dataTable-dt__button is-active">10</a>
                 <a href="" class="dataTable-dt__button">25</a>
                 <a href="" class="dataTable-dt__button">All</a>
-            </div>
+            </div>-->
         </div>
     </div>
 </div>

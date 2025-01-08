@@ -184,6 +184,18 @@
         </li>
 
         <li class="pxFieldRow">
+            <div class="pxFieldTitle">RAM - Balloon <span class="pxFieldRow_required noText">Required</span></div>
+            <div class="pxFieldContent">
+                <ul class="pxFieldInputs">
+                    <li class="pxFieldInput">
+                        <input type="number" name="balloon" id="balloon" class="pxInput pxInput_small" value="0" required>
+                    </li>
+                </ul>
+                <span class="pxFieldRow_desc">Balloon space in Megabyte e.g 1024 = 1GB (0 = disabled)</span>
+            </div>
+        </li>
+
+        <li class="pxFieldRow">
             <div class="pxFieldTitle">SSD/HDD - Disk <span class="pxFieldRow_required noText">Required</span></div>
             <div class="pxFieldContent">
                 <ul class="pxFieldInputs">
