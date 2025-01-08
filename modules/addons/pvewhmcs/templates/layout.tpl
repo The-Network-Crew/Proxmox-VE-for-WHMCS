@@ -60,11 +60,11 @@
                         </li>
                         <li>
                             <a class="px-navItem__link"
-                               href="{$modulelink}&amp;tab=ippools&amp;action=addIpToPool">Add IP to Pool</a>
+                               href="{$modulelink}&amp;tab=ippools&amp;action=newIpPool">New IPv4 Pool</a>
                         </li>
                         <li>
                             <a class="px-navItem__link"
-                               href="{$modulelink}&amp;tab=ippools&amp;action=newIpPool">New IP Pool</a>
+                               href="{$modulelink}&amp;tab=ippools&amp;action=addIpToPool">Add IPv4 to Pool</a>
                         </li>
                     </ul>
                 </li>

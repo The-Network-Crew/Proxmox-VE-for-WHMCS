@@ -10,7 +10,7 @@
             <div class="pxFieldContent">
                 <ul class="pxFieldInputs">
                     <li class="pxFieldInput">
-                        <select name="" id="" class="pxInput pxInput_small" name="pool_id">
+                        <select id="" class="pxInput pxInput_small" name="pool_id">
                             {foreach from=$ip_pools item=pool}
                             <option value="{$pool->id}">{$pool->title}</option>
                             {/foreach}
