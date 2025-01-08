@@ -16,7 +16,7 @@ use WHMCS\Module\Addon\PVEWhmcs\pveApi;
 class Controller {
 
 
-    public function documentation($vars, $data)
+    public function documentation($vars, $data): void
     {
         $modulelink = $vars['modulelink'];
         $smarty = $vars['smarty'];
@@ -24,6 +24,16 @@ class Controller {
         $smarty->caching = false;
         $smarty->compile_dir = $GLOBALS['templates_compiledir'];
         $smarty->display('documentation.tpl');
+    }
+
+    public function health($vars, $data): void
+    {
+        $modulelink = $vars['modulelink'];
+        $smarty = $vars['smarty'];
+        $smarty->assign("modulelink", $modulelink);
+        $smarty->caching = false;
+        $smarty->compile_dir = $GLOBALS['templates_compiledir'];
+        $smarty->display('health.tpl');
     }
     /**
      * Index Page

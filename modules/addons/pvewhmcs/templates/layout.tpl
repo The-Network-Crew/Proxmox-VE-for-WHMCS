@@ -89,6 +89,12 @@
                         <span class="px-navItem__text">Documentation</span>
                     </a>
                 </li>
+                <li class="px-navItem {if strpos($currentTAB, 'health')}is-active{/if}">
+                    <a class='px-navItem__link' href="{$modulelink}&amp;tab=health&amp;action=health">
+                        <div class="px-navItem__icon"><i class="fa-solid fa-folder"></i></div>
+                        <span class="px-navItem__text">Support / Health</span>
+                    </a>
+                </li>
             </ul>
 
         </div>

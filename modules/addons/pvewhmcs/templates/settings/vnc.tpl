@@ -5,7 +5,7 @@
     <ul class="pxForm">
         <li class="pxFieldRow">
             <div class="pxFieldTitle">
-                Title <span class="pxFieldRow_required noText">Required</span>
+                VNC Secret <span class="pxFieldRow_required noText">Required</span>
             </div>
             <div class="pxFieldContent">
                 <ul class="pxFieldInputs">
