@@ -2,6 +2,12 @@
 
 **Salvation, a free and open-source solution for beloved PVE!** If you love it, REVIEW & SHARE IT! ❤️
 
+    TNC Dev are looking for a co-developer to assist with finishing the project overhaul.
+    If you have proven and public git-logged experience, or similar, please say g'day.
+    
+    Please note: We are only looking for high-quality applicants with spare time.
+    As it stands, we won't have much spare dev time for PVEWHMCS in early 2025.
+
 <img alt="Logo for the Proxmox VE for WHMCS module" src="zLOGO.png">
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc

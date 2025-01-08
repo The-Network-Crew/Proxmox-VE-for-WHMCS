@@ -435,178 +435,143 @@ function pvewhmcs_CreateAccount($params)
 }
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
-function pvewhmcs_TestConnection(array $params)
-{
-    try {
-        // Call the service's connection test function.
-        $serverip = $params["serverip"];
-        $serverusername = $params["serverusername"];
-        $serverpassword = $params["serverpassword"];
-        $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+function pvewhmcs_TestConnection(array $params) {
+	try {
+		// Call the service's connection test function
+		$serverip = $params["serverip"];
+		$serverusername = $params["serverusername"];
+		$serverpassword = $params["serverpassword"];
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
-        // Set success if login succeeded
-        if ($proxmox->login()) {
-            $success = true;
-            $errorMsg = '';
-        }
-    } catch (Exception $e) {
-        // Record the error in WHMCS's module log
-        logModuleCall(
-            'pvewhmcs',
-            __FUNCTION__,
-            $params,
-            $e->getMessage(),
-            $e->getTraceAsString()
-        );
-        // Set the error message as a failure
-        $success = false;
-        $errorMsg = $e->getMessage();
-    }
-    // Return success or error, and info
-    return [
-        'success' => $success,
-        'error'   => $errorMsg,
-    ];
+		// Set success if login succeeded
+		if ($proxmox->login()) {
+			$success = true;
+			$errorMsg = '';
+		}
+	} catch (Exception $e) {
+		// Record the error in WHMCS's module log
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$params,
+			$e->getMessage(),
+			$e->getTraceAsString()
+		);
+		// Set the error message as a failure
+		$success = false;
+		$errorMsg = $e->getMessage(); 
+	}
+	// Return success or error, and info
+	return array(
+		'success' => $success,
+		'error' => $errorMsg,
+	);
 }
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
-function pvewhmcs_SuspendAccount(array $params)
-{
-    $serverip = $params["serverip"];
-    $serverusername = $params["serverusername"];
-    $serverpassword = $params["serverpassword"];
-    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-
-    $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-    if ($proxmox->login()) {
-        # Get first node name.
-        //$nodes = $proxmox->get_node_list();
-        $first_node = $guest->node;
-        //unset($nodes);
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
-        $pve_cmdparam = [];
-        $logrequest = '/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop';
-        try {
-            $response = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', $pve_cmdparam);
-        } catch (\Exception $e) {
-            return "success";
-        }
-
-    }
-    // DEBUG - Log the request parameters before it's fired
-    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-        logModuleCall(
-            'pvewhmcs',
-            __FUNCTION__,
-            $logrequest,
-            json_encode($response)
-        );
-    }
-    // Return success only if no errors returned by PVE
-    if (isset($response) && !isset($response['errors'])) {
-        return "success";
-    } else {
-        // Handle the case where there are errors
-        $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-        return "Error performing action. ".$response_message;
-    }
+function pvewhmcs_SuspendAccount(array $params) {
+	$serverip = $params["serverip"];
+	$serverusername = $params["serverusername"];
+	$serverpassword = $params["serverpassword"];
+	
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	if ($proxmox->login()) {
+		// Get first node name & prepare
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		// Log and fire request
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
+	}
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['errors'])) {
+		return "success";
+	} else {
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
-function pvewhmcs_UnsuspendAccount(array $params)
-{
-    $serverip = $params["serverip"];
-    $serverusername = $params["serverusername"];
-    $serverpassword = $params["serverpassword"];
-
-    $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-    if ($proxmox->login()) {
-        # Get first node name.
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-        $pve_cmdparam = [];
-        $logrequest = '/nodes/'.$guest->node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start';
-        $response = $proxmox->post('/nodes/'.$guest->node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/start', $pve_cmdparam);
-        //var_dump($response);exit;
-    }
-    // DEBUG - Log the request parameters before it's fired
-    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-        logModuleCall(
-            'pvewhmcs',
-            __FUNCTION__,
-            $logrequest,
-            json_encode($response)
-        );
-    }
-    // Return success only if no errors returned by PVE
-    if (isset($response) && !isset($response['errors'])) {
-        return "success";
-    } else {
-        // Handle the case where there are errors
-        $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-        return "Error performing action. ".$response_message;
-    }
+function pvewhmcs_UnsuspendAccount(array $params) {
+	$serverip = $params["serverip"];
+	$serverusername = $params["serverusername"];
+	$serverpassword = $params["serverpassword"];
+	
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	if ($proxmox->login()) {
+		// Get first node name & prepare
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		// Log and fire request
+		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
+		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start');
+	}
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['errors'])) {
+		return "success";
+	} else {
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
-function pvewhmcs_TerminateAccount(array $params)
-{
-    $serverip = $params["serverip"];
-    $serverusername = $params["serverusername"];
-    $serverpassword = $params["serverpassword"];
-    // Retrieve virtual machine info from table mod_pvewhmcs_vms
-    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+function pvewhmcs_TerminateAccount(array $params) {
+	$serverip = $params["serverip"];
+	$serverusername = $params["serverusername"];
+	$serverpassword = $params["serverpassword"];
 
-    $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
-    if ($proxmox->login()) {
-        # Get first node name.
-        //$nodes = $proxmox->get_node_list();
-        $first_node = $guest->node;
-        //unset($nodes);
-        // find virtual machine type
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-        // stop the service before terminating
-        try {
-            // Send the stop command to the container
-            $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/stop', []);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	if ($proxmox->login()){
+		// Get first node name
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
+		// Find virtual machine type
+		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+		$pve_cmdparam = array();
+		// Stop the service if it is not already stopped
+		$guest_specific = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
+		if ($guest_specific['status'] != 'stopped') {
+			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/stop' , $pve_cmdparam);
+			sleep(30);
+		}
 
-            // Check if the container has been stopped, with a timeout mechanism to avoid infinite loops
-            $timeout = 30; // Maximum wait time in seconds (1 minute)
-            $interval = 2; // Interval between checks in seconds
-            $elapsed_time = 0;
-            $stopped = false;
-            while ($elapsed_time < $timeout) {
-                $status = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/current');
-                // If the container is stopped, proceed with deletion
-                if (isset($status['status']) && $status['status'] === 'stopped') {
-                    $stopped = true;
-                    break;
-                }
-                // Wait for the next check
-                sleep($interval);
-                $elapsed_time += $interval;
-            }
-
-            // If the container is stopped, proceed with deletion
-            if ($stopped && $proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1])) {
-                // Delete entry from the module table once the service is terminated in PVE
-                Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-                return "success";
-            } else {
-                return "failed to stop or delete the container";
-            }
-        } catch (\Exception $e) {
-            // VM is Already stop, let delete the VM
-            try {
-                $proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'], ['skiplock' => 1]);
-                Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
-                return "success";
-            } catch (\Exception $e) {
-                return "Unable to delete ". $e->getMessage();
-            }
-        }
-    }
-    $response_message = json_encode($proxmox['data']['errors']);
-    return "Error performing action. ".$response_message;
+		if ($proxmox->delete('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'],array('skiplock'=>1))) {
+			// Delete entry from module table once service terminated in PVE
+			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+			return "success";
+		}
+	}
+	$response_message = json_encode($proxmox['data']['errors']);
+	return "Error performing action. " . $response_message;
 }
 
 // GENERAL CLASS: WHMCS Decrypter
@@ -852,196 +817,199 @@ function pvewhmcs_ClientAreaCustomButtonArray()
 }
 
 // OUTPUT: Module output to the Client Area
-function pvewhmcs_ClientArea($params)
-{
-    // Retrieve virtual machine info from table mod_pvewhmcs_vms
-    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-    if(!$guest) {
-        return "no server defined";
-    }
-    // Gather access credentials for PVE, as these are no longer passed for Client Area
-    $pveservice = Capsule::table('tblhosting')->find($params['serviceid']);
-    $pveserver = Capsule::table('tblservers')->where('id', '=', $pveservice->server)->first();
+function pvewhmcs_ClientArea($params) {
+	// Retrieve virtual machine info from table mod_pvewhmcs_vms
+	$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+	
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver=Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 
-    $serverip = $pveserver->ipaddress;
-    $serverusername = $pveserver->username;
+	// Get IP and User for Hypervisor
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
+	// Password access is different in Client Area, so retrieve and decrypt
+	$api_data = array(
+		'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
 
-    $api_data = [
-        'password2' => $pveserver->password,
-    ];
-    $serverpassword = localAPI('DecryptPassword', $api_data);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	if ($proxmox->login()) {
+		//$proxmox->setCookie();
+		# Get first node name.
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
 
-    $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
-    if ($proxmox->login()) {
-        //$proxmox->setCookie();
-        # Get first node name.
-        $first_node = $guest->node;
-        unset($nodes);
-        # Get and set VM variables
-        $vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/config');
-        $cluster_resources = $proxmox->get('/cluster/resources');
-        $vm_status = null;
+		# Get and set VM variables
+		$vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/config') ;
+		$cluster_resources = $proxmox->get('/cluster/resources');
+		$vm_status = null;
 
-        // DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
-        $cluster_encoded = json_encode($cluster_resources);
-        $vmspecs_encoded = json_encode($vm_config);
-        if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-            logModuleCall(
-                'pvewhmcs',
-                __FUNCTION__,
-                'CLUSTER INFO: '.$cluster_encoded,
-                'GUEST CONFIG (Service #'.$params['serviceid'].' / Client #'.$params['clientsdetails']['userid'].'): '.$vmspecs_encoded
-            );
-        }
+		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
+		$cluster_encoded = json_encode($cluster_resources);
+		$vmspecs_encoded = json_encode($vm_config);
+		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			logModuleCall(
+				'pvewhmcs',
+				__FUNCTION__,
+				'CLUSTER INFO: ' . $cluster_encoded,
+				'GUEST CONFIG (Service #' . $params['serviceid'] . ' / Client #' . $params['clientsdetails']['userid'] . '): ' . $vmspecs_encoded
+			);
+		}
 
-        # Loop through data, find ID
-        foreach ($cluster_resources as $vm) {
-            if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
-                $vm_status = $vm;
-                break;
-            }
-        }
+		# Loop through data, find ID
+		foreach ($cluster_resources as $vm) {
+			if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
+				$vm_status = $vm;
+				break;
+			}
+		}
 
-        # Set usage data appropriately
-        if ($vm_status !== null) {
-            $vm_status['uptime'] = time2format($vm_status['uptime']);
-            $vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
+		# Set usage data appropriately
+		if ($vm_status !== null) {
+			$vm_status['uptime'] = time2format($vm_status['uptime']);
+			$vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
 
-            $vm_status['diskusepercent'] = intval($vm_status['disk'] * 100 / $vm_status['maxdisk']);
-            $vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
+			$vm_status['diskusepercent'] = intval($vm_status['disk'] * 100 / $vm_status['maxdisk']);
+			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
 
-            if ($guest->vtype == 'lxc') {
-                $ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'].'/status/current');
-                if ($ct_specific['maxswap'] > 0) {
-                    $vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
-                } else {
-                    $vm_status['swapusepercent'] = 0; // Or some other fallback value
-                }
-            }
-        } else {
-            // Handle the VM not found in the cluster resources (Optional)
-            echo "VM/CT not found in Cluster Resources.";
-        }
+			if ($guest->vtype == 'lxc') {
+				// Check on swap before setting graph value
+				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$params['serviceid'].'/status/current');
+				if ($ct_specific['maxswap'] != 0) {
+					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
+				} else {
+					// Fall back to 0% usage to satisfy chart requirement
+					$vm_status['swapusepercent'] = 0;
+				}
+			}
+		} else {
+	    		// Handle the VM not found in the cluster resources (Optional)
+			echo "VM/CT not found in Cluster Resources.";
+		}
 
-        // Max CPU usage Yearly
-        $rrd_params = '?timeframe=year&ds=cpu&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['cpu']['year'] = base64_encode($vm_rrd['image']);
+		// Max CPU usage Yearly
+		$rrd_params = '?timeframe=year&ds=cpu&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] . '/rrd' . $rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['year'] = base64_encode($vm_rrd['image']);
 
-        // Max CPU usage monthly
-        $rrd_params = '?timeframe=month&ds=cpu&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['cpu']['month'] = base64_encode($vm_rrd['image']);
+		// Max CPU usage monthly
+		$rrd_params = '?timeframe=month&ds=cpu&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['month'] = base64_encode($vm_rrd['image']);
 
-        // Max CPU usage weekly
-        $rrd_params = '?timeframe=week&ds=cpu&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['cpu']['week'] = base64_encode($vm_rrd['image']);
+		// Max CPU usage weekly
+		$rrd_params = '?timeframe=week&ds=cpu&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['week'] = base64_encode($vm_rrd['image']);
 
-        // Max CPU usage daily
-        $rrd_params = '?timeframe=day&ds=cpu&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['cpu']['day'] = base64_encode($vm_rrd['image']);
+		// Max CPU usage daily
+		$rrd_params = '?timeframe=day&ds=cpu&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['cpu']['day'] = base64_encode($vm_rrd['image']);
 
-        // Max memory Yearly
-        $rrd_params = '?timeframe=year&ds=maxmem&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['maxmem']['year'] = base64_encode($vm_rrd['image']);
+		// Max memory Yearly
+		$rrd_params = '?timeframe=year&ds=maxmem&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['year'] = base64_encode($vm_rrd['image']);
 
-        // Max memory monthly
-        $rrd_params = '?timeframe=month&ds=maxmem&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['maxmem']['month'] = base64_encode($vm_rrd['image']);
+		// Max memory monthly
+		$rrd_params = '?timeframe=month&ds=maxmem&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['month'] = base64_encode($vm_rrd['image']);
 
-        // Max memory weekly
-        $rrd_params = '?timeframe=week&ds=maxmem&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['maxmem']['week'] = base64_encode($vm_rrd['image']);
+		// Max memory weekly
+		$rrd_params = '?timeframe=week&ds=maxmem&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['week'] = base64_encode($vm_rrd['image']);
 
-        // Max memory daily
-        $rrd_params = '?timeframe=day&ds=maxmem&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['maxmem']['day'] = base64_encode($vm_rrd['image']);
+		// Max memory daily
+		$rrd_params = '?timeframe=day&ds=maxmem&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['maxmem']['day'] = base64_encode($vm_rrd['image']);
 
-        // Network rate Yearly
-        $rrd_params = '?timeframe=year&ds=netin,netout&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['netinout']['year'] = base64_encode($vm_rrd['image']);
+		// Network rate Yearly
+		$rrd_params = '?timeframe=year&ds=netin,netout&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['year'] = base64_encode($vm_rrd['image']);
 
-        // Network rate monthly
-        $rrd_params = '?timeframe=month&ds=netin,netout&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['netinout']['month'] = base64_encode($vm_rrd['image']);
+		// Network rate monthly
+		$rrd_params = '?timeframe=month&ds=netin,netout&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['month'] = base64_encode($vm_rrd['image']);
 
-        // Network rate weekly
-        $rrd_params = '?timeframe=week&ds=netin,netout&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['netinout']['week'] = base64_encode($vm_rrd['image']);
+		// Network rate weekly
+		$rrd_params = '?timeframe=week&ds=netin,netout&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['week'] = base64_encode($vm_rrd['image']);
 
-        // Network rate daily
-        $rrd_params = '?timeframe=day&ds=netin,netout&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['netinout']['day'] = base64_encode($vm_rrd['image']);
+		// Network rate daily
+		$rrd_params = '?timeframe=day&ds=netin,netout&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['netinout']['day'] = base64_encode($vm_rrd['image']);
 
-        // Max IO Yearly
-        $rrd_params = '?timeframe=year&ds=diskread,diskwrite&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['diskrw']['year'] = base64_encode($vm_rrd['image']);
+		// Max IO Yearly
+		$rrd_params = '?timeframe=year&ds=diskread,diskwrite&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['year'] = base64_encode($vm_rrd['image']);
 
-        // Max IO monthly
-        $rrd_params = '?timeframe=month&ds=diskread,diskwrite&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['diskrw']['month'] = base64_encode($vm_rrd['image']);
+		// Max IO monthly
+		$rrd_params = '?timeframe=month&ds=diskread,diskwrite&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['month'] = base64_encode($vm_rrd['image']);
 
-        // Max IO weekly
-        $rrd_params = '?timeframe=week&ds=diskread,diskwrite&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['diskrw']['week'] = base64_encode($vm_rrd['image']);
+		// Max IO weekly
+		$rrd_params = '?timeframe=week&ds=diskread,diskwrite&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['week'] = base64_encode($vm_rrd['image']);
 
-        // Max IO daily
-        $rrd_params = '?timeframe=day&ds=diskread,diskwrite&cf=AVERAGE';
-        $vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/rrd'.$rrd_params);
-        $vm_rrd['image'] = utf8_decode($vm_rrd['image']);
-        $vm_statistics['diskrw']['day'] = base64_encode($vm_rrd['image']);
+		// Max IO daily
+		$rrd_params = '?timeframe=day&ds=diskread,diskwrite&cf=AVERAGE';
+		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'] .'/rrd'.$rrd_params) ;
+		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
+		$vm_statistics['diskrw']['day'] = base64_encode($vm_rrd['image']);
 
-        unset($vm_rrd);
+		unset($vm_rrd) ;
 
-        $vm_config['vtype'] = $guest->vtype;
-        $vm_config['ipv4'] = $guest->ipaddress;
-        $vm_config['netmask4'] = $guest->subnetmask;
-        $vm_config['gateway4'] = $guest->gateway;
-        $vm_config['created'] = $guest->created;
-        $vm_config['v6prefix'] = $guest->v6prefix;
-    } else {
-        echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>';
-        exit;
-    }
+		$vm_config['vtype'] = $guest->vtype ;
+		$vm_config['ipv4'] = $guest->ipaddress ;
+		$vm_config['netmask4'] = $guest->subnetmask ;
+		$vm_config['gateway4'] = $guest->gateway ;
+		$vm_config['created'] = $guest->created ;
+		$vm_config['v6prefix'] = $guest->v6prefix ;
+	}
+	else {
+		echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>'; 
+		exit;
+	}
 
-    return [
-        'templatefile' => 'clientarea',
-        'vars'         => [
-            'params'        => $params,
-            'vm_config'     => $vm_config,
-            'vm_status'     => $vm_status,
-            'vm_statistics' => $vm_statistics,
-            'vm_vncproxy'   => $vm_vncproxy,
-        ],
-    ];
+	return array(
+		'templatefile' => 'clientarea',
+		'vars' => array(
+			'params' => $params,
+			'vm_config' => $vm_config,
+			'vm_status' => $vm_status,
+			'vm_statistics' => $vm_statistics,
+			'vm_vncproxy' => $vm_vncproxy,
+		),
+	);
 }
 
 // OUTPUT: VM Statistics/Graphs render to Client Area
@@ -1215,53 +1183,54 @@ function pvewhmcs_vmStart($params)
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Reboot the VM/CT
-function pvewhmcs_vmReboot($params)
-{
-    $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-    // Gather access credentials for PVE, as these are no longer passed for Client Area
-    $pveservice = Capsule::table('tblhosting')->find($params['serviceid']);
-    $pveserver = Capsule::table('tblservers')->where('id', '=', $pveservice->server)->first();
-    $serverip = $pveserver->ipaddress;
-    $serverusername = $pveserver->username;
+function pvewhmcs_vmReboot($params) {
+	// Gather access credentials for PVE, as these are no longer passed for Client Area
+	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
+	$serverip = $pveserver->ipaddress;
+	$serverusername = $pveserver->username;
 
-    $api_data = [
-        'password2' => $pveserver->password,
-    ];
-    $serverpassword = localAPI('DecryptPassword', $api_data);
-    $proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
-    if ($proxmox->login()) {
-        # Get first node name.
-        //$nodes = $proxmox->get_node_list();
-        $first_node = $guest->node;
-        //unset($nodes);
-        $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
-        $pve_cmdparam = [];
-        // $pve_cmdparam['timeout'] = '60';
-        $logrequest = '/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/reboot';
-        try {
-            $response = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$params['serviceid'].'/status/reboot', $pve_cmdparam);
-        } catch (\Exception $e) {
-            return "- VM is stopped, you ca not run this action";
-        }
-
-    }
-    // DEBUG - Log the request parameters before it's fired
-    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-        logModuleCall(
-            'pvewhmcs',
-            __FUNCTION__,
-            $logrequest,
-            json_encode($response)
-        );
-    }
-    // Return success only if no errors returned by PVE
-    if (isset($response) && !isset($response['errors'])) {
-        return "success";
-    } else {
-        // Handle the case where there are errors
-        $response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-        return "Error performing action. ".$response_message;
-    }
+	$api_data = array(
+		'password2' => $pveserver->password,
+	);
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	if ($proxmox->login()) {
+		# Get first node name.
+		$nodes = $proxmox->get_node_list();
+		$first_node = $nodes[0];
+		unset($nodes);
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$pve_cmdparam = array();
+		// Check status before doing anything
+		$guest_specific = $proxmox->get('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/current');
+        	if ($guest_specific['status'] = 'stopped') {
+			// START if Stopped
+			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start';
+			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/start' , $pve_cmdparam);
+		} else {
+			// REBOOT if Started
+			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot';
+			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $params['serviceid'] . '/status/reboot' , $pve_cmdparam);
+		}
+	}
+	// DEBUG - Log the request parameters before it's fired
+	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		logModuleCall(
+			'pvewhmcs',
+			__FUNCTION__,
+			$logrequest,
+			json_encode($response)
+		);
+	}
+	// Return success only if no errors returned by PVE
+	if (isset($response) && !isset($response['errors'])) {
+		return "success";
+	} else {
+		// Handle the case where there are errors
+		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
+		return "Error performing action. " . $response_message;
+	}
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Shutdown the VM/CT
