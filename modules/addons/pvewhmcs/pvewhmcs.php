@@ -19,6 +19,9 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+
+	-----------------------------------------------------------------------
+	Copyright (C) 2025 NodeSpace Technologies LLC
 */
 
 // Pull in the WHMCS database handler Capsule for SQL

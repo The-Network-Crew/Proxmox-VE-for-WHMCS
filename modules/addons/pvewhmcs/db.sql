@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
 );
 CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `id` int(10) unsigned NOT NULL,
+  `vmid` int(10) unsigned NOT NULL,
   `user_id` int(10) unsigned NOT NULL,
   `vtype` varchar(255) NOT NULL,
   `ipaddress` varchar(255) NOT NULL,
