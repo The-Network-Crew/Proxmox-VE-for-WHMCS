@@ -1,5 +1,11 @@
 # SQL Statements for Updates (nav to DB first)
 
+## v1.2.7 to v1.2.8
+
+```
+ALTER TABLE mod_pvewhmcs_plans MODIFY COLUMN `vmbr` tinyint(1) unsigned DEFAULT NULL;
+```
+
 ## v1.2.6 to v1.2.7
 
 ```

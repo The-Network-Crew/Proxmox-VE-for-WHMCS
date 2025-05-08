@@ -39,7 +39,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.7",
+		"version" => "1.2.8",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -48,7 +48,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-    return "1.2.7";
+    return "1.2.8";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -153,7 +153,7 @@ function pvewhmcs_output($vars) {
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
 	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#plans">VM/CT Plans</a></li>
-	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IP Pools</a></li>
+	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
 	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#nodes">Nodes / Cluster</a></li>
 	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#actions">Actions / Logs</a></li>
 	<li class="'.($_GET['tab']=="health" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#health">Support / Health</a></li>
@@ -187,10 +187,10 @@ function pvewhmcs_output($vars) {
 	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group" role="group" aria-label="...">
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
-	<i class="fa fa-list"></i>&nbsp; List: VM Plans
+	<i class="fa fa-list"></i>&nbsp; List: Guest Plans
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
-	<i class="fa fa-plus-square"></i>&nbsp; Add: KVM Plan
+	<i class="fa fa-plus-square"></i>&nbsp; Add: QEMU Plan
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_lxc_plan">
 	<i class="fa fa-plus-square"></i>&nbsp; Add: LXC Plan
@@ -227,10 +227,10 @@ function pvewhmcs_output($vars) {
 		ID
 		</th>
 		<th>
-		Title
+		Name
 		</th>
 		<th>
-		VM Type
+		Guest
 		</th>
 		<th>
 		OS Type
@@ -256,11 +256,11 @@ function pvewhmcs_output($vars) {
 		<th>
 		Disk Type
 		</th>
-		<th>
-		PVE Store
+  		<th>
+		Disk I/O
 		</th>
 		<th>
-		I/O Cap
+		PVE Store
 		</th>
 		<th>
 		Net Mode
@@ -269,16 +269,16 @@ function pvewhmcs_output($vars) {
 		Bridge
 		</th>
 		<th>
-		NIC Model
+		NIC
 		</th>
 		<th>
 		VLAN ID
 		</th>
 		<th>
-		Rate
+		Net Rate
 		</th>
 		<th>
-		BW
+		Net BW
 		</th>
   		<th>
 		IPv6
@@ -301,8 +301,8 @@ function pvewhmcs_output($vars) {
 			echo '<td>'.$vm->swap . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disk . PHP_EOL .'</td>';
 			echo '<td>'.$vm->disktype . PHP_EOL .'</td>';
-			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
 			echo '<td>'.$vm->diskio . PHP_EOL .'</td>';
+			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmode . PHP_EOL .'</td>';
 			echo '<td>'.$vm->bridge.$vm->vmbr . PHP_EOL .'</td>';
 			echo '<td>'.$vm->netmodel . PHP_EOL .'</td>';
@@ -613,10 +613,10 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="10240" required>
-	Disk space in Gigabyte e.g 1024 = 1TB (default is 10GB)
+	HDD/SSD storage space in Gigabyte e.g 1024 = 1TB (default is 10GB)
 	</td>
 	</tr>
 	<tr>
@@ -655,18 +655,18 @@ function kvm_plan_add() {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">I/O - Throttling</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -683,15 +683,15 @@ function kvm_plan_add() {
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate">
-	Network Rate Limit in Megabit/Second, Blank means unlimited.
+	<input type="text" size="8" name="netrate" id="netrate" value="0">
+	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
-	Monthly Bandwidth Limit in Gigabytes, Blank means unlimited.
+	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
  	<tr>
@@ -716,24 +716,24 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="vmbr">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
@@ -929,10 +929,10 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
-	Disk space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -971,18 +971,18 @@ function kvm_plan_edit($id) {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" required value="'.$plan->storage.'">
 	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">I/O Cap - Write</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1000,14 +1000,14 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
-	Network Rate Limit in Megabit, Blank means unlimited.
+	Network Rate Limit in Megabit. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
-	Monthly Bandwidth Limit in Gigabyte, Blank means unlimited.
+	Monthly Bandwidth Limit in Gigabyte. Blank for unlimited.
 	</td>
 	</tr>
   	<tr>
@@ -1032,24 +1032,24 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
@@ -1122,10 +1122,17 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required>
-	Disk space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	</td>
+	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1136,45 +1143,38 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">I/O - Throttling</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="vmbr">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="0">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, it means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate">
-	Network Rate Limit in Megabit/Second, blank means unlimited.
+	<input type="text" size="8" name="netrate" id="netrate" value="0">
+	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Data - Monthly</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
-	Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
+	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
   	<tr>
@@ -1257,10 +1257,17 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">SSD/HDD - Disk</td>
+	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
-	Disk space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	</td>
+	</tr>
+ 	<tr>
+	<td class="fieldlabel">Disk - I/O Cap</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
@@ -1271,45 +1278,38 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">I/O - Throttling</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Bridge - Interface</td>
+	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
-	Bridge interface name. Proxmox default bridge name is "vmbr".
+	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Bridge - Int. ID</td>
+	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
-	Bridge interface number. Proxmox default bridge (vmbr) number is 0, It means "vmbr0".
+	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Trunk - VLAN ID</td>
+	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="vlanid" id="vlanid">
-	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), leave blank for untagged.
+	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
-	Network Rate Limit in Megabit/Second, blank means unlimited.
+	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
-	Monthly Bandwidth Limit in Gigabytes, blank means unlimited.
+	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
    	<tr>
@@ -1366,8 +1366,8 @@ function save_kvm_plan() {
 						'diskformat' => $_POST['diskformat'],
 						'diskcache' => $_POST['diskcache'],
 						'disktype' => $_POST['disktype'],
-						'storage' => $_POST['storage'],
 						'diskio' => $_POST['diskio'],
+						'storage' => $_POST['storage'],
 						'netmode' => $_POST['netmode'],
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
@@ -1382,8 +1382,8 @@ function save_kvm_plan() {
 				);
 			}
 		);
-		$_SESSION['pvewhmcs']['infomsg']['title']='KVM Plan added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the KVM Plan successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='QEMU Plan added.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the QEMU Plan successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	} catch (\Exception $e) {
 		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1410,8 +1410,8 @@ function update_kvm_plan() {
 			'diskformat' => $_POST['diskformat'],
 			'diskcache' => $_POST['diskcache'],
 			'disktype' => $_POST['disktype'],
-			'storage' => $_POST['storage'],
 			'diskio' => $_POST['diskio'],
+			'storage' => $_POST['storage'],
 			'netmode' => $_POST['netmode'],
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
@@ -1424,8 +1424,8 @@ function update_kvm_plan() {
 			'onboot' => $_POST['onboot'],
 		]
 	);
-	$_SESSION['pvewhmcs']['infomsg']['title']='KVM Plan updated.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the KVM Plan successfuly.' ;
+	$_SESSION['pvewhmcs']['infomsg']['title']='QEMU Plan updated.' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the QEMU Plan successfully. (Updating plans will not alter existing VMs)' ;
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
@@ -1434,7 +1434,7 @@ function remove_plan($id) {
 	Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->delete();
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	$_SESSION['pvewhmcs']['infomsg']['title']='Plan Deleted.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfuly.' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Selected Item deleted successfully.' ;
 }
 
 // MODULE FORM ACTION: Save LXC Plan
@@ -1454,8 +1454,8 @@ function save_lxc_plan() {
 						'memory' => $_POST['memory'],
 						'swap' => $_POST['swap'],
 						'disk' => $_POST['disk'],
-						'storage' => $_POST['storage'],
 						'diskio' => $_POST['diskio'],
+						'storage' => $_POST['storage'],
 						'bridge' => $_POST['bridge'],
 						'vmbr' => $_POST['vmbr'],
 						'netmodel' => $_POST['netmodel'],
@@ -1469,7 +1469,7 @@ function save_lxc_plan() {
 			}
 		);
 		$_SESSION['pvewhmcs']['infomsg']['title']='New LXC Plan added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the LXC Plan successfuly.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the LXC Plan successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	} catch (\Exception $e) {
 		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1490,8 +1490,8 @@ function update_lxc_plan() {
 			'memory' => $_POST['memory'],
 			'swap' => $_POST['swap'],
 			'disk' => $_POST['disk'],
-			'storage' => $_POST['storage'],
 			'diskio' => $_POST['diskio'],
+			'storage' => $_POST['storage'],
 			'bridge' => $_POST['bridge'],
 			'vmbr' => $_POST['vmbr'],
 			'netmodel' => $_POST['netmodel'],
@@ -1503,13 +1503,13 @@ function update_lxc_plan() {
 		]
 	);
 	$_SESSION['pvewhmcs']['infomsg']['title']='LXC Plan updated.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the LXC Plan successfully. (Updating plans will not effect on current VMs.)' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Updated the LXC Plan successfully. (Updating plans will not alter existing CTs)' ;
 	header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 }
 
 // IP POOLS: List all Pools
 function list_ip_pools() {
-	echo '<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IP Pool</a>';
+	echo '<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IPv4 Pool</a>';
 	echo '<table class="datatable"><tr><th>ID</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 		echo '<tr>';
@@ -1518,7 +1518,7 @@ function list_ip_pools() {
 		echo '<td>'.$pool->gateway . PHP_EOL .'</td>';
 		echo '<td>
 		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
-		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all IP Addresses assigned to it will be deleted, are you sure to continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
+		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
 		</td>' ;
 		echo '</tr>' ;
 	}
@@ -1535,7 +1535,7 @@ function add_ip_pool() {
 	<td class="fieldarea">
 	<input type="text" size="35" name="title" id="title" required>
 	</td>
-	<td class="fieldlabel">Gateway</td>
+	<td class="fieldlabel">IPv4 Gateway</td>
 	<td class="fieldarea">
 	<input type="text" size="25" name="gateway" id="gateway" required>
 	Gateway address of the pool
@@ -1562,8 +1562,8 @@ function save_ip_pool() {
 				);
 			}
 		);
-		$_SESSION['pvewhmcs']['infomsg']['title']='New IP Pool added.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='New IP Pool saved successfully.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='New IPv4 Pool added.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='New IPv4 Pool saved successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 	} catch (\Exception $e) {
 		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
@@ -1576,8 +1576,8 @@ function removeIpPool($id) {
 	Capsule::table('mod_pvewhmcs_ip_pools')->where('id', '=', $id)->delete();
 
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
-	$_SESSION['pvewhmcs']['infomsg']['title']='IP Pool Deleted.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IP Pool successfully.' ;
+	$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Pool Deleted.' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted the IPv4 Pool successfully.' ;
 }
 
 // IP POOL FORM ACTION: Add IP to Pool
@@ -1600,7 +1600,7 @@ function add_ip_2_pool() {
 	<td class="fieldlabel">IP Block</td>
 	<td class="fieldarea">
 	<input type="text" name="ipblock"/>
-	IP Block with CIDR e.g. 172.16.255.230/27, for single IP address just don\'t use CIDR
+	IP Block with CIDR e.g. 172.16.255.230/27, or for single IP address don\'t use CIDR
 	</td>
 	</tr>
 	</table>
@@ -1635,8 +1635,8 @@ function add_ip_2_pool() {
 			}
 		}
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$_POST['pool_id']);
-		$_SESSION['pvewhmcs']['infomsg']['title']='IP Address/Blocks added to Pool.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='You can remove IP Addresses from the pool.' ;
+		$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Address/Blocks added to Pool.' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='You can remove IPv4 Addresses from the pool.' ;
 	}
 }
 
@@ -1650,7 +1650,7 @@ function list_ips() {
 		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
 			echo 'is in use' ;
 		else
-			echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IP Address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
+			echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
 		echo '</td></tr>';
 	}
 	echo '</table>' ;
@@ -1661,7 +1661,7 @@ function list_ips() {
 function removeip($id,$pool_id) {
 	Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
 	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
-	$_SESSION['pvewhmcs']['infomsg']['title']='IP Address deleted.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted selected item successfuly.' ;
+	$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Address deleted.' ;
+	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted selected item successfully.' ;
 }
 ?>

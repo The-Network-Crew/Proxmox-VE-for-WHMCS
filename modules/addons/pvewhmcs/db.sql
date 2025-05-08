@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `diskio` varchar(20) DEFAULT '0',
   `netmode` varchar(10) DEFAULT NULL,
   `bridge` varchar(20) NOT NULL DEFAULT 'vmbr',
-  `vmbr` tinyint(1) unsigned NOT NULL DEFAULT 0,
+  `vmbr` tinyint(1) unsigned DEFAULT NULL,
   `netmodel` varchar(10) DEFAULT NULL,
   `netrate` varchar(5) DEFAULT '0',
   `firewall` tinyint(1) unsigned NOT NULL DEFAULT 0,

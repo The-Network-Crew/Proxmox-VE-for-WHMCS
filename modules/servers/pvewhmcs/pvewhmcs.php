@@ -74,7 +74,7 @@ function pvewhmcs_ConfigOptions() {
 			"FriendlyName" => "PVE Plan",
 			"Type" => "dropdown",
 			'Options' => $plans ,
-			"Description" => "KVM/LXC : Plan Name"
+			"Description" => "QEMU/LXC : Plan Name"
 		),
 		"IPPool" => array(
 			"FriendlyName" => "IPv4 Pool",
@@ -228,21 +228,24 @@ function pvewhmcs_CreateAccount($params) {
 			///////////////////////////
 			// LXC: Preparation Work //
 			///////////////////////////
-			$vm_settings['ostemplate'] = $plan->storage . ':vztmpl/' . $params['customfields']['Template'];
+			$vm_settings['ostemplate'] = $params['customfields']['Template'];
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
+			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				// Standard prep for the 2nd int.
-				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr;
+				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr . ',rate=' . $plan->netrate;
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
+						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
 						$vm_settings['net1'] .= ',ip6=auto';
 						break;
 					case 'dhcp':
 						// DHCP for IPv6 option
+						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
 						$vm_settings['net1'] .= ',ip6=dhcp';
 						break;
 					case 'prefix':
@@ -258,7 +261,6 @@ function pvewhmcs_CreateAccount($params) {
 			if (!empty($plan->vlanid)) {
 				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
 			}
-			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['onboot'] = $plan->onboot;
 			$vm_settings['password'] = $params['customfields']['Password'];
 		} else {
@@ -269,15 +271,18 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
+			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
 			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
+						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
 						$vm_settings['ipconfig1'] = 'ip6=auto';
 						break;
 					case 'dhcp':
 						// DHCP for IPv6 option
+						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
 						$vm_settings['ipconfig1'] = 'ip6=dhcp';
 						break;
 					case 'prefix':
@@ -287,7 +292,6 @@ function pvewhmcs_CreateAccount($params) {
 						break;
 				}
 			}
-			$vm_settings['nameserver'] = '76.76.2.0 76.76.10.0';
 			$vm_settings['kvm'] = $plan->kvm;
 			$vm_settings['onboot'] = $plan->onboot;
 
@@ -295,6 +299,7 @@ function pvewhmcs_CreateAccount($params) {
 			if (!empty($plan->diskcache)) {
 				$vm_settings[$plan->disktype . '0'] .= ',cache=' . $plan->diskcache;
 			}
+			$vm_settings['bwlimit'] = $plan->diskio;
 
 			// ISO: Attach file to the guest
 			if (isset($params['customfields']['ISO'])) {
