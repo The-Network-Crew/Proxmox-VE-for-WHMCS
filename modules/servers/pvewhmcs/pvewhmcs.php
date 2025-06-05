@@ -243,11 +243,11 @@ function pvewhmcs_CreateAccount($params) {
 						break;
 				}
 				if (!empty($plan->vlanid)) {
-					$vm_settings['net1'] .= ',trunk=' . $plan->vlanid;
+					$vm_settings['net1'] .= ',tag=' . $plan->vlanid;
 				}
 			}
 			if (!empty($plan->vlanid)) {
-				$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
+				$vm_settings['net0'] .= ',tag=' . $plan->vlanid;
 			}
 			$vm_settings['onboot'] = $plan->onboot;
 			$vm_settings['password'] = $params['customfields']['Password'];
@@ -305,7 +305,7 @@ function pvewhmcs_CreateAccount($params) {
 					$vm_settings['net0'] .= ',rate=' . $plan->netrate;
 				}
 				if (!empty($plan->vlanid)) {
-					$vm_settings['net0'] .= ',trunk=' . $plan->vlanid;
+					$vm_settings['net0'] .= ',tag=' . $plan->vlanid;
 				}
 				// IPv6: Same configs for second interface
 				if (isset($vm_settings['ipconfig1'])) {
@@ -318,7 +318,7 @@ function pvewhmcs_CreateAccount($params) {
 						$vm_settings['net1'] .= ',rate=' . $plan->netrate;
 					}
 					if (!empty($plan->vlanid)) {
-						$vm_settings['net1'] .= ',trunk=' . $plan->vlanid;
+						$vm_settings['net1'] .= ',tag=' . $plan->vlanid;
 					}
 				}
 			}
