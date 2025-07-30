@@ -192,6 +192,7 @@ function pvewhmcs_CreateAccount($params) {
 				Capsule::table('mod_pvewhmcs_vms')->insert(
 					[
 						'id' => $params['serviceid'],
+						'vmid' => $vmid,
 						'user_id' => $params['clientsdetails']['userid'],
 						'vtype' => 'qemu',
 						'ipaddress' => $ip->ipaddress,
@@ -351,6 +352,15 @@ function pvewhmcs_CreateAccount($params) {
 				$first_node = $nodes[0];
 				unset($nodes);
 
+				// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
+				while (!is_null($proxmox->get('/nodes/' . $first_node . '/qemu/' . $vmid . '/status/current')) || !is_null($proxmox->get('/nodes/' . $first_node . '/lxc/' . $vmid . '/status/current'))) {
+					$vmid++;
+				}
+
+				// Make sure the VMID is an integer
+				$vmid = (int)$vmid;
+				$vm_settings['vmid'] = $vmid;
+
 				if ($plan->vmtype == 'kvm') {
 					$v = 'qemu';
 				} else {
@@ -410,6 +420,7 @@ function pvewhmcs_CreateAccount($params) {
 					Capsule::table('mod_pvewhmcs_vms')->insert(
 						[
 							'id' => $params['serviceid'],
+							'vmid' => $vmid,
 							'user_id' => $params['clientsdetails']['userid'],
 							'vtype' => $v,
 							'ipaddress' => $ip->ipaddress,
