@@ -5,14 +5,16 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
-## [1.2.9] - TBC 2025-07-30
+## [1.2.9] - TBC 2025-08-01 - _"Import Friendly"_
 
 ### 🚀 Feature
-- PVE VMID: Allow for custom VMID (via Start #) (prep for #75)
+- Guest Import: Add Service for existing PVE Guest (#75)
+- PVE VMID: Allow for custom VMID (via Start #) (#136)
 
 ### 🐛 Bug Fix
 - Trunk -> Tag: Wrong parameter name for VLAN ID (#125)
 - Function Rename: Avoid same name as Virtualizor (#129)
+- netrate & IPv6: Declare 0 (netrate); add IPv6 DNS (#119)
 
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 
