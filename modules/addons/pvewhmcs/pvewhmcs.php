@@ -19,6 +19,10 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+
+	Copyright (C) 2025 NodeSpace Technologies, LLC
+	Modifications by NodeSpace Technologies, LLC (NodeSpace.com):
+		- Added support for Proxmox VMID instead of WHMCS Service ID
 */
 
 // Pull in the WHMCS database handler Capsule for SQL
@@ -81,6 +85,27 @@ function pvewhmcs_deactivate() {
 	Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
 	// Return the assumed result (change?)
 	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated and all related tables deleted.');
+}
+
+// Added by NodeSpace Technologies, LLC
+// WHMCS MODULE: Upgrade
+function pvewhmcs_upgrade($vars) {
+	$currentlyInstalledVersion = $vars['version'];
+	if (version_compare($currentlyInstalledVersion, '1.2.7', 'gt')) {
+		$schema = Capsule::schema();
+		// Add the column "start_vmid" to the mod_pvewhmcs table
+		if (!$schema->hasColumn('mod_pvewhmcs', 'start_vmid')) {
+			$schema->table('mod_pvewhmcs', function ($table) {
+				$table->integer('start_vmid')->default(100)->after('vnc_secret');
+			});
+		}
+		// Add the column "vmid" to the mod_pvewhmcs_vms table
+		if (!$schema->hasColumn('mod_pvewhmcs_vms', 'vmid')) {
+			$schema->table('mod_pvewhmcs_vms', function ($table) {
+				$table->integer('vmid')->default(0)->after('id');
+			});
+		}
+	}
 }
 
 // UPDATE CHECKER: live vs repo
@@ -378,6 +403,12 @@ function pvewhmcs_output($vars) {
 	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info.
 	</td>
 	</tr>
+    <tr>
+	<td class="fieldlabel">Starting VMID</td>
+	<td class="fieldarea">
+	<input type="text" size="35" name="start_id" id="start_id" value="'.$config->start_id.'"> The starting VMID for new VMs. Default is 1000.
+	</td>
+	</tr>
 	<tr>
 	<td class="fieldlabel">Debug Mode</td>
 	<td class="fieldarea">
@@ -413,6 +444,7 @@ function save_config() {
 				$connectionManager->table('mod_pvewhmcs')->update(
 					[
 						'vnc_secret' => $_POST['vnc_secret'],
+						'start_id' => $_POST['start_id'],
 						'debug_mode' => $_POST['debug_mode'],
 					]
 				);
