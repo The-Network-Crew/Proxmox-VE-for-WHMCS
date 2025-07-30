@@ -16,6 +16,7 @@
 - Create/Suspend/Unsuspend/Terminate via WHMCS Admin Area
 - Statistics/Graphing is available in the Client Area for services :)
 - Leverage the power of QEMU & LXC with PVE's convenience
+- Import existing VM/CT Guest from Proxmox into WHMCS
 
 Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
@@ -203,11 +204,13 @@ Make a 2nd Custom Field `Password` for the CT's root user.
 
 **Check:** `WHMCS Admin > Addon Modules > Proxmox VE for WHMCS > Support/Health`
 
-You should download any new version & upload it over the top, then run any needed SQL queries.
+You should download any new version & upload it over the top, then login to WHMCS Admin.
 
 ### SQL: Keeping your DB up-to-date
 
-Please consult the **UPDATE-SQL.md** file, open your WHMCS DB & run the statements. 
+Since v1.2.9, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+
+v1.2.8 & below, c>onsult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
 Then you're done with each update! Not all versions need database amendments.
 

@@ -8,18 +8,18 @@
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
 	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>. 
 */
 
 // Pull in the WHMCS database handler Capsule for SQL
@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-    return "1.2.9";
+	return "1.2.9";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -102,6 +102,7 @@ function pvewhmcs_upgrade($vars) {
 			$schema->table('mod_pvewhmcs_vms', function ($table) {
 				$table->integer('vmid')->default(0)->after('id');
 			});
+			// Populate ID into VMID for all previous guests
 			Capsule::table('mod_pvewhmcs_vms')
 				->where('vmid', 0)
 				->update(['vmid' => Capsule::raw('id')]);
@@ -111,20 +112,20 @@ function pvewhmcs_upgrade($vars) {
 
 // UPDATE CHECKER: live vs repo
 function is_pvewhmcs_outdated(){
-    if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
-        return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases'>Download the new version!</a></span>";
-    }
+	if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
+		return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases'>Download the new version!</a></span>";
+	}
 }
 
 // UPDATE CHECKER: return latest ver
 function get_pvewhmcs_latest_version(){
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    $result = curl_exec($ch);
-    curl_close ($ch);
+	$ch = curl_init();
+	curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+	$result = curl_exec($ch);
+	curl_close ($ch);
 
-    return str_replace("\n", "", $result);
+	return str_replace("\n", "", $result);
 }
 
 // ADMIN MODULE GUI: output (HTML etc)
@@ -196,8 +197,15 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_lxc_plan">
 	<i class="fa fa-plus-square"></i>&nbsp; Add: LXC Plan
 	</a>
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=import_guest">
+	<i class="fa fa-upload"></i>&nbsp; Import: Guest
+	</a>
 	</div>
 	';
+	if ($_GET['action']=='import_guest') {
+		import_guest() ;
+	}
+	
 	if ($_GET['action']=='add_kvm_plan') {
 		kvm_plan_add() ;
 	}
@@ -220,75 +228,31 @@ function pvewhmcs_output($vars) {
 
 	if ($_GET['action']=='planlist') {
 		echo '
-
 		<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">
 		<tbody>
 		<tr>
-		<th>
-		ID
-		</th>
-		<th>
-		Name
-		</th>
-		<th>
-		Guest
-		</th>
-		<th>
-		OS Type
-		</th>
-		<th>
-		CPUs
-		</th>
-		<th>
-		Cores
-		</th>
-		<th>
-		RAM
-		</th>
-  		<th>
-		Balloon
-		</th>
-		<th>
-		Swap
-		</th>
-		<th>
-		Disk
-		</th>
-		<th>
-		Disk Type
-		</th>
-  		<th>
-		Disk I/O
-		</th>
-		<th>
-		PVE Store
-		</th>
-		<th>
-		Net Mode
-		</th>
-		<th>
-		Bridge
-		</th>
-		<th>
-		NIC
-		</th>
-		<th>
-		VLAN ID
-		</th>
-		<th>
-		Net Rate
-		</th>
-		<th>
-		Net BW
-		</th>
-  		<th>
-		IPv6
-		</th>
-		<th>
-		Actions
-		</th>
-		</tr>
-		';
+		<th>ID</th>
+		<th>Name</th>
+		<th>Guest</th>
+		<th>OS Type</th>
+		<th>CPUs</th>
+		<th>Cores</th>
+		<th>RAM</th>
+		<th>Balloon</th>
+		<th>Swap</th>
+		<th>Disk</th>
+		<th>Disk Type</th>
+		<th>Disk I/O</th>
+		<th>PVE Store</th>
+		<th>Net Mode</th>
+		<th>Bridge</th>
+		<th>NIC</th>
+		<th>VLAN ID</th>
+		<th>Net Rate</th>
+		<th>Net BW</th>
+		<th>IPv6</th>
+		<th>Actions</th>
+		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
 			echo '<td>'.$vm->id . PHP_EOL .'</td>';
@@ -317,12 +281,7 @@ function pvewhmcs_output($vars) {
 			</td>' ;
 			echo '</tr>' ;
 		}
-		echo '
-		';
-		echo '
-		</tbody>
-		</table>
-		';
+		echo '</tbody></table>';
 	}
 	echo '
 	</div>
@@ -404,10 +363,10 @@ function pvewhmcs_output($vars) {
 	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/wiki" target="_blank">Wiki</a> for more info.
 	</td>
 	</tr>
-    <tr>
+	<tr>
 	<td class="fieldlabel">Starting VMID</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID for new Guests. Default is 100.
+	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID for new Guests. Default is 100. Module will then increment atop this until a vacant VMID.
 	</td>
 	</tr>
 	<tr>
@@ -433,6 +392,133 @@ function pvewhmcs_output($vars) {
 	if (isset($_POST['save_config'])) {
 		save_config() ;
 	}
+}
+
+// Import Guest sub-page handler (standalone, outside pvewhmcs_output)
+function import_guest() {
+	$resultMsg = '';
+	if (!empty($_POST['import_existing_guest'])) {
+		$vmid = intval($_POST['import_vmid']);
+		$userid = intval($_POST['import_clientid']);
+		$productid = intval($_POST['import_productid']);
+		$ipaddress = trim($_POST['import_ipv4']);
+		$subnetmask = trim($_POST['import_subnet']);
+		$gateway = trim($_POST['import_gateway']);
+		$hostname = trim($_POST['import_hostname']);
+		$vtype = ($_POST['import_vtype'] === 'lxc') ? 'lxc' : 'kvm';
+
+		// Validate Client ID
+		$client = Capsule::table('tblclients')->where('id', $userid)->where('status', 'Active')->first();
+		if (!$client) {
+			$resultMsg = '<div class="errorbox">No active WHMCS Client found with ID '.$userid.'</div>';
+		} else {
+			// Validate Product
+			$product = Capsule::table('tblproducts')->where('id', $productid)->where('hidden', 0)->where('retired', 0)->first();
+			if (!$product) {
+				$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID '.$productid.'</div>';
+			} else {
+				// Create WHMCS Service (Order)
+				try {
+					// First, get the first Server ID that matches the product's server group
+					$serverRel = Capsule::table('tblservergroupsrel')->where('groupid', $product->servergroup)->first();
+					$serverID = $serverRel ? $serverRel->serverid : 0;
+					// Do the insertion to the tblhosting table
+					$serviceID = Capsule::table('tblhosting')->insertGetId([
+						'userid' => $userid,
+						'packageid' => $productid,
+						'regdate' => date('Y-m-d'),
+						'domain' => $hostname,
+						'paymentmethod' => 'banktransfer',
+						'firstpaymentamount' => $product->paytype == 'free' ? 0 : $product->monthly,
+						'amount' => $product->paytype == 'free' ? 0 : $product->monthly,
+						'billingcycle' => 'Monthly',
+						'nextduedate' => date('Y-m-d'),
+						'nextinvoicedate' => date('Y-m-d'),
+						'orderid' => 0,
+						'domainstatus' => 'Active',
+						'username' => 'root',
+						'password' => '',
+						'subscriptionid' => '',
+						'promoid' => 0,
+						'server' => $serverID,
+						'dedicatedip' => $ipaddress,
+						'assignedips' => $ipaddress,
+						'ns1' => '',
+						'ns2' => '',
+						'diskusage' => 0,
+						'disklimit' => 0,
+						'bwusage' => 0,
+						'bwlimit' => 0,
+						'lastupdate' => date('Y-m-d H:i:s'),
+						'suspendreason' => '',
+						'overideautosuspend' => 0,
+						'overidesuspenduntil' => '',
+						'notes' => 'PVEWHMCS: Imported from Proxmox Guest VMID '.$vmid,
+					]);
+				} catch (Exception $e) {
+					$resultMsg = '<div class="errorbox">Could not create WHMCS service: '.htmlspecialchars($e->getMessage()).'</div>';
+					$serviceID = false;
+				}
+				if ($serviceID) {
+					// Insert into module VMs table
+					try {
+						Capsule::table('mod_pvewhmcs_vms')->insert([
+							'id' => $serviceID
+							'vmid' => $vmid,
+							'user_id' => $userid,
+							'vtype' => $vtype,
+							'ipaddress' => $ipaddress,
+							'subnetmask' => $subnetmask,
+							'gateway' => $gateway,
+							'created' => date('Y-m-d H:i:s'),
+						]);
+						$resultMsg = '<div class="successbox">VMID '.$vmid.' (' . $vtype . ') was imported as Service ' . $serviceID . ' for Client '.$userid.' with roduct '.$product->name.'</div>';
+					} catch (Exception $e) {
+						$resultMsg = '<div class="errorbox">Database error: '.htmlspecialchars($e->getMessage()).'</div>';
+					}
+				}
+			}
+		}
+	}
+
+	// Always show the form for easy further imports
+	echo '<h3>Import Proxmox Guest (VM/CT)</h3>';
+	if (!empty($resultMsg)) echo $resultMsg;
+	echo '<form method="post">';
+	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
+	echo '<tr><td class="fieldlabel">PVE VMID</td><td class="fieldarea"><input type="text" name="import_vmid" required></td></tr>';
+	echo '<tr><td class="fieldlabel">Hostname</td><td class="fieldarea"><input type="text" name="import_hostname" required></td></tr>';
+
+	// Active clients dropdown
+	$clients = Capsule::table('tblclients')->where('status', 'Active')->orderBy('companyname')->orderBy('firstname')->orderBy('lastname')->get();
+	echo '<tr><td class="fieldlabel">Client</td><td class="fieldarea"><select name="import_clientid" required>';
+	foreach ($clients as $client) {
+		$label = $client->id.' - '.($client->companyname ? $client->companyname.' - ' : '').$client->firstname.' '.$client->lastname;
+		echo '<option value="'.$client->id.'">'.htmlspecialchars($label).'</option>';
+	}
+	echo '</select></td></tr>';
+	
+	// Product/Service dropdown (only Active products of Server type)
+	$products = Capsule::table('tblproducts')->where('type', 'server')->where('hidden', 0)->where('retired', 0)->orderBy('name')->get();
+	echo '<tr><td class="fieldlabel">Service</td><td class="fieldarea"><select name="import_productid" required>';
+	foreach ($products as $product) {
+		echo '<option value="'.$product->id.'">'.htmlspecialchars($product->name).'</option>';
+	}
+	echo '</select></td></tr>';
+	
+	// Guest Type dropdown
+	echo '<tr><td class="fieldlabel">Guest Type</td><td class="fieldarea"><select name="import_vtype" required>';
+	echo '<option value="kvm">(VM) QEMU</option>';
+	echo '<option value="lxc">(CT) LXC</option>';
+	echo '</select></td></tr>';
+	
+	// IPv4, Subnet, Gateway
+	echo '<tr><td class="fieldlabel">IPv4</td><td class="fieldarea"><input type="text" name="import_ipv4" required></td></tr>';
+	echo '<tr><td class="fieldlabel">Subnet</td><td class="fieldarea"><input type="text" name="import_subnet" required></td></tr>';
+	echo '<tr><td class="fieldlabel">Gateway</td><td class="fieldarea"><input type="text" name="import_gateway" required></td></tr>';
+	echo '</table>';
+	echo '<div class="btn-container"><input type="submit" class="btn btn-primary" value="Import Guest" name="import_existing_guest" id="import_existing_guest"></div>';
+	echo '</form>';
 }
 
 // MODULE CONFIG: Commit changes to the database
@@ -606,7 +692,7 @@ function kvm_plan_add() {
 	RAM space in Megabyte e.g 1024 = 1GB (default is 2GB)
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" value="0" required>
@@ -656,7 +742,7 @@ function kvm_plan_add() {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
@@ -695,7 +781,7 @@ function kvm_plan_add() {
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -922,7 +1008,7 @@ function kvm_plan_edit($id) {
 	RAM space in Megabytes e.g 1024 = 1GB
 	</td>
 	</tr>
-  	<tr>
+	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" required value="'.$plan->balloon.'">
@@ -972,7 +1058,7 @@ function kvm_plan_edit($id) {
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
@@ -1011,7 +1097,7 @@ function kvm_plan_edit($id) {
 	Monthly Bandwidth Limit in Gigabyte. Blank for unlimited.
 	</td>
 	</tr>
-  	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -1129,7 +1215,7 @@ function lxc_plan_add() {
 	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
@@ -1178,7 +1264,7 @@ function lxc_plan_add() {
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
-  	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -1264,7 +1350,7 @@ function lxc_plan_edit($id) {
 	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
- 	<tr>
+	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
@@ -1313,7 +1399,7 @@ function lxc_plan_edit($id) {
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
-   	<tr>
+	<tr>
 	<td class="fieldlabel">Network - IPv6 Conf.</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">

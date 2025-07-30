@@ -854,23 +854,17 @@ function pvewhmcs_ClientArea($params) {
 			);
 		}
 
-		$vm_status = null;
 		# Loop through data, find ID
+		$vm_status = null;
 		foreach ($cluster_resources as $vm) {
-			// First, check if serviceid matches vmid
-			if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
-				$vm_status = $vm;
-				break;
-			}
-
-			// If no match, fallback to using vmid directly
+			// Using vmid directly, from Module Table against API Response (ignoring Service ID now)
 			if ($vm['vmid'] == $guest['vmid'] && $vm['type'] == $guest->vtype) {
 				$vm_status = $vm;
 				break;
 			}
 		}
 
-		# Set usage data appropriately
+		# Retrieve & set usage data appropriately
 		if ($vm_status !== null) {
 			$vm_status['uptime'] = time2format($vm_status['uptime']);
 			$vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
