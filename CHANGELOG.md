@@ -5,7 +5,10 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
-## [1.2.9] - TBC 2025-??-??
+## [1.2.9] - TBC 2025-07-30
+
+### 🚀 Feature
+- PVE VMID: Allow for custom VMID (via Start #) (prep for #75)
 
 ### 🐛 Bug Fix
 - Trunk -> Tag: Wrong parameter name for VLAN ID (#125)

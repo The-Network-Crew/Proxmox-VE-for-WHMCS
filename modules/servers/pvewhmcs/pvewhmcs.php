@@ -6,6 +6,7 @@
 	File: /modules/servers/pvewhmcs/pvewhmcs.php (PVE Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -115,7 +116,6 @@ function pvewhmcs_CreateAccount($params) {
 	// Select an IP Address from Pool
 	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
 
-	// Modification by NodeSpace Technologies, LLC
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
 
@@ -130,7 +130,6 @@ function pvewhmcs_CreateAccount($params) {
 			$nodes = $proxmox->get_node_list();
 			$first_node = $nodes[0];
 			unset($nodes);
-			// Modification by NodeSpace Technologies, LLC
 			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
 			while (!is_null($proxmox->get('/nodes/' . $first_node . '/qemu/' . $vmid . '/status/current')) || !is_null($proxmox->get('/nodes/' . $first_node . '/lxc/' . $vmid . '/status/current'))) {
 				$vmid++;
@@ -222,8 +221,8 @@ function pvewhmcs_CreateAccount($params) {
 		// PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES //
 		/////////////////////////////////////////////////
 	} else {
-		// Modification by NodeSpace Technologies, LLC
-		//$vm_settings['vmid'] = $params["serviceid"];
+		// No longer inheriting WHMCS Service ID, so //
+		// $vm_settings['vmid'] = $params["serviceid"];
 		if ($plan->vmtype == 'lxc') {
 			///////////////////////////
 			// LXC: Preparation Work //
@@ -855,9 +854,17 @@ function pvewhmcs_ClientArea($params) {
 			);
 		}
 
+		$vm_status = null;
 		# Loop through data, find ID
 		foreach ($cluster_resources as $vm) {
+			// First, check if serviceid matches vmid
 			if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
+				$vm_status = $vm;
+				break;
+			}
+
+			// If no match, fallback to using vmid directly
+			if ($vm['vmid'] == $guest['vmid'] && $vm['type'] == $guest->vtype) {
 				$vm_status = $vm;
 				break;
 			}

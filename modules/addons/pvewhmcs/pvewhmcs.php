@@ -6,6 +6,7 @@
 	File: /modules/addons/pvewhmcs/pvewhmcs.php (GUI Work)
 
 	Copyright (C) The Network Crew Pty Ltd (TNC) & Co.
+	For other Contributors to PVEWHMCS, see CONTRIBUTORS.md
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,10 +20,6 @@
 
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>. 
-
-	Copyright (C) 2025 NodeSpace Technologies, LLC
-	Modifications by NodeSpace Technologies, LLC (NodeSpace.com):
-		- Added support for Proxmox VMID instead of WHMCS Service ID
 */
 
 // Pull in the WHMCS database handler Capsule for SQL
@@ -39,7 +36,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.8",
+		"version" => "1.2.9",
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -48,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-    return "1.2.8";
+    return "1.2.9";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -87,23 +84,27 @@ function pvewhmcs_deactivate() {
 	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated and all related tables deleted.');
 }
 
-// Added by NodeSpace Technologies, LLC
 // WHMCS MODULE: Upgrade
 function pvewhmcs_upgrade($vars) {
 	$currentlyInstalledVersion = $vars['version'];
-	if (version_compare($currentlyInstalledVersion, '1.2.7', 'gt')) {
+	if (version_compare($currentlyInstalledVersion, '1.2.8', 'gt')) {
 		$schema = Capsule::schema();
+
 		// Add the column "start_vmid" to the mod_pvewhmcs table
 		if (!$schema->hasColumn('mod_pvewhmcs', 'start_vmid')) {
 			$schema->table('mod_pvewhmcs', function ($table) {
 				$table->integer('start_vmid')->default(100)->after('vnc_secret');
 			});
 		}
+
 		// Add the column "vmid" to the mod_pvewhmcs_vms table
 		if (!$schema->hasColumn('mod_pvewhmcs_vms', 'vmid')) {
 			$schema->table('mod_pvewhmcs_vms', function ($table) {
 				$table->integer('vmid')->default(0)->after('id');
 			});
+			Capsule::table('mod_pvewhmcs_vms')
+				->where('vmid', 0)
+				->update(['vmid' => Capsule::raw('id')]);
 		}
 	}
 }
@@ -406,7 +407,7 @@ function pvewhmcs_output($vars) {
     <tr>
 	<td class="fieldlabel">Starting VMID</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="start_id" id="start_id" value="'.$config->start_id.'"> The starting VMID for new VMs. Default is 1000.
+	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID for new Guests. Default is 100.
 	</td>
 	</tr>
 	<tr>
@@ -444,7 +445,7 @@ function save_config() {
 				$connectionManager->table('mod_pvewhmcs')->update(
 					[
 						'vnc_secret' => $_POST['vnc_secret'],
-						'start_id' => $_POST['start_id'],
+						'start_vmid' => $_POST['start_vmid'],
 						'debug_mode' => $_POST['debug_mode'],
 					]
 				);

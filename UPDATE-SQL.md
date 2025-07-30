@@ -3,7 +3,7 @@
 ## v1.2.8 to v1.2.9
 
 ```
-ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `pveid` varchar(10) DEFAULT NULL;
+ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `vmid` int(10) DEFAULT NULL;
 ```
 
 ## v1.2.7 to v1.2.8
