@@ -131,11 +131,7 @@ function pvewhmcs_CreateAccount($params) {
 			$first_node = $nodes[0];
 			unset($nodes);
 			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-			while (!is_null($proxmox->get('/nodes/' . $first_node . '/qemu/' . $vmid . '/status/current')) || !is_null($proxmox->get('/nodes/' . $first_node . '/lxc/' . $vmid . '/status/current'))) {
-				$vmid++;
-			}
-			// Make sure the VMID is an integer
-			$vmid = (int)$vmid;
+			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $first_node, $vmid);
 			$vm_settings['newid'] = $vmid;
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
@@ -353,12 +349,7 @@ function pvewhmcs_CreateAccount($params) {
 				unset($nodes);
 
 				// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-				while (!is_null($proxmox->get('/nodes/' . $first_node . '/qemu/' . $vmid . '/status/current')) || !is_null($proxmox->get('/nodes/' . $first_node . '/lxc/' . $vmid . '/status/current'))) {
-					$vmid++;
-				}
-
-				// Make sure the VMID is an integer
-				$vmid = (int)$vmid;
+				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $first_node, $vmid);
 				$vm_settings['vmid'] = $vmid;
 
 				if ($plan->vmtype == 'kvm') {
@@ -451,6 +442,31 @@ function pvewhmcs_CreateAccount($params) {
 		}
 		unset($vm_settings);
 	}
+}
+
+/**
+ * Find the next available VMID starting from the given ID
+ * @param PVE2_API $proxmox Proxmox API instance
+ * @param string $node Node name
+ * @param int $start_vmid Starting VMID to search from
+ * @return int Next available VMID
+ * @throws Exception if no VMID available within reasonable range
+ */
+function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
+    $vmid = $start_vmid;
+    $max_attempts = 1000;
+    $attempts = 0;
+    
+    while (!is_null($proxmox->get('/nodes/' . $node . '/qemu/' . $vmid . '/status/current')) || 
+           !is_null($proxmox->get('/nodes/' . $node . '/lxc/' . $vmid . '/status/current'))) {
+        $vmid++;
+        $attempts++;
+        if ($attempts > $max_attempts) {
+            throw new Exception("Unable to find available VMID after $max_attempts attempts");
+        }
+    }
+    
+    return (int)$vmid;
 }
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node

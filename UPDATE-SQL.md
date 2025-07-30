@@ -3,7 +3,7 @@
 ## v1.2.8 to v1.2.9
 
 ```
-ALTER TABLE mod_pvewhmcs ADD COLUMN 'start_vmid' int(10) DEFAULT 100,
+ALTER TABLE mod_pvewhmcs ADD COLUMN `start_vmid` int(10) DEFAULT 100,
 ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `vmid` int(10) DEFAULT NULL;
 ```
 

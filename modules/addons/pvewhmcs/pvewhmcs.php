@@ -463,7 +463,7 @@ function import_guest() {
 					// Insert into module VMs table
 					try {
 						Capsule::table('mod_pvewhmcs_vms')->insert([
-							'id' => $serviceID
+							'id' => $serviceID,
 							'vmid' => $vmid,
 							'user_id' => $userid,
 							'vtype' => $vtype,
@@ -472,7 +472,7 @@ function import_guest() {
 							'gateway' => $gateway,
 							'created' => date('Y-m-d H:i:s'),
 						]);
-						$resultMsg = '<div class="successbox">VMID '.$vmid.' (' . $vtype . ') was imported as Service ' . $serviceID . ' for Client '.$userid.' with roduct '.$product->name.'</div>';
+						$resultMsg = '<div class="successbox">VMID '.$vmid.' (' . $vtype . ') was imported as Service ' . $serviceID . ' for Client '.$userid.' with Product '.$product->name.'</div>';
 					} catch (Exception $e) {
 						$resultMsg = '<div class="errorbox">Database error: '.htmlspecialchars($e->getMessage()).'</div>';
 					}
