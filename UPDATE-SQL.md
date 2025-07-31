@@ -5,6 +5,7 @@
 ```
 ALTER TABLE mod_pvewhmcs ADD COLUMN `start_vmid` int(10) DEFAULT 100;
 ALTER TABLE mod_pvewhmcs_vms ADD COLUMN `vmid` int(10) DEFAULT NULL;
+UPDATE mod_pvewhmcs_vms SET vmid = id WHERE vmid IS NULL;
 ```
 
 ## v1.2.7 to v1.2.8
