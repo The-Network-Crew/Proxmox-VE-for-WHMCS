@@ -86,7 +86,9 @@ function pvewhmcs_deactivate() {
 
 // WHMCS MODULE: Upgrade
 function pvewhmcs_upgrade($vars) {
+	// This function gets passed the old ver once post-update, hence lt check
 	$currentlyInstalledVersion = $vars['version'];
+	// SQL Operations for v1.2.9 version
 	if ($currentlyInstalledVersion < 1.2.9) {
 		$schema = Capsule::schema();
 
