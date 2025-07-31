@@ -87,7 +87,7 @@ function pvewhmcs_deactivate() {
 // WHMCS MODULE: Upgrade
 function pvewhmcs_upgrade($vars) {
 	$currentlyInstalledVersion = $vars['version'];
-	if (version_compare($currentlyInstalledVersion, '1.2.8', 'gt')) {
+	if ($currentlyInstalledVersion < 1.2.9) {
 		$schema = Capsule::schema();
 
 		// Add the column "start_vmid" to the mod_pvewhmcs table
