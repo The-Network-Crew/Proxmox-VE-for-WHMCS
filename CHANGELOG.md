@@ -9,7 +9,9 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ### 🚀 Feature
 - Guest Import: Add Service for existing PVE Guest (#75)
-- PVE VMID: Allow for custom VMID (via Start #) (#136)
+- PVE VMID: Allow for custom VMID (via Start ID) (#136)
+- SQL Updates: Beta functionality to auto-patch (#62)
+- CONTRIBUTORS.md: Recognising key efforts! (#140)
 
 ### 💅 Polish
 - Fallback Client Area: Use serviceid if no VMID set (#137)
