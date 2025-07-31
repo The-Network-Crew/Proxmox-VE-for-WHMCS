@@ -214,7 +214,7 @@ You should download any new version & upload it over the top, then login to WHMC
 > [!IMPORTANT]  
 > Since v1.2.9, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
 > 
-> v1.2.8 & below, c>onsult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
+> v1.2.8 & below, consult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
 Then you're done with each update! :-)
 
@@ -265,43 +265,51 @@ There are new features deployed into PVE upstream which are exciting and may be 
 
 **PVE Roadmap:** https://pve.proxmox.com/wiki/Roadmap
 
-## Proxmox v9.0 beta
+### Proxmox v9.0 beta
 
 1. VM snapshots on thick LVM, snapshots as volume chains
 2. Fabrics for software networking (SDN) Open/OSPF/Ceph/VPN
 3. Major upgrade to Debian Trixie (testing status in 2025)
 
-## Proxmox v8.4
+### Proxmox v8.4
 
 1. Live migrate with mediated devices.
 2. Support for external backup providers.
 3. Host dir's, share with guests (virtiofs).
 
-## Proxmox v8.3
+### Proxmox v8.3
 
 1. Software-defined Networking/Firewall.
 2. Better guest importing from OVA/OVF.
 3. Webhook target for system alerting.
 4. Better change detection for PBS.
 
-## Proxmox v8.2
+### Proxmox v8.2
 
 1. Import Wizard for Guests.
 2. Unattended PVE Install (answer file).
 3. Backup Fleecing (local disk as data block buffer).
 4. Firewall Preview (based on nftables).
 
-## Proxmox v8.1
+### Proxmox v8.1
 
 1. Secure Boot support.
 2. Software Defined Networking (SDN).
 3. New flexible notification system (SMTP & Gotify).
 4. MAC Organizationally Unique Identifier (OUI) BC:24:11: prefix!
 
-## Proxmox v8.0
+### Proxmox v8.0
 
 1. Create, manage and assign resource mappings for PCI and USB devices for use in virtual machines (VMs) via API and web UI. 
 2. (DONE) Add virtual machine CPU models based on the x86-64 psABI Micro-Architecture Levels and use the widely supported x86-64-v2-AES as default for new VMs created via the web UI. 
+
+### Proxmox 7.x
+
+1. Cross-cluster guest migrations
+2. Cluster Resource Scheduling (CRS) launched
+3. Re-balance CRS on fresh start-up, not just  recovery
+4. CRM into HA Manager, as a node maintenance switch 
+5. Proxmox Offline Mirror (POM) launched
 
 # 🖥️ INC: Libraries & Dependencies
 
@@ -342,7 +350,7 @@ We would like to thank @cybercoder and @WaldperlachFabi for their original contr
 FOSS is only possible thanks to dedicated people around the world!
 
 **See CONTRIBUTORS.md for those who've made PVEWHMCS possible.**
-'
+
 # TNC & GPL
 
 **The Network Crew Pty Ltd** :: https://tnc.works
