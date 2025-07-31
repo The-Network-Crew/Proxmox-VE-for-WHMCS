@@ -889,6 +889,12 @@ function pvewhmcs_ClientArea($params) {
 				$vm_status = $vm;
 				break;
 			}
+
+			// If the vmid is not found, check against serviceid (<v1.2.9 case)
+			if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
+				$vm_status = $vm;
+				break;
+			}
 		}
 
 		# Retrieve & set usage data appropriately
@@ -1020,7 +1026,7 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config['v6prefix'] = $guest->v6prefix ;
 	}
 	else {
-		echo '<center><strong>Unable to contact Hypervisor - aborting!<br>Please contact Tech Support.</strong></center>'; 
+		echo '<center><strong>Error: Unable to gather data from Hypervisor.<br>Please contact Tech Support!</strong></center>'; 
 		exit;
 	}
 

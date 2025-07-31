@@ -175,6 +175,12 @@ Firstly, store the Template in PVE. You need its storage, folder & File Name.
 > Use that prefixed file name in the Custom Field `Template`, as in:<br>
 > `local:vztmpl/ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
 
+### VM/CT Import/Associate Existing Guest
+
+You can associate an existing PVE Guest through the WHMCS Module too, like this:
+
+<img alt="Importing GUI for linking to existing PVE Guest" src="zVMIDimport.png">
+
 #### ZFS etc: Comfigure to suit isolated TPL
 
 - `local` is the name of the file-system that you have the Template on

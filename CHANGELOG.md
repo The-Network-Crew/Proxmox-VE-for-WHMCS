@@ -5,16 +5,23 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
-## [1.2.9] - TBC 2025-08-01 - _"Import Friendly"_
+## [1.2.9] - 2025-07-31 - _"Import Friendly"_
 
 ### 🚀 Feature
 - Guest Import: Add Service for existing PVE Guest (#75)
 - PVE VMID: Allow for custom VMID (via Start #) (#136)
 
+### 💅 Polish
+- Fallback Client Area: Use serviceid if no VMID set (#137)
+- Admin Landing: Auto-select the VM/CT Plans pane/tab (#138)
+- Minor Wording: Slight adjustments around Module Admin GUI
+
 ### 🐛 Bug Fix
 - Trunk -> Tag: Wrong parameter name for VLAN ID (#125)
 - Function Rename: Avoid same name as Virtualizor (#129)
 - netrate & IPv6: Declare 0 (netrate); add IPv6 DNS (#119)
+
+(\*): SQL Note: There's column changes in 2x module tables, see [UPDATE-SQL.md](https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/blob/master/UPDATE-SQL.md)
 
 ## [1.2.8] - 2025-04-26 - _"Pause to Refine"_
 

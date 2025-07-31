@@ -151,6 +151,12 @@ function pvewhmcs_output($vars) {
 		unset($_SESSION['pvewhmcs']) ;
 	}
 
+	// Set the active tab based on the GET parameter, default to 'vmplans'
+	if (!isset($_GET['tab'])) {
+    	$_GET['tab'] = 'vmplans';
+	}
+
+	// Start the HTML output for the Admin GUI
 	echo '
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
@@ -165,7 +171,7 @@ function pvewhmcs_output($vars) {
 	<div class="tab-content admin-tabs">
 	' ;
 
-
+	// Handle form submissions for saving or updating plans
 	if (isset($_POST['addnewkvmplan']))
 	{
 		save_kvm_plan() ;
@@ -185,6 +191,7 @@ function pvewhmcs_output($vars) {
 		save_lxc_plan() ;
 	}
 
+	// VM/CT PLANS tab in ADMIN GUI
 	echo '
 	<div id="plans" class="tab-pane '.($_GET['tab']=="vmplans" ? "active" : "").'">
 	<div class="btn-group" role="group" aria-label="...">
@@ -202,6 +209,8 @@ function pvewhmcs_output($vars) {
 	</a>
 	</div>
 	';
+
+	// Handle actions based on the 'action' GET parameter
 	if ($_GET['action']=='import_guest') {
 		import_guest() ;
 	}
@@ -226,6 +235,7 @@ function pvewhmcs_output($vars) {
 		lxc_plan_add() ;
 	}
 
+	// List of VM/CT Plans
 	if ($_GET['action']=='planlist') {
 		echo '
 		<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">
@@ -287,6 +297,7 @@ function pvewhmcs_output($vars) {
 	</div>
 	';
 
+	// IPv4 POOLS tab in ADMIN GUI
 	echo '
 	<div id="ippools" class="tab-pane '.($_GET['tab']=="ippools" ? "active" : "").'" >
 	<div class="btn-group">
@@ -322,6 +333,7 @@ function pvewhmcs_output($vars) {
 	echo'
 	</div>
 	';
+
 	// NODES / CLUSTER tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 	echo ('<strong><h2>PVE: /cluster/resources</h2></strong>');
@@ -332,23 +344,24 @@ function pvewhmcs_output($vars) {
 	echo ('Coming in v1.3.x<br><br>');
 	echo ('<strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
 	echo '</div>';
+
 	// ACTIONS / LOGS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
+	echo ('<strong><h2>WHMCS: Module Logging</h2></strong>');
+	echo ('<u><a href=\'/admin/index.php?rp=/admin/logs/module-log\'>Click here</a></u><br>(Module Config > Debug Mode = ON)');
 	echo ('<strong><h2>Module: Action History</h2></strong>');
 	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
-	echo ('Coming in v1.3.x');
-	echo ('<strong><h2>WHMCS: Module Logging</h2></strong>');
-	echo ('<u><a href=\'/admin/index.php?rp=/admin/logs/module-log\'>Click here</a></u> (Module Config > Debug Mode = ON)<br><br>');
-	echo ('<strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
+	echo ('Coming in v1.3.x<br><strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
 	echo '</div>';
+
 	// SUPPORT / HEALTH tab in ADMIN GUI
-	echo '<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >' ;
+	echo ('<div id="health" class="tab-pane '.($_GET['tab']=="health" ? "active" : "").'" >') ;
+	echo ('<b>❤️ Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
+	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<strong><h2>System Environment</h2></strong><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as <b>v' . get_pvewhmcs_latest_version() . '</b>)' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
-	echo ('<strong><h2>Updates & Codebase</h2></strong><b>Proxmox for WHMCS is open-source and free to use & improve on! ❤️</b><br>Repo: <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
-	echo ('<strong><h2>Product & Reviewing</h2></strong><b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
-	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. <b>WHMCS needs to have >100 Services, else it is an illegal Proxmox VMID.</b><br>2. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>3. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
-	echo ('<strong><h2>Module Technical Support</h2></strong>Please raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - include logs, steps to reproduce, etc.<br>Help is not guaranteed (FOSS). We will need your assistance. <b>Thank you.</b><br><br>');
+	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>2. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
+	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br>Help is not guaranteed (FOSS). We will need your assistance. <b>Thank you!</b><br><br>');
 	echo '</div>';
 
 	// Config Tab
@@ -364,9 +377,9 @@ function pvewhmcs_output($vars) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Starting VMID</td>
+	<td class="fieldlabel">VMID Start</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID for new Guests. Default is 100. Module will then increment atop this until a vacant VMID.
+	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting PVE VMID. Default is 100. Module will increment this until vacant VMID found.
 	</td>
 	</tr>
 	<tr>
@@ -387,14 +400,17 @@ function pvewhmcs_output($vars) {
 	
 	echo '</div>';
 
-	echo '</div>'; // end of tab-content
+	echo '</div>'; 
+	// End of tabbed content
 
+	// Handle saving the configuration if the form was submitted
 	if (isset($_POST['save_config'])) {
 		save_config() ;
 	}
 }
 
 // Import Guest sub-page handler (standalone, outside pvewhmcs_output)
+// This function associates an existing PVE Guest in WHMCS as a new Client Service.
 function import_guest() {
 	$resultMsg = '';
 	if (!empty($_POST['import_existing_guest'])) {
@@ -413,7 +429,7 @@ function import_guest() {
 			$resultMsg = '<div class="errorbox">No active WHMCS Client found with ID '.$userid.'</div>';
 		} else {
 			// Validate Product
-			$product = Capsule::table('tblproducts')->where('id', $productid)->where('hidden', 0)->where('retired', 0)->first();
+			$product = Capsule::table('tblproducts')->where('id', $productid)->where('retired', 0)->first();
 			if (!$product) {
 				$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID '.$productid.'</div>';
 			} else {
@@ -472,7 +488,7 @@ function import_guest() {
 							'gateway' => $gateway,
 							'created' => date('Y-m-d H:i:s'),
 						]);
-						$resultMsg = '<div class="successbox">VMID '.$vmid.' (' . $vtype . ') was imported as Service ' . $serviceID . ' for Client '.$userid.' with Product '.$product->name.'</div>';
+						$resultMsg = '<div class="successbox">Successfully imported PVE VMID '.$vmid.' (' . $vtype . ') as Service ' . $serviceID . ' (' . $product->name . ') for ' . $client->firstname . ' ' . $client->lastname . '. ' . $client->company . '</div>';
 					} catch (Exception $e) {
 						$resultMsg = '<div class="errorbox">Database error: '.htmlspecialchars($e->getMessage()).'</div>';
 					}
@@ -482,7 +498,6 @@ function import_guest() {
 	}
 
 	// Always show the form for easy further imports
-	echo '<h3>Import Proxmox Guest (VM/CT)</h3>';
 	if (!empty($resultMsg)) echo $resultMsg;
 	echo '<form method="post">';
 	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
@@ -491,7 +506,7 @@ function import_guest() {
 
 	// Active clients dropdown
 	$clients = Capsule::table('tblclients')->where('status', 'Active')->orderBy('companyname')->orderBy('firstname')->orderBy('lastname')->get();
-	echo '<tr><td class="fieldlabel">Client</td><td class="fieldarea"><select name="import_clientid" required>';
+	echo '<tr><td class="fieldlabel">Target Client</td><td class="fieldarea"><select name="import_clientid" required>';
 	foreach ($clients as $client) {
 		$label = $client->id.' - '.($client->companyname ? $client->companyname.' - ' : '').$client->firstname.' '.$client->lastname;
 		echo '<option value="'.$client->id.'">'.htmlspecialchars($label).'</option>';
@@ -499,7 +514,7 @@ function import_guest() {
 	echo '</select></td></tr>';
 	
 	// Product/Service dropdown (only Active products of Server type)
-	$products = Capsule::table('tblproducts')->where('type', 'server')->where('hidden', 0)->where('retired', 0)->orderBy('name')->get();
+	$products = Capsule::table('tblproducts')->where('type', 'server')->where('retired', 0)->orderBy('name')->get();
 	echo '<tr><td class="fieldlabel">Service</td><td class="fieldarea"><select name="import_productid" required>';
 	foreach ($products as $product) {
 		echo '<option value="'.$product->id.'">'.htmlspecialchars($product->name).'</option>';
@@ -507,7 +522,7 @@ function import_guest() {
 	echo '</select></td></tr>';
 	
 	// Guest Type dropdown
-	echo '<tr><td class="fieldlabel">Guest Type</td><td class="fieldarea"><select name="import_vtype" required>';
+	echo '<tr><td class="fieldlabel">VM/CT</td><td class="fieldarea"><select name="import_vtype" required>';
 	echo '<option value="kvm">(VM) QEMU</option>';
 	echo '<option value="lxc">(CT) LXC</option>';
 	echo '</select></td></tr>';
@@ -1673,7 +1688,7 @@ function add_ip_2_pool() {
 	echo '<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
-	<td class="fieldlabel">IP Pool</td>
+	<td class="fieldlabel">IPv4 Pool</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="pool_id">';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
@@ -1684,14 +1699,14 @@ function add_ip_2_pool() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">IP Block</td>
+	<td class="fieldlabel">Address/Prefix</td>
 	<td class="fieldarea">
 	<input type="text" name="ipblock"/>
-	IP Block with CIDR e.g. 172.16.255.230/27, or for single IP address don\'t use CIDR
+	IPv4 prefix with CIDR e.g. 172.16.255.230/27, or for single /32 address don\'t use CIDR
 	</td>
 	</tr>
 	</table>
-	<input type="submit" name="assignIP2pool" value="Save"/>
+	<input type="submit" name="assignIP2pool" value="Add"/>
 	</form>';
 	if (isset($_POST['assignIP2pool'])) {
 			// check if single IP address
@@ -1731,7 +1746,7 @@ function add_ip_2_pool() {
 function list_ips() {
 		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
 		//echo '<div id="dialog">' ;
-	echo '<table class="datatable"><tr><th>IP Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
+	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
 	foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
 		echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>';
 		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
