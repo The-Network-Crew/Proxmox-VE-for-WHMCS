@@ -17,6 +17,7 @@
 - Statistics/Graphing is available in the Client Area for services :)
 - Leverage the power of QEMU & LXC with PVE's convenience
 - Import existing VM/CT Guest from Proxmox into WHMCS
+- Specify PVE VMID start & integrate to your schema
 
 Repo: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
@@ -34,9 +35,10 @@ We're pretty much done overhauling the Module to suit our needs at The Network C
 
 ## WHMCS must have >100 services!
 
-New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID <100 case.
-
-**SID >100:** The WHMCS Service ID requirement is CRITICAL, as **Proxmox reserves VMIDs <100 (system).** 
+> [!WARNING]  
+> New Biz: Fresh Installations/Businesses using WHMCS need to take note of the Service ID <100 case.
+> 
+> **SID >100:** The WHMCS Service ID requirement is CRITICAL, as **Proxmox reserves VMIDs <100 (system).** 
 
 _If you don't have enough services (of any status) in WHMCS (DB: tblhosting.id), create enough dummy/test entries to reach Service ID 101+._ **Else you're likely to see an error which explains this:** 
 
@@ -125,9 +127,10 @@ Else, PVE must be WAN-accessible and all other configs/reqs satisfied.
 4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
 5. WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
 
-> Do NOT set less restrictive permissions. The above is designed for hypervisor security.
+> [!CAUTION]
+> Do NOT set less restrictive permissions. The above is designed for interim security.
 > 
-> **However, if you wish for proper security, wait for VNC to be further improved.**
+> **However, if you wish for proper security: wait for VNC to be further improved.**
 
 ### Important info about Console Access
 
@@ -208,11 +211,12 @@ You should download any new version & upload it over the top, then login to WHMC
 
 ### SQL: Keeping your DB up-to-date
 
-Since v1.2.9, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> [!IMPORTANT]  
+> Since v1.2.9, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> 
+> v1.2.8 & below, c>onsult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
-v1.2.8 & below, c>onsult the **UPDATE-SQL.md** file, open your SQL DB & run statements. 
-
-Then you're done with each update! Not all versions need database amendments.
+Then you're done with each update! :-)
 
 ## 🆘 6. HELP: Best-effort Support
 
@@ -248,16 +252,24 @@ The more info/context you provide up-front, the quicker & easier it will be!
 
 \* Debug: Also enable Debug Logging in Proxmox VE for WHMCS > Settings, as needed.
 
-**Please note that this is FOSS and Support is not guaranteed at all.**<br>
-**If you don't read, listen or actively try, no help is given.**
+> [!TIP]
+> **Please note that this is FOSS and Support is not guaranteed at all.**<br>
+> 
+> **If you don't read, listen or actively try, no help is given.**
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose
 
-# 💅 FEATURES: PVE v8.x bling
+# 💅 FEATURES: Upcoming PVE bling
 
 There are new features deployed into PVE upstream which are exciting and may be integrated.
 
 **PVE Roadmap:** https://pve.proxmox.com/wiki/Roadmap
+
+## Proxmox v9.0 beta
+
+1. VM snapshots on thick LVM, snapshots as volume chains
+2. Fabrics for software networking (SDN) Open/OSPF/Ceph/VPN
+3. Major upgrade to Debian Trixie (testing status in 2025)
 
 ## Proxmox v8.4
 
@@ -327,16 +339,19 @@ We would like to thank @cybercoder and @WaldperlachFabi for their original contr
 
 **Thank you to psyborg® for the module's logo design! We love it.**
 
-FOSS is only possible thanks to dedicated individuals!
+FOSS is only possible thanks to dedicated people around the world!
 
-# Usage License (GPLv3) & Links to TNC & Co.
-
-_**This module is licensed under the GNU General Public License (GPL) v3.0.**_
-
-GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)
-
-## Corporate Sites: TNC & Merlot Digital
+**See CONTRIBUTORS.md for those who've made PVEWHMCS possible.**
+'
+# TNC & GPL
 
 **The Network Crew Pty Ltd** :: https://tnc.works
 
 **🍷 Merlot Digital** :: https://merlot.digital
+
+**AS138521** :: Australian family owned & run
+
+> [!NOTE]
+> _**This module is licensed under the GNU General Public License (GPL) v3.0.**_
+> 
+> GPLv3: https://www.gnu.org/licenses/gpl-3.0.txt (by the Free Software Foundation)

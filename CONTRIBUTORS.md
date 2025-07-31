@@ -4,10 +4,11 @@ This document seeks to say "cheers", "many thanks" & "love your work" to the peo
 
 ## Users who've contributed
 
-- @cybercoder is #1!
-- @nodespacehosting
-- @WaldperlachFabi
-- @is7Qin
+- [@cybercoder](https://github.com/cybercoder)
+- [@lsthompson](https://github.com/lsthompson)
+- [@nodespacehosting](https://github.com/nodespacehosting)
+- [@WaldperlachFabi](https://github.com/WaldperlachFabi)
+- [@is7Qin](https://github.com/is7Qin)
 
 ## Why not make it even better?
 
