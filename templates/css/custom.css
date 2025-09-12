@@ -1,22 +1,3 @@
-/* *****************************************************
-
-    ** Custom Stylesheet **
-
-    Any custom styling you want to apply should be
-    defined here.
-
-***************************************************** */
-/**
-
-* AALayer, © 2017
-* All Rights Reserved
-* www.aalayer.com
-  -
-* Template: lowendhost
-* For any issue or question contact our support.
-
-**/
-
 .kernel-config {
   margin-top: 2rem;
 }
@@ -112,3 +93,4 @@
 .btn-primary i {
   margin-right: 0.3rem;
 }
+
