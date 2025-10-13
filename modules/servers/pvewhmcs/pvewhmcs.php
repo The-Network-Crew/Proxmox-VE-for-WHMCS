@@ -40,6 +40,7 @@ function pvewhmcs_MetaData() {
     return array(
         'DisplayName' => 'Proxmox VE',
         'APIVersion' => '1.1',
+        'RequiresServer' => 'true',
 	);
 }
 
@@ -55,10 +56,8 @@ function pvewhmcs_AdminLink(array $params) {
     }
 
     $url  = 'https://' . $host . ':8006';
-    $text = htmlspecialchars($host, ENT_QUOTES, 'UTF-8');
-
     return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="get" target="_blank">
-                <input type="submit" value="' . $text . '" class="btn btn-sm btn-default" />
+                <input type="submit" value="Log in to PVE" class="btn btn-sm btn-default" />
             </form>';
 }
 
@@ -69,12 +68,12 @@ function pvewhmcs_ConfigOptions() {
 
 	// Retrieve Plans
 	foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $plan) {
-		$plans[$plan->id]=$plan->vmtype.'&nbsp;:&nbsp;'.$plan->title ;
+		$plans[$plan->id] = '(' . $plan->vmtype . ')&nbsp;' . $plan->title ;
 	}
 
 	// Retrieve IP Pools
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $ippool) {
-		$ippools[$ippool->id]=$ippool->title ;
+		$ippools[$ippool->id] = $ippool->title ;
 	}
 	
 	/*
