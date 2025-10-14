@@ -933,7 +933,7 @@ function kvm_plan_add() {
 	<option value="Opteron_G4">(AMD) Opteron_G4</option>
 	<option value="Opteron_G5">(AMD) Opteron_G5</option>
 	</select>
-	CPU emulation type. Default is x86-64 psABI v2-AES
+	Emulation type. Default is x86-64 psABI v2-AES.
 	</td>
 	</tr>
 
@@ -941,14 +941,14 @@ function kvm_plan_add() {
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpus" id="cpus" value="1" required>
-	The number of CPU Sockets. 1 - 4.
+	The number of CPU Sockets (typically 1-4).
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Cores</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cores" id="cores" value="1" required>
-	The number of CPU Cores per socket. 1 - 32.
+	The number of CPU Cores per Socket (1-N).
 	</td>
 	</tr>
 	<tr>
@@ -969,21 +969,21 @@ function kvm_plan_add() {
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" value="2048" required>
-	RAM space in Megabyte e.g 1024 = 1GB (default is 2GB)
+	RAM space in Megabytes e.g 1024 = 1GB (default is 2GB)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" value="0" required>
-	Balloon space in Megabyte e.g 1024 = 1GB (0 = disabled)
+	Balloon space in Megabytes e.g 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="10240" required>
-	HDD/SSD storage space in Gigabyte e.g 1024 = 1TB (default is 10GB)
+	HDD/SSD storage in Gigabytes e.g 1024 = 1TB (default is 10GB)
 	</td>
 	</tr>
 	<tr>
@@ -994,7 +994,7 @@ function kvm_plan_add() {
 	<option selected="" value="qcow2">QEMU Image (qcow2)</option>
 	<option value="vmdk">VMware Image (vmdk)</option>
 	</select>
-	Recommend "QEMU/qcow2" (so it can make Snapshots)
+	Recommend "QEMU/qcow2" (so it can take Snapshots)
 	</td>
 	</tr>
 	<tr>
@@ -1037,7 +1037,7 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">NIC - Type</td>
+	<td class="fieldlabel">Network - NIC Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
 	<option value="e1000">Intel E1000 (Stable but slower)</option>
@@ -1249,7 +1249,7 @@ function kvm_plan_edit($id) {
 	<option value="Opteron_G4" ' . ($plan->cpuemu == "Opteron_G4" ? "selected" : "") . '>(AMD) Opteron_G4</option>
 	<option value="Opteron_G5" ' . ($plan->cpuemu == "Opteron_G5" ? "selected" : "") . '>(AMD) Opteron_G5</option>
 	</select>
-	CPU emulation type. Default is x86-64 psABI v2-AES
+	Emulation type. Default is x86-64 psABI v2-AES.
 	</td>
 	</tr>
 
@@ -1257,14 +1257,14 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpus" id="cpus" value="'.$plan->cpus.'" required>
-	The number of CPU sockets. 1 - 4.
+	The number of CPU Sockets (typically 1-4).
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Cores</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cores" id="cores" value="'.$plan->cores.'" required>
-	The number of CPU cores per socket. 1 - 32.
+	The number of CPU Cores per Socket (1-N).
 	</td>
 	</tr>
 	<tr>
@@ -1292,14 +1292,14 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" required value="'.$plan->balloon.'">
-	Balloon space in Megabyte e.g 1024 = 1GB (0 = disabled)
+	Balloon space in Megabytes e.g 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
-	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage in Gigabytes e.g 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -1310,7 +1310,7 @@ function kvm_plan_edit($id) {
 	<option value="qcow2" '. ($plan->diskformat=="qcow2" ? "selected" : "").'>QEMU image (qcow2)</option>
 	<option value="vmdk" '. ($plan->diskformat=="vmdk" ? "selected" : "").'>VMware image (vmdk)</option>
 	</select>
-	Recommend "QEMU/qcow2 format" (to make Snapshots)
+	Recommend "QEMU/qcow2 format" (so it can take Snapshots)
 	</td>
 	</tr>
 	<tr>
@@ -1353,7 +1353,7 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">NIC - Type</td>
+	<td class="fieldlabel">Network - NIC Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
 	<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000 (Stable but slower)</option>
