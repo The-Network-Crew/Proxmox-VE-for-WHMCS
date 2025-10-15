@@ -5,6 +5,15 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
+## [1.2.16] - 2025-10-15 - _"Minor Adjustments"_
+
+### 💅 Polish
+- WHMCS Parameter: RequiresServer set to true
+- Plan Add/Edit: Text descriptions updated
+- Update Available: Hyperlinked to repo
+- Admin GUI: Textual layout updates
+- README: Final resting milestone
+
 ## [1.2.15] - 2025-08-29 - _"Little Adjustments"_
 
 ### 💅 Polish
