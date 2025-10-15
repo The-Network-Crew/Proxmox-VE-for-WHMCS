@@ -150,7 +150,7 @@ function pvewhmcs_output($vars) {
 	// Check for update and report if available
 	if (!empty(is_pvewhmcs_outdated())) {
 		$_SESSION['pvewhmcs']['infomsg']['title']='Proxmox VE for WHMCS: New version available!' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='Please visit the GitHub repository > Releases page. https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases' ;
+		$_SESSION['pvewhmcs']['infomsg']['message']='<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest</a>' ;
 	}
 		
 	// Print Messages to GUI before anything else
