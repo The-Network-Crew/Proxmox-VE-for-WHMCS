@@ -504,16 +504,16 @@ function pvewhmcs_output($vars) {
 	echo ('<strong><h2>Module: Action History</h2></strong>');
 	echo ('Coming in v1.3.x');
 	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
-	echo ('Coming in v1.3.x<br><strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
+	echo ('Coming in v1.3.x<br><br><strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
 	echo '</div>';
 
 	// SUPPORT tab in ADMIN GUI
 	echo ('<div id="support" class="tab-pane '.($_GET['tab']=="support" ? "active" : "").'" >') ;
-	echo ('<b>❤️ Proxmox for WHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
-	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<strong><h2>System Environment</h2></strong><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as <b>v' . get_pvewhmcs_latest_version() . '</b>)' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
+	echo ('<b>❤️ PVEWHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
+	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>2. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
-	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br><b>Help is not guaranteed (FOSS). We will need your assistance.</b> Thank you!<br><br>');
+	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br><br><b>Help is not guaranteed (FOSS). We will need your assistance.</b> Thank you!<br><br>');
 	echo '</div>';
 
 	// Config Tab
