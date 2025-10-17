@@ -12,6 +12,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 - Plan Add/Edit: Text descriptions updated
 - Update Available: Hyperlinked to repo
 - Admin GUI: Textual layout updates
+- Servers: PVE Button updated text
 - README: Final resting milestone
 
 ## [1.2.15] - 2025-08-29 - _"Little Adjustments"_

@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_plans` (
   `cores` tinyint(2) unsigned DEFAULT NULL,
   `cpulimit` smallint(5) unsigned DEFAULT NULL,
   `cpuunits` smallint(5) unsigned DEFAULT NULL,
-  `memory` smallint(5) unsigned NOT NULL,
+  `memory` smallint(8) unsigned NOT NULL,
   `swap` smallint(5) unsigned DEFAULT NULL,
   `disk` smallint(5) unsigned DEFAULT NULL,
   `diskformat` varchar(10) DEFAULT NULL,

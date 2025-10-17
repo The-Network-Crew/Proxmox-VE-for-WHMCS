@@ -80,7 +80,7 @@
 			<td>Kernel:&nbsp;{$vm_config['ostype']}</td>
 		</tr>
 		<tr>
-			<td><strong>IP</strong> (Addressing)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
+			<td><strong>IPv4</strong> (Network)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
 			<td><strong>NIC</strong> (Interface #1)</td>
