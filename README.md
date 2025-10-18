@@ -146,7 +146,11 @@ After forking the module, we considered how to improve security of Console Tunne
 
 **noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)**
 
-Here are some of the critical requirements for VNC tunnelling:
+Once you have it configured, clicking noVNC in Client Area provides direct link - click it:
+
+<img alt="Client Area is ready for you to click into noVNC terminal console" src="_images/zVNCprepared.png">
+
+**Here are most of the critical requirements for VNC tunnelling:**
 
 1. PVE must be at an IPv4 which has PTR the exact same as PVE's hostname.
 2. You must use different Subdomains on the 1x Domain Name, for the cookie (anti-CSRF).
