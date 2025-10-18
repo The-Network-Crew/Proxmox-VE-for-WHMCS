@@ -1126,7 +1126,7 @@ function pvewhmcs_noVNC($params) {
 		// Construct the noVNC Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
-		$vncreply = '<center style="background-color: green;"><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="'.$url.'" target="_blanK" style="color: Khaki;"><u>Click here to launch noVNC now.</u></a></strong></center>' ;
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare noVNC. Please contact Technical Support.';
@@ -1163,7 +1163,7 @@ function pvewhmcs_SPICE($params) {
 		// Construct the SPICE Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
-		$vncreply = '<center><strong>Console (SPICE) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		$vncreply = '<center style="background-color: green;"><strong>Console (SPICE) successfully prepared.<br><a href="'.$url.'" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch SPICE.</strong></center>' ;
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare SPICE. Please contact Technical Support.';
@@ -1200,7 +1200,7 @@ function pvewhmcs_javaVNC($params){
 		$javaVNCparams[4] = $vm_vncproxy['ticket'] ;
 		// URL preparation to deliver in hyperlink message
 		$url = './modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
-		$vncreply = '<center><strong>Console (TigerVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the TigerVNC window.</strong></center>' ;
+		$vncreply = '<center style="background-color: green;"><strong>Console (TigerVNC) successfully prepared.<br><a href="'.$url.'" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch TigerVNC now.</strong></center>' ;
 		// echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
 		return $vncreply;
 	} else {

@@ -162,10 +162,10 @@ Once you have it configured, clicking noVNC in Client Area provides direct link 
 <img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zConfiguration.png">
 
 > [!TIP]
-> To troubleshoot noVNC errors like "Connection Closed (1006)":
+> **To troubleshoot noVNC errors like "Connection Closed (1006)":**
 > 
-> First, load noVNC with `logging=debug` added to the query string, ie. `vnc.html?logging=debug`<br>
-> _Or change Logging in settings to debug-level, then attempt to re-launch noVNC and review console._
+> Load noVNC with `logging=debug` added to the query string, ie. `vnc.html?logging=debug`<br>
+> _Or in Settings change Logging to debug-level, then open JS Console before reloading noVNC._
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 

@@ -38,7 +38,7 @@ if (isset($_GET['pveticket']) && isset($_GET['host']) && isset($_GET['path']) &&
 	// Now extract just the domain parts we need (FUTURE: capacity/option for multi-part TLDs)
 	$domainonly = preg_replace("/^(.*?)\.(.*)$/","$2",$whmcsdomain['path']);
 	// Set the cookie as Proxmox will be expecting it, so it is WHMCS to VNC without further login
-	setrawcookie('PVEAuthCookie', $pveticket, 0, '/', $domainonly);
+	setrawcookie('PVEAuthCookie', $pveticket, 0, '/', $domainonly, true);
 
 	// Create the final noVNC URL with the re-encoded vncticket
 	$hostname = gethostbyaddr($host);
