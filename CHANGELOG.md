@@ -8,6 +8,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 ### 💅 Polish
 - Max Memory: Ensure you can set more than 128GB (#167)
 - Max CPUs/Cores: Change columns to 3 characters (#167)
+- Check Status: Allow for client-driven status checking
 
 ### 🐛 Bug Fix
 - noVNC: Delete PVEAuthCookie before setting it (#167)

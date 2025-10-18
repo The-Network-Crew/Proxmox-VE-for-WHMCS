@@ -881,6 +881,7 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 		"<i class='fa fa-2x fa-power-off'></i> Power Off" => "vmShutdown",
 		"<i class='fa fa-2x fa-stop'></i>  Hard Stop" => "vmStop",
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
+		"<i class='fa fa-2x fa-search'></i>  Check Status" => "vmCheck",
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
 		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 	);
@@ -1125,7 +1126,7 @@ function pvewhmcs_noVNC($params) {
 		// Construct the noVNC Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
-		$vncreply = '<center><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
+		$vncreply = '<center style="background-color: green;"><strong>Console (noVNC) prepared for usage. <a href="'.$url.'" target="_blanK">Click here</a> to open the noVNC window.</strong></center>' ;
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare noVNC. Please contact Technical Support.';
@@ -1386,6 +1387,11 @@ function pvewhmcs_vmStop($params) {
 		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 		return "Error performing action. " . $response_message;
 	}
+}
+
+// CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
+function pvewhmcs_vmCheck($params) {
+	return "success";
 }
 
 // NETWORKING FUNCTION: Convert subnet mask to CIDR
