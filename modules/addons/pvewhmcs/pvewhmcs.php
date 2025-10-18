@@ -544,7 +544,7 @@ function pvewhmcs_output($vars) {
 	echo ('<b>❤️ PVEWHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
 	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
 	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>2. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
-	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br><br><b>Help is not guaranteed (FOSS). We will need your assistance.</b> Thank you!<br><br>');
+	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br><br><b>Help is not guaranteed (FOSS). We will need your assistance.</b> Thank you!<br><br>');
 	echo '</div>';
 
 	// Config Tab
@@ -569,7 +569,7 @@ function pvewhmcs_output($vars) {
 	<td class="fieldlabel">Debug?</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS debug) & then view <u><a href="/admin/index.php?rp=/admin/logs/module-log">at this link here.</a></u>
+	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS Debug) & then view <u><a href="/admin/index.php?rp=/admin/logs/module-log">at this link here.</a></u>
 	</label>
 	</td>
 	</tr>
@@ -964,7 +964,7 @@ function kvm_plan_add() {
 	<option value="Opteron_G4">(AMD) Opteron_G4</option>
 	<option value="Opteron_G5">(AMD) Opteron_G5</option>
 	</select>
-	Emulation type. Default is x86-64 psABI v2-AES.
+	Default is x86-64 psABI v2-AES.
 	</td>
 	</tr>
 
@@ -993,28 +993,28 @@ function kvm_plan_add() {
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpuunits" id="cpuunits" value="1024" required>
-	Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024. NOTE: Disable fair-scheduler by setting this to 0.
+	Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024. Disable fair-scheduler by setting this to 0.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" value="2048" required>
-	RAM space in Megabytes e.g 1024 = 1GB (default is 2GB)
+	RAM capacity in Megabytes eg. 1024 = 1GB (default is 2GB)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" value="0" required>
-	Balloon space in Megabytes e.g 1024 = 1GB (0 = disabled)
+	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="10240" required>
-	HDD/SSD storage in Gigabytes e.g 1024 = 1TB (default is 10GB)
+	HDD/SSD storage in Gigabytes eg. 1024 = 1TB (default is 10GB)
 	</td>
 	</tr>
 	<tr>
@@ -1025,7 +1025,7 @@ function kvm_plan_add() {
 	<option selected="" value="qcow2">QEMU Image (qcow2)</option>
 	<option value="vmdk">VMware Image (vmdk)</option>
 	</select>
-	Recommend "QEMU/qcow2" (so it can take Snapshots)
+	Recommend "QEMU/qcow2" (supports Snapshots)
 	</td>
 	</tr>
 	<tr>
@@ -1064,7 +1064,7 @@ function kvm_plan_add() {
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
-	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
@@ -1280,7 +1280,7 @@ function kvm_plan_edit($id) {
 	<option value="Opteron_G4" ' . ($plan->cpuemu == "Opteron_G4" ? "selected" : "") . '>(AMD) Opteron_G4</option>
 	<option value="Opteron_G5" ' . ($plan->cpuemu == "Opteron_G5" ? "selected" : "") . '>(AMD) Opteron_G5</option>
 	</select>
-	Emulation type. Default is x86-64 psABI v2-AES.
+	Default is x86-64 psABI v2-AES.
 	</td>
 	</tr>
 
@@ -1309,28 +1309,28 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpuunits" id="cpuunits" value="'.$plan->cpuunits.'" required>
-	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. NOTE: You can disable fair-scheduler by setting this to 0.
+	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. Disable fair-scheduler by setting this to 0.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
-	RAM space in Megabytes e.g 1024 = 1GB
+	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" required value="'.$plan->balloon.'">
-	Balloon space in Megabytes e.g 1024 = 1GB (0 = disabled)
+	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
-	HDD/SSD storage in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -1341,7 +1341,7 @@ function kvm_plan_edit($id) {
 	<option value="qcow2" '. ($plan->diskformat=="qcow2" ? "selected" : "").'>QEMU image (qcow2)</option>
 	<option value="vmdk" '. ($plan->diskformat=="vmdk" ? "selected" : "").'>VMware image (vmdk)</option>
 	</select>
-	Recommend "QEMU/qcow2 format" (so it can take Snapshots)
+	Recommend "QEMU/qcow2 format" (supports Snapshots)
 	</td>
 	</tr>
 	<tr>
@@ -1380,7 +1380,7 @@ function kvm_plan_edit($id) {
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" required value="'.$plan->storage.'">
-	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
@@ -1495,7 +1495,7 @@ function lxc_plan_add() {
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpulimit" id="cpulimit" value="1" required>
-	Limit of CPU usage. Default is 1. Note: if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
+	Limit of CPU usage. Default is 1. If the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
@@ -1509,21 +1509,21 @@ function lxc_plan_add() {
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" required>
-	RAM space in Megabytes e.g 1024 = 1GB
+	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Swap - Space</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="swap" id="swap">
-	Swap space in Megabytes e.g 1024 = 1GB
+	Swap capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" required>
-	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -1537,7 +1537,7 @@ function lxc_plan_add() {
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="local" required>
-	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
@@ -1640,7 +1640,7 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpulimit" id="cpulimit" value="'.$plan->cpulimit.'" required>
-	Limit of CPU usage. Default is 1. Note: if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
+	Limit of CPU usage. Default is 1. If the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
@@ -1654,21 +1654,21 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
-	RAM space in Megabytes e.g 1024 = 1GB
+	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Swap - Space</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="swap" id="swap" value="'.$plan->swap.'">
-	Swap space in Megabytes e.g 1024 = 1GB
+	Swap capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
-	HDD/SSD storage space in Gigabytes e.g 1024 = 1TB
+	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -1682,7 +1682,7 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="storage" id="storage" value="'.$plan->storage.'" required>
-	Name of VM/CT Storage on Proxmox VE hypervisor. local/local-lvm/etc.
+	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
