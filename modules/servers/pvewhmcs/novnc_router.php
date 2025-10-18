@@ -21,6 +21,11 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>. 
 */
 
+// Delete the authentication cookie, if it exists
+if (isset($_COOKIE['PVEAuthCookie'])) {
+    unset($_COOKIE['PVEAuthCookie']);
+}
+
 if (isset($_GET['pveticket']) && isset($_GET['host']) && isset($_GET['path']) && isset($_GET['vncticket'])) {
 	// Take passed-in variables and re-assign for usage
 	$pveticket = $_GET['pveticket'];
