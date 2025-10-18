@@ -157,6 +157,7 @@ Once you have it configured, clicking noVNC in Client Area provides direct link 
 3. If your Domain Name has a 2-part TLD (ie. co.uk) then you will need to fork & amend `novnc_router.php` - ideally we/someone will optimise this down the track.
 4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
 5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
+6. Cookies must be properly usable and not manipulated by htaccess or similar rules, to ensure that `PVEAuthCookie` is properly set in-browser, for same-domain cross-subdomain access.
 
 <img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zConfiguration.png">
 
