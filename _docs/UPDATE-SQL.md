@@ -1,5 +1,12 @@
 # SQL Statements for Updates (nav to DB first)
 
+## v1.2.14 & onwards...
+
+> [!NOTE]  
+> As we transition to auto-updating, you can interpret manual queries in the `pvewhmcs_upgrade` function.
+> 
+> It is located in the /modules/addons/pvewhmcs/pvewhmcs.php file near-ish the top. Thank you.
+
 ## v1.2.10 to v1.2.12
 
 ```

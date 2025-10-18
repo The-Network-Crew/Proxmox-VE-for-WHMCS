@@ -36,7 +36,7 @@ function pvewhmcs_config() {
 	$configarray = array(
 		"name" => "Proxmox VE for WHMCS",
 		"description" => "Proxmox VE (Virtual Environment) & WHMCS, integrated & open-source! Provisioning & Management of VMs/CTs.".is_pvewhmcs_outdated(),
-		"version" => "1.2.16",
+		"version" => pvewhmcs_version(),
 		"author" => "The Network Crew Pty Ltd",
 		'language' => 'English'
 	);
@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.2.16";
+	return "1.2.17";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -90,6 +90,7 @@ function pvewhmcs_deactivate() {
 function pvewhmcs_upgrade($vars) {
 	// This function gets passed the old ver once post-update, hence lt check
 	$currentlyInstalledVersion = $vars['version'];
+
 	// SQL Operations for v1.2.9/10 version
 	if (version_compare($currentlyInstalledVersion, '1.2.10', 'lt')) {
 		$schema = Capsule::schema();
@@ -112,6 +113,7 @@ function pvewhmcs_upgrade($vars) {
 				->update(['vmid' => Capsule::raw('id')]);
 		}
 	}
+
 	// SQL Operations for v1.2.12 version
 	if (version_compare($currentlyInstalledVersion, '1.2.12', 'lt')) {
 		$schema = Capsule::schema();
@@ -122,6 +124,35 @@ function pvewhmcs_upgrade($vars) {
 				$table->integer('unpriv')->default(0)->after('balloon');
 			});
 		}
+	}
+
+	// SQL Operations for v1.2.17 version
+	if (version_compare($currentlyInstalledVersion, '1.2.17', 'lt')) {
+	    try {
+	        Capsule::schema()->table('mod_pvewhmcs_plans', function ($table) {
+	            $table->smallInteger('cpus')->unsigned()->nullable()->change();
+	            $table->smallInteger('cores')->unsigned()->nullable()->change();
+	            $table->integer('memory')->unsigned()->default(0)->change();
+	            $table->integer('swap')->unsigned()->nullable()->change();
+	            $table->integer('disk')->unsigned()->nullable()->change();
+	            $table->tinyInteger('vmbr')->unsigned()->nullable()->change();
+	            $table->integer('netrate')->default(0)->change();
+	            $table->integer('bw')->unsigned()->default(0)->change();
+	            $table->integer('vlanid')->nullable()->change();
+	            $table->integer('balloon')->default(0)->change();
+	            $table->tinyInteger('unpriv')->unsigned()->default(0)->change();
+	        });
+	    } catch (\Throwable $e) {
+	        // Debug logging (same style as ClientArea)
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					__FUNCTION__,
+					'Attempting v1.2.17 database upgrade failed.',
+					$e->getMessage()
+				);
+			}
+	    }
 	}
 }
 

@@ -5,15 +5,18 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
+## [1.2.17] - 2025-10-19 - _"VNC & Hyperscale!"_
+
 ### 💅 Polish
-- Max Memory: Ensure you can set more than 128GB (#167)
-- Max CPUs/Cores: Expand column to allow for 100+ (#167)
-- VNC Prepared: Green background with clearer wording
-- Check Status: Allow for client-driven status checks
+- Max Memory: Ensure you can set more than 128GB (#169)
+- Max CPUs/Cores: Expand column to allow for 100+ (#169)
+- VNC Prepared: Green background with clearer wording (#167)
+- Check Status: Allow for client-driven status checks (#168)
 
 ### 🐛 Bug Fix
 - noVNC: Delete PVEAuthCookie before setting it (#167)
-- noVNC: PVEAuthCookie is now set to be secure-only
+- noVNC: PVEAuthCookie is secure & samesite=None (#167)
+- SQL -> Plans: Expand several fields (future-proof) (#169)
 
 ## [1.2.16] - 2025-10-15 - _"Minor Adjustments"_
 
