@@ -17,7 +17,8 @@
 - Statistics/Graphing is available in the Client Area for services :)
 - Leverage the power of QEMU & LXC with PVE's convenience
 - Import existing VM/CT Guest from Proxmox into WHMCS
-- Specify PVE VMID start & integrate to your schema
+- Choose PVE VMID start & integrate to your schema
+- Supports 128GB+ RAM & 128+ CPU cores per Guest!
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
