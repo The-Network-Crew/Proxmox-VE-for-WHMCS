@@ -83,6 +83,9 @@
 			<td><strong>IPv4</strong> (Network)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
+			<td><strong>ipconfig</strong> (IPv4/v6)</td><td>NIC #0: {$vm_config['ipconfig0']}<br>NIC #1: {$vm_config['ipconfig1']}</td>
+		</tr>
+		<tr>
 			<td><strong>NIC</strong> (Interface #1)</td>
 			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
 		</tr>

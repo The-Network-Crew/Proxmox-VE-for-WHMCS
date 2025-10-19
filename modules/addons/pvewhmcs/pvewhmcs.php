@@ -1093,7 +1093,7 @@ function kvm_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
 	<option value="0">Off</option>
@@ -1409,7 +1409,7 @@ function kvm_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
 	<option value="0" '. ($plan->ipv6=="0" ? "selected" : "").'>Off</option>
@@ -1576,7 +1576,7 @@ function lxc_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
 	<option value="0">Off</option>
@@ -1721,7 +1721,7 @@ function lxc_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - IPv6 Conf.</td>
+	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
 	<option value="0" '. ($plan->ipv6=="0" ? "selected" : "").'>Off</option>
