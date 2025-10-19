@@ -93,6 +93,14 @@
 			<td><strong>NIC #1</strong> (IPv6)</td>
 			<td>{($vm_config['net1']|replace:',':'<br/>')}</td>
 		</tr>
+		<tr>
+			<td><strong>Config</strong> (Tweaks)</td>
+			<td><strong>On-boot</strong>: {$vm_config['onboot']}</td>
+		</tr>
+		<tr>
+			<td><strong>SSH Keys</strong> (Public)</td>
+			<td>{$vm_config['sshkeys']}</td>
+		</tr>
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
 	<h4>VM Statistics</h4>
