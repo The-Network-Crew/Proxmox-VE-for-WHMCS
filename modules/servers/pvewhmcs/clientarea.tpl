@@ -76,21 +76,21 @@
 			</td>
 		</tr>
 		<tr>
-			<td><strong>OS/etc</strong> (System)</td>
-			<td>Kernel:&nbsp;{$vm_config['ostype']}</td>
+			<td><strong>OS</strong> (System Kernel)</td>
+			<td><strong>{$vm_config['ostype']}</strong></td>
 		</tr>
 		<tr>
-			<td><strong>IPv4</strong> (Network)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
+			<td><strong>IPv4</strong> (Networking)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
 		</tr>
 		<tr>
-			<td><strong>ipconfig</strong> (IPv4/v6)</td><td>NIC #0: {$vm_config['ipconfig0']}<br>NIC #1: {$vm_config['ipconfig1']}</td>
+			<td><strong>ipconfig</strong> (IPv4/v6)</td><td><strong>NIC #0</strong>: {$vm_config['ipconfig0']}<br><strong>NIC #1</strong>: {$vm_config['ipconfig1']}</td>
 		</tr>
 		<tr>
-			<td><strong>NIC</strong> (Interface #1)</td>
+			<td><strong>NIC #0</strong> (IPv4)</td>
 			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
 		</tr>
 		<tr>
-			<td><strong>NIC</strong> (Interface #2)</td>
+			<td><strong>NIC #1</strong> (IPv6)</td>
 			<td>{($vm_config['net1']|replace:',':'<br/>')}</td>
 		</tr>
 	</table>
