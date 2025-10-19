@@ -76,8 +76,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td><strong>Boot</strong> (Order: 1st-last)</td>
-			<td>{$vm_config['boot']}</td>
+			<td><strong>Boot Order</strong> (1st > 2nd)</td>
+			<td>{($vm_config['boot']|replace:'order=':''|replace:';':' > ')}</td>
 		</tr>
 		<tr>
 			<td><strong>IPv4</strong> (Networking)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>

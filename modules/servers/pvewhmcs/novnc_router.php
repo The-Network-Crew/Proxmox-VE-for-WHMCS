@@ -71,7 +71,7 @@ setrawcookie('PVEAuthCookie', $pveticket, [
 // Build final noVNC URL
 // ---------------------------------------
 $hostname      = gethostbyaddr($host);
-$redirect_url  = '/modules/servers/pvewhmcs/novnc/vnc.html?autoconnect=true&encrypt=true'
+$redirect_url  = './novnc/vnc.html?autoconnect=true&encrypt=true'
                . '&host=' . $hostname
                . '&port=8006'
                . '&password=' . urlencode($vncticket)

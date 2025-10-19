@@ -8,7 +8,7 @@
     If you have proven and public git-logged experience, or similar, please say g'day.
     
     Please note: We are only looking for high-quality applicants with spare time.
-    As it stands, we won't have much spare dev time for this Module in 2025.
+    As it stands, we won't have much spare dev time for this Module in 2025/NY.
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in **Proxmox VE** from **WHMCS** easily
@@ -138,8 +138,6 @@ After forking the module, we considered how to improve security of Console Tunne
 > Do NOT set less restrictive permissions. The above is designed for interim security.
 > 
 > **However, if you wish for proper security: wait for VNC to be further improved.**
-> 
-> **Note**: Custom WHMCS install folders like /clients/ are not yet VNC-supported. #114
 
 <img alt="Client Area GUI showing the reply which links off to the VNC Console/Client" src="_images/zConsoleReady.png">
 
@@ -167,6 +165,8 @@ Once you have it configured, clicking noVNC in Client Area provides direct link 
 > 
 > Load noVNC with `logging=debug` added to the query string, ie. `vnc.html?logging=debug`<br>
 > _Or in Settings change Logging to debug-level, then open JS Console before reloading noVNC._
+> 
+> Typically, 401 No Ticket from PVE (1006 Connection Closed via noVNC) is due to cross-domain attempts being made, ie. WHMCS on domain1.com and PVE on domain2.com. You must use subdomains on the same Domain, with PTR, etc - else it won't work.
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 

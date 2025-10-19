@@ -5,7 +5,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
-## [1.2.18] - 2025-10-19 - _"Client Area detail"_
+## [1.2.18] - 2025-10-19 - _"Client Area detail" v2_
 
 ### 💅 Polish
 - Client Area: Polish the interface numbering, v4/v6
@@ -13,6 +13,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ### 🐛 Bug Fix
 - noVNC: Cookie remove 2; router tidy-up; tested OK (#167)
+- noVNC: Allow for custom WHMCS install subdirectory (#114)
 
 ## [1.2.17] - 2025-10-19 - _"VNC & Hyperscale!"_
 
