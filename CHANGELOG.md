@@ -6,8 +6,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ### 💅 Polish
-- Client Area: Polish the interface numbering
-- Client Area: Add ipconfig, onboot & sshkeys
+- Client Area: Polish the interface numbering, v4/v6
+- Client Area: Add boot, ipconfig, onboot & sshkeys
+
+### 🐛 Bug Fix
+- noVNC: Cleaner cookie removal; router tidy-up (#167)
 
 ## [1.2.17] - 2025-10-19 - _"VNC & Hyperscale!"_
 
