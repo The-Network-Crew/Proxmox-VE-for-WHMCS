@@ -76,8 +76,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td><strong>OS</strong> (System Kernel)</td>
-			<td><strong>{$vm_config['ostype']}</strong></td>
+			<td><strong>Boot</strong> (Order: 1st-last)</td>
+			<td>{$vm_config['boot']}</td>
 		</tr>
 		<tr>
 			<td><strong>IPv4</strong> (Networking)</td><td><strong>{$vm_config['ipv4']}</strong><br/>Mask:&nbsp;{$vm_config['netmask4']}<br/>Gateway:&nbsp;{$vm_config['gateway4']}</td>
@@ -95,11 +95,15 @@
 		</tr>
 		<tr>
 			<td><strong>Config</strong> (Tweaks)</td>
-			<td>on-boot: {$vm_config['onboot']}</td>
+			<td>on_boot: {$vm_config['onboot']}</td>
 		</tr>
 		<tr>
 			<td><strong>SSH Keys</strong> (Public)</td>
 			<td>{$vm_config['sshkeys']}</td>
+		</tr>
+		<tr>
+			<td><strong>OS</strong> (System Kernel)</td>
+			<td><strong>{$vm_config['ostype']}</strong></td>
 		</tr>
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
