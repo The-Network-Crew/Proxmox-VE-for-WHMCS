@@ -16,11 +16,13 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.17] - 2025-10-19 - _"VNC & Hyperscale!"_
 
+### 🚀 Feature
+- Check Status: Allow for client-driven status checks (#168)
+
 ### 💅 Polish
 - Max Memory: Ensure you can set more than 128GB (#169)
 - Max CPUs/Cores: Expand column to allow for 100+ (#169)
 - VNC Prepared: Green background with clearer wording (#167)
-- Check Status: Allow for client-driven status checks (#168)
 
 ### 🐛 Bug Fix
 - noVNC: Delete PVEAuthCookie before setting it (#167)
