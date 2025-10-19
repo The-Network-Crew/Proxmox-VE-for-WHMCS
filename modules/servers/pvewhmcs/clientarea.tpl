@@ -87,15 +87,15 @@
 		</tr>
 		<tr>
 			<td><strong>NIC #0</strong> (IPv4)</td>
-			<td>{($vm_config['net0']|replace:',':'<br/>')}</td>
+			<td>{($vm_config['net0']|replace:',':'<br/>'|replace:'=':': ')}</td>
 		</tr>
 		<tr>
 			<td><strong>NIC #1</strong> (IPv6)</td>
-			<td>{($vm_config['net1']|replace:',':'<br/>')}</td>
+			<td>{($vm_config['net1']|replace:',':'<br/>'|replace:'=':': ')}</td>
 		</tr>
 		<tr>
 			<td><strong>Config</strong> (Tweaks)</td>
-			<td><strong>On-boot</strong>: {$vm_config['onboot']}</td>
+			<td>on-boot: {$vm_config['onboot']}</td>
 		</tr>
 		<tr>
 			<td><strong>SSH Keys</strong> (Public)</td>
