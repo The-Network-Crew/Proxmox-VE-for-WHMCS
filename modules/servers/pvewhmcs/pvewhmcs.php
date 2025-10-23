@@ -883,7 +883,6 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 		"<i class='fa fa-2x fa-chart-bar'></i>  Statistics" => "vmStat",
 		"<i class='fa fa-2x fa-search'></i>  Check Status" => "vmCheck",
 		"<img src='./modules/servers/pvewhmcs/img/novnc.png'/> noVNC (HTML5)" => "noVNC",
-		"<img src='./modules/servers/pvewhmcs/img/tigervnc.png'/> TigerVNC (Java)" => "javaVNC",
 	);
 	return $buttonarray;
 }
@@ -1167,44 +1166,6 @@ function pvewhmcs_SPICE($params) {
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare SPICE. Please contact Technical Support.';
-		return $vncreply;
-	}
-}
-
-// VNC: Console access to VM/CT via TigerVNC
-function pvewhmcs_javaVNC($params){
-	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
-	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
-		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
-	}
-	// Get login credentials then make the Proxmox connection attempt.
-	$serverip = $params["serverip"];
-	$serverusername = 'vnc';
-	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
-	if ($proxmox->login()) {
-		// Get first node name
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		// Early prep work
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		$vncparams = array();
-		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', $vncparams) ;
-		// Java-specific params
-		$javaVNCparams = array() ;
-		$javaVNCparams[0] = $serverip ;
-		$javaVNCparams[1] = str_replace("\n","|",$vm_vncproxy['cert']) ;
-		$javaVNCparams[2] = $vm_vncproxy['port'] ;
-		$javaVNCparams[3] = $vm_vncproxy['user'] ;
-		$javaVNCparams[4] = $vm_vncproxy['ticket'] ;
-		// URL preparation to deliver in hyperlink message
-		$url = './modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'' ;
-		$vncreply = '<center style="background-color: green;"><strong>Console (TigerVNC) successfully prepared.<br><a href="'.$url.'" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch TigerVNC.</strong></center>' ;
-		// echo '<script>window.open("modules/servers/pvewhmcs/tigervnc.php?'.http_build_query($javaVNCparams).'","VNC","location=0,toolbar=0,menubar=0,scrollbars=1,resizable=1,width=802,height=624")</script>';
-		return $vncreply;
-	} else {
-		$vncreply = 'Failed to prepare TigerVNC. Please contact Technical Support.';
 		return $vncreply;
 	}
 }

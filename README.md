@@ -166,7 +166,7 @@ Once you have it configured, clicking noVNC in Client Area provides direct link 
 > Load noVNC with `logging=debug` added to the query string, ie. `vnc.html?logging=debug`<br>
 > _Or in Settings change Logging to debug-level, then open JS Console before reloading noVNC._
 > 
-> Typically, 401 No Ticket from PVE (1006 Connection Closed via noVNC) is due to cross-domain attempts being made, ie. WHMCS on domain1.com and PVE on domain2.com. You must use subdomains on the same Domain, with PTR, etc - else it won't work.
+> Typically, 401 No Ticket from PVE (1006 Connection Closed via noVNC) is due to cross-domain attempts being made, ie. WHMCS on domain1.com and PVE on domain2.com. You must use subdomains on the same Domain, with PTR, etc - else it won't work. **Please take the time to read this documentation.**
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -380,17 +380,14 @@ There are new features deployed into PVE upstream which are exciting and may be 
 | License | Dependency | In-use Ver. | Link to Repository, etc.|
 |---------|------------|-------------|-------------------------|
 | **(MIT)** | PHP Client for PVE2 API | **2022/Dec/05** | https://github.com/CpuID/pve2-api-php-client |
-| **(GPLv2)** | TigerVNC VncViewer.jar | **v1.15.0** | https://sourceforge.net/projects/tigervnc/files/stable/ |
 | **(MPLv2)** | noVNC HTML5 Viewer | **v1.6.0** | https://github.com/novnc/noVNC/ |
-| **(GPLv3)** | SPICE HTML5 Viewer | **v0.3** | https://gitlab.freedesktop.org/spice/spice-html5/ |
 | **(MIT)** | IPv4/SN Validation | **August 2012** | https://github.com/tapmodo/php-ipv4/ |
 
 # 📄 DIY: Documentation & Resources
 
 | Developer | Link to Documentation, etc. |
 |-----------|-----------------------------|
-| **(PVE API)** | https://pve.proxmox.com/pve-docs/api-viewer/ |
-| **(TigerVNC)** | https://github.com/TigerVNC/tigervnc/wiki |
+| **(PVE)** | https://pve.proxmox.com/pve-docs/api-viewer/ |
 | **(noVNC)** | https://github.com/novnc/noVNC/wiki |
 | **(WHMCS)** | https://developers.whmcs.com & https://classdocs.whmcs.com |
 | **(psABIs)** | https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |

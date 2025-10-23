@@ -5,6 +5,11 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
+## [1.2.19] - 2025-10-24 - _"Remove TigerVNC (Java)"_
+
+### 💅 Polish
+- Removed TigerVNC (Java): Retained HTML5 console
+
 ## [1.2.18] - 2025-10-19 - _"Client Area detail" v2_
 
 ### 💅 Polish
@@ -44,7 +49,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ### 💅 Polish
 - NIC #2: Split info (MAC, link status, etc) to multiple lines
-- SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/SSH Keys/etc
+- SQL Expansion: Prepare for Nodes/ISOs/TPLs/Logs/Keys/etc (#127)
 - Deactivation Keeps Data: No table drops on de-activate (#160)
 
 ### 🐛 Bug Fix
