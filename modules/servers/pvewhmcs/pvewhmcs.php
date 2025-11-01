@@ -136,6 +136,7 @@ function pvewhmcs_CreateAccount($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
 
 	// Prepare the service config array
 	$vm_settings = array();
@@ -151,7 +152,7 @@ function pvewhmcs_CreateAccount($params) {
 	////////////////////////
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		// KVM TEMPLATE - CREATION LOGIC
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword);
 		if ($proxmox->login()) {
 			// Get first node name.
 			$nodes = $proxmox->get_node_list();
@@ -368,7 +369,7 @@ function pvewhmcs_CreateAccount($params) {
 		// CREATION: Attempt to Create Guest via PVE2 API //
 		////////////////////////////////////////////////////
 		try {
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+			$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword);
 
 			if ($proxmox->login()) {
 				// Get first node name.
@@ -525,7 +526,8 @@ function pvewhmcs_TestConnection(array $params) {
 		$serverip = $params["serverip"];
 		$serverusername = $params["serverusername"];
 		$serverpassword = $params["serverpassword"];
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
+		$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword);
 
 		// Set success if login succeeded
 		if ($proxmox->login()) {
@@ -557,8 +559,9 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword);
 	if ($proxmox->login()) {
 		// Get first node name & prepare
 		$nodes = $proxmox->get_node_list();
@@ -594,8 +597,9 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword);
 	if ($proxmox->login()) {
 		// Get first node name & prepare
 		$nodes = $proxmox->get_node_list();
@@ -631,8 +635,9 @@ function pvewhmcs_TerminateAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword);
 	if ($proxmox->login()){
 		// Get first node name
 		$nodes = $proxmox->get_node_list();
@@ -862,6 +867,34 @@ function pvewhmcs_get_whmcs_server_password($enc_pass){
 	return $hasher->decrypt($enc_pass);
 }
 
+// HELPER: resolve username/realm with pam default (accepts explicit pam/pve realms)
+if (!function_exists('pvewhmcs_resolve_user_realm')) {
+	function pvewhmcs_resolve_user_realm($rawUsername) {
+		$defaultRealm = 'pam';
+		$username = trim((string) $rawUsername);
+		$realm = $defaultRealm;
+
+		if ($username === '') {
+			return array($username, $realm);
+		}
+
+		if (strpos($username, '@') !== false) {
+			list($userPart, $realmPart) = explode('@', $username, 2);
+
+			if ($userPart !== '') {
+				$username = $userPart;
+			}
+
+			$realmCandidate = strtolower(trim($realmPart));
+			if ($realmCandidate === 'pam' || $realmCandidate === 'pve') {
+				$realm = $realmCandidate;
+			}
+		}
+
+		return array($username, $realm);
+	}
+}
+
 // MODULE BUTTONS: Admin Interface button regos
 function pvewhmcs_AdminCustomButtonArray() {
 	$buttonarray = array(
@@ -904,8 +937,9 @@ function pvewhmcs_ClientArea($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		# Get first node name.
@@ -1182,7 +1216,8 @@ function pvewhmcs_vmStart($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -1224,7 +1259,8 @@ function pvewhmcs_vmReboot($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -1276,7 +1312,8 @@ function pvewhmcs_vmShutdown($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();
@@ -1319,7 +1356,8 @@ function pvewhmcs_vmStop($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
+	$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword['password']);
 	if ($proxmox->login()) {
 		# Get first node name.
 		$nodes = $proxmox->get_node_list();

@@ -174,6 +174,34 @@ function get_pvewhmcs_latest_version(){
 	return str_replace("\n", "", $result);
 }
 
+// HELPER: resolve username/realm with pam default (accepts explicit pam/pve realms)
+if (!function_exists('pvewhmcs_resolve_user_realm')) {
+	function pvewhmcs_resolve_user_realm($rawUsername) {
+		$defaultRealm = 'pam';
+		$username = trim((string) $rawUsername);
+		$realm = $defaultRealm;
+
+		if ($username === '') {
+			return array($username, $realm);
+		}
+
+		if (strpos($username, '@') !== false) {
+			list($userPart, $realmPart) = explode('@', $username, 2);
+
+			if ($userPart !== '') {
+				$username = $userPart;
+			}
+
+			$realmCandidate = strtolower(trim($realmPart));
+			if ($realmCandidate === 'pam' || $realmCandidate === 'pve') {
+				$realm = $realmCandidate;
+			}
+		}
+
+		return array($username, $realm);
+	}
+}
+
 // ADMIN MODULE GUI: output (HTML etc)
 function pvewhmcs_output($vars) {
 	$modulelink = $vars['modulelink'];
@@ -262,7 +290,8 @@ function pvewhmcs_output($vars) {
 			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
 
 			// Login + get cluster/resources
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($serverusername);
+			$proxmox = new PVE2_API($serverip, $apiUsername, $apiRealm, $serverpassword['password']);
 			if (!$proxmox->login()) {
 				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'. Check credentials / connectivity.</div>';
 				continue;
@@ -605,7 +634,8 @@ function pvewhmcs_output($vars) {
 	            throw new Exception('Could not decrypt Proxmox server password.');
 	        }
 
-	        $proxmox = new PVE2_API($srv->ipaddress, $srv->username, 'pam', $serverpassword);
+	        list($apiUsername, $apiRealm) = pvewhmcs_resolve_user_realm($srv->username);
+	        $proxmox = new PVE2_API($srv->ipaddress, $apiUsername, $apiRealm, $serverpassword);
 	        if (!$proxmox->login()) {
 	            throw new Exception('Login to Proxmox API failed.');
 	        }
