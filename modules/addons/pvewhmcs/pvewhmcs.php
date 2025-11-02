@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.2.19";
+	return "1.2.20";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -153,6 +153,17 @@ function pvewhmcs_upgrade($vars) {
 				);
 			}
 	    }
+	}
+
+	// SQL Operations for v1.2.20 version
+	if (version_compare($currentlyInstalledVersion, '1.2.20', 'lt')) {
+		$schema = Capsule::schema();
+
+		if (!$schema->hasColumn('mod_pvewhmcs_ip_addresses', 'mac')) {
+			$schema->table('mod_pvewhmcs_ip_addresses', function ($table) {
+				$table->string('mac', 17)->nullable()->after('mask');
+			});
+		}
 	}
 }
 
@@ -2003,6 +2014,7 @@ function removeIpPool($id) {
 // IP POOL FORM ACTION: Add IP to Pool
 function add_ip_2_pool() {
 	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
+	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Mac.php');
 	echo '<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
@@ -2023,10 +2035,27 @@ function add_ip_2_pool() {
 	IPv4 prefix with CIDR e.g. 172.16.255.230/27, or for single /32 address don\'t use CIDR
 	</td>
 	</tr>
+	<tr>
+	<td class="fieldlabel">MAC Address (optional)</td>
+	<td class="fieldarea">
+	<input type="text" name="macaddress"/>
+	Leave blank to allow Proxmox to assign the MAC address automatically.
+	</td>
+	</tr>
 	</table>
 	<input type="submit" name="assignIP2pool" value="Add"/>
 	</form>';
 	if (isset($_POST['assignIP2pool'])) {
+		$macAddress = null;
+		if (!empty($_POST['macaddress'])) {
+			try {
+				$macCandidate = Ipv4_Mac::fromString($_POST['macaddress']);
+				$macAddress = $macCandidate->toString();
+			} catch (\Exception $e) {
+				echo '<div class="errorbox">Invalid MAC address format. Supported examples: AA:BB:CC:DD:EE:FF, aa:bb:cc:dd:ee:ff, AA-BB-CC-DD-EE-FF, aa-bb-cc-dd-ee-ff, AABB.CCDD.EEFF, aabb.ccdd.eeff, AABBCCDDEEFF, aabbccddeeff, 0xAABBCCDDEEFF, 0xaabbccddeeff.</div>';
+				return;
+			}
+		}
 			// check if single IP address
 		if ((strpos($_POST['ipblock'],'/'))!=false) {
 			$subnet=Ipv4_Subnet::fromString($_POST['ipblock']);
@@ -2038,6 +2067,7 @@ function add_ip_2_pool() {
 							'pool_id' => $_POST['pool_id'],
 							'ipaddress' => $ip,
 							'mask' => $subnet->getNetmask(),
+							'mac' => null,
 						]
 					);
 				}
@@ -2050,6 +2080,7 @@ function add_ip_2_pool() {
 						'pool_id' => $_POST['pool_id'],
 						'ipaddress' => $_POST['ipblock'],
 						'mask' => '255.255.255.255',
+						'mac' => $macAddress,
 					]
 				);
 			}
@@ -2064,9 +2095,9 @@ function add_ip_2_pool() {
 function list_ips() {
 		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
 		//echo '<div id="dialog">' ;
-	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
+	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>MAC Address</th><th>Action</th></tr>' ;
 	foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
-		echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>';
+		echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>'.($ip->mac ?: '-').'</td><td>';
 		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
 			echo 'is in use' ;
 		else

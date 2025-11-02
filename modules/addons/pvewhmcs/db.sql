@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_ip_addresses` (
   `pool_id` int(11) NOT NULL DEFAULT 0,
   `ipaddress` varchar(255) NOT NULL DEFAULT '0',
   `mask` varchar(255) NOT NULL DEFAULT '0',
+  `mac` varchar(17) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `ipaddress` (`ipaddress`)
 );
