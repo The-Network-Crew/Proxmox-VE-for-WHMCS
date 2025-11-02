@@ -337,7 +337,7 @@ function pvewhmcs_CreateAccount($params) {
 			if ($plan->netmode != 'none') {
 				$vm_settings['net0'] = $plan->netmodel;
 				if (!empty($ip->mac)) {
-					$vm_settings['net0'] .= ',hwaddr=' . $ip->mac;
+					$vm_settings['net0'] .= ',macaddr=' . $ip->mac;
 				}
 				if ($plan->netmode == 'bridge') {
 					$vm_settings['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
