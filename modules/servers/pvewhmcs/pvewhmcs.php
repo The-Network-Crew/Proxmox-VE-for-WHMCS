@@ -994,28 +994,28 @@ function pvewhmcs_ClientArea($params) {
 		$vm_statistics['cpu']['day'] = base64_encode($vm_rrd['image']);
 
 		// Max memory Yearly
-		$rrd_params = '?timeframe=year&ds=maxmem&cf=AVERAGE';
+		$rrd_params = '?timeframe=year&ds=mem&cf=AVERAGE';
 		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
 		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['year'] = base64_encode($vm_rrd['image']);
+		$vm_statistics['mem']['year'] = base64_encode($vm_rrd['image']);
 
 		// Max memory monthly
-		$rrd_params = '?timeframe=month&ds=maxmem&cf=AVERAGE';
+		$rrd_params = '?timeframe=month&ds=mem&cf=AVERAGE';
 		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
 		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['month'] = base64_encode($vm_rrd['image']);
+		$vm_statistics['mem']['month'] = base64_encode($vm_rrd['image']);
 
 		// Max memory weekly
-		$rrd_params = '?timeframe=week&ds=maxmem&cf=AVERAGE';
+		$rrd_params = '?timeframe=week&ds=mem&cf=AVERAGE';
 		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
 		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['week'] = base64_encode($vm_rrd['image']);
+		$vm_statistics['mem']['week'] = base64_encode($vm_rrd['image']);
 
 		// Max memory daily
-		$rrd_params = '?timeframe=day&ds=maxmem&cf=AVERAGE';
+		$rrd_params = '?timeframe=day&ds=mem&cf=AVERAGE';
 		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
 		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['maxmem']['day'] = base64_encode($vm_rrd['image']);
+		$vm_statistics['mem']['day'] = base64_encode($vm_rrd['image']);
 
 		// Network rate Yearly
 		$rrd_params = '?timeframe=year&ds=netin,netout&cf=AVERAGE';

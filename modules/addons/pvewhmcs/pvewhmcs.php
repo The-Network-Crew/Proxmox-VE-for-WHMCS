@@ -312,9 +312,9 @@ function pvewhmcs_output($vars) {
 				</tr>';
 
 			foreach ($nodes as $n) {
-				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 2) : 0;
-				$n_mem_pct = (isset($n['maxmem']) && $n['maxmem'] > 0)
-					? intval(($n['mem'] ?? 0) * 100 / $n['maxmem'])
+				$n_cpu_pct = isset($n['maxcpu']) ? round($n['maxcpu'] * 100, 2) : 0;
+				$n_mem_pct = (isset($n['meminfo']['memused']) && $n['meminfo']['memused'] > 0)
+					? intval(($n['meminfo']['memused'] ?? 0) * 100 / $n['meminfo']['memtotal'])
 					: 0;
 				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
 				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';

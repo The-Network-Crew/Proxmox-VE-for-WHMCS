@@ -3,6 +3,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
 ## [1.3.x] - TBC 2026-??-??
 
+### 🐛 Bug Fix
+- RRD Schema Update: Adjustments to Client/Admin Areas (#162)
+
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.19] - 2025-10-24 - _"Remove TigerVNC (Java)"_
