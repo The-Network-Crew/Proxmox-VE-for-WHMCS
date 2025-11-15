@@ -141,7 +141,7 @@ function pvewhmcs_CreateAccount($params) {
 	$vm_settings = array();
 
 	// Select an IP Address from Pool
-	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
+	$ip = Capsule::select('select ipaddress,mask,mac,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
 
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
@@ -257,6 +257,9 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['bwlimit'] = $plan->diskio;
 			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
 			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
+			if (!empty($ip->mac)) {
+				$vm_settings['net0'] .= ',hwaddr=' . $ip->mac;
+			}
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				// Standard prep for the 2nd int.
 				$vm_settings['net1'] = 'name=eth1,bridge=' . $plan->bridge . $plan->vmbr . ',rate=' . $plan->netrate;
@@ -333,6 +336,9 @@ function pvewhmcs_CreateAccount($params) {
 			// NET: Config specifics for guest networking
 			if ($plan->netmode != 'none') {
 				$vm_settings['net0'] = $plan->netmodel;
+				if (!empty($ip->mac)) {
+					$vm_settings['net0'] .= ',macaddr=' . $ip->mac;
+				}
 				if ($plan->netmode == 'bridge') {
 					$vm_settings['net0'] .= ',bridge=' . $plan->bridge . $plan->vmbr;
 				}
