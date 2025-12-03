@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.2.19";
+	return "1.3.0";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -250,14 +250,57 @@ function pvewhmcs_output($vars) {
 	<ul class="nav nav-tabs admin-tabs">
 	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#nodes">Nodes</a></li>
 	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#guests">Guests</a></li>
-	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#plans">Plans: VM & CT</a></li>
-	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
+	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#plans">Plans</a></li>
+	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#ippools">IPv4</a></li>
 	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
 	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#support">Support</a></li>
 	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#config">Config</a></li>
 	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" data-toggle="tab" role="tab" href="#logs">Logs</a></li>
 	</ul>
 	</div>
+	<style>
+	.pve-table {
+		width: 100%;
+		border-collapse: separate;
+		border-spacing: 0;
+		background: #fff;
+		font-size: 13px;
+	}
+	.pve-table thead th {
+		background: #f8f8f8;
+		color: #333;
+		font-weight: 600;
+		padding: 12px 15px;
+		text-align: left;
+		border-bottom: 2px solid #e0e0e0;
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+	.pve-table tbody tr {
+		transition: background 0.15s ease;
+	}
+	.pve-table tbody tr:hover {
+		background: #faf8fc;
+	}
+	.pve-table tbody tr:not(:last-child) td {
+		border-bottom: 1px solid #eee;
+	}
+	.pve-table tbody td {
+		padding: 10px 15px;
+		color: #333;
+		vertical-align: middle;
+	}
+	.pve-table code {
+		background: #f4f0f7;
+		padding: 2px 8px;
+		border-radius: 3px;
+		font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+		font-size: 12px;
+		color: #5c3d7a;
+		font-weight: 600;
+	}
+	</style>
 	<div class="tab-content admin-tabs">';
 
 	// Handle form submissions for saving or updating plans
@@ -484,11 +527,11 @@ function pvewhmcs_output($vars) {
 			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
 			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ddd;">('.count($guests).' guests: '.$running_count.' running, '.$stopped_count.' stopped)</small></h3>';
 			echo '</div>';
-			echo '<div class="panel-body" style="padding:0;">';
+			echo '<div class="panel-body" style="padding:0;padding-top:8px;">';
 
 			if (count($guests) > 0) {
-				echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
-				echo '<tbody><tr>
+				echo '<table class="pve-table">';
+				echo '<thead><tr>
 						<th>VMID</th>
 						<th>Name</th>
 						<th>Status</th>
@@ -498,7 +541,7 @@ function pvewhmcs_output($vars) {
 						<th>RAM %</th>
 						<th>Disk %</th>
 						<th>Uptime</th>
-					</tr>';
+					</tr></thead><tbody>';
 
 				foreach ($guests as $g) {
 					$g_node   = $g['node']  ?? '—';
@@ -519,8 +562,8 @@ function pvewhmcs_output($vars) {
 					$status_color = ($g_status === 'running') ? '#5cb85c' : '#999';
 
 					echo '<tr>';
-					echo '<td><strong>'.$g_vmid.'</strong></td>';
-					echo '<td><i class="fa '.$type_icon.'" style="color:#666;"></i> '.htmlspecialchars($g_name).'</td>';
+					echo '<td><code>'.$g_vmid.'</code></td>';
+					echo '<td><i class="fa '.$type_icon.'" style="color:#666;"></i> <strong>'.htmlspecialchars($g_name).'</strong></td>';
 					echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:'.$status_color.';color:#fff;font-size:10px;text-transform:uppercase;">'.htmlspecialchars($g_status).'</span></td>';
 					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">'.htmlspecialchars($g_type).'</span></td>';
 					echo '<td>'.htmlspecialchars($g_node).'</td>';
@@ -689,58 +732,109 @@ function pvewhmcs_output($vars) {
 	// ACTIONS tab in ADMIN GUI
 	echo '<div id="actions" class="tab-pane '.($_GET['tab']=="actions" ? "active" : "").'" >' ;
 	echo ('<strong><h2>Module: Action History</h2></strong>');
-	echo ('Coming in v1.3.x');
+	echo ('Coming soon!<br><br>');
 	echo ('<strong><h2>Module: Failed Actions</h2></strong>');
-	echo ('Coming in v1.3.x<br><br><strong><a href=\'https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones\' target=\'_blank\'>View the milestones/versions on GitHub</a></strong>');
+	echo ('Coming soon!<br><br>');
 	echo '</div>';
 
 	// SUPPORT tab in ADMIN GUI
-	echo ('<div id="support" class="tab-pane '.($_GET['tab']=="support" ? "active" : "").'" >') ;
-	echo ('<strong><h2>System Environment</h2></strong><b>Proxmox VE for WHMCS</b> v' . pvewhmcs_version() . ' (GitHub reports latest as <b>v' . get_pvewhmcs_latest_version() . '</b>)' . '<br><b>PHP</b> v' . phpversion() . ' running on <b>' . $_SERVER['SERVER_SOFTWARE'] . '</b> Web Server (' . $_SERVER['SERVER_NAME'] . ')<br><br>');
-	echo ('<b>❤️ PVEWHMCS is open-source and free to use & improve on!</b><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br><br>');
-	echo ('<b style="color:darkgreen;">Your 5-star review on WHMCS Marketplace will help the module grow!</b><br>*****: <a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank">https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs</a><br><br>');
-	echo ('<strong><h2>Issues: Common Causes</h2></strong>1. Save your Package (Plan/Pool)! (configproducts.php?action=edit&id=...#tab=3)<br>2. Where possible, we pass-through the exact error to WHMCS Admin. Check it for info!<br><br>');
-	echo ('<strong><h2>Module Technical Support</h2></strong>Our README contains a wealth of information:<br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/</a><br>Please only raise an <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose" target="_blank"><u>Issue</u></a> on GitHub - inc. logs - if you\'ve properly tried.<br><br><b>Help is not guaranteed (FOSS). We will need your assistance.</b> Thank you!<br><br>');
+	echo '<div id="support" class="tab-pane '.($_GET['tab']=="support" ? "active" : "").'" >';
+	echo '
+	<div style="max-width:800px;">
+		<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;margin-bottom:20px;">
+			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> System Environment</h3>
+			<table style="width:100%;font-size:14px;">
+				<tr><td style="padding:6px 0;width:180px;color:#666;">Module Version</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . pvewhmcs_version() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;">Latest Available</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . get_pvewhmcs_latest_version() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;">Web Server</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_SOFTWARE']) . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;">PHP Version</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . phpversion() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;">Server Name</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_NAME']) . '</code></td></tr>
+			</table>
+		</div>
+		
+		<div style="background:#faf8fc;border:1px solid #e0d4e8;border-radius:8px;padding:25px;margin-bottom:20px;">
+			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9829;</span> Open Source</h3>
+			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#333;">PVEWHMCS is open-source and free to use &amp; improve on!</p>
+			<p style="margin:0;">
+				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;">&#10132; GitHub Repository</a>
+			</p>
+		</div>
+		
+		<div style="background:#f8fff8;border:1px solid #c3e6c3;border-radius:8px;padding:25px;margin-bottom:20px;">
+			<h3 style="margin:0 0 15px 0;color:#2d7a2d;font-weight:600;"><span style="font-size:24px;">&#9733;</span> Leave a Review</h3>
+			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;color:#333;">Your 5-star review on WHMCS Marketplace helps the module grow!</p>
+			<p style="margin:0;">
+				<a href="https://marketplace.whmcs.com/product/6935-proxmox-ve-for-whmcs" target="_blank" style="color:#2d7a2d;">&#9733;&#9733;&#9733;&#9733;&#9733; Rate on WHMCS Marketplace</a>
+			</p>
+		</div>
+		
+		<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;">
+			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> Technical Support</h3>
+			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;">Our README contains a wealth of information. Please review it before raising issues.</p>
+			<p style="margin:0 0 15px 0;">
+				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;">&#10132; View Documentation</a>
+			</p>
+			<p style="margin:0 0 12px 0;font-size:14px;line-height:1.6;">Only raise a GitHub Issue &mdash; including logs &mdash; if you have properly tried to resolve it first.</p>
+			<p style="margin:0 0 15px 0;">
+				<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/new/choose" target="_blank" style="color:#5c3d7a;">&#10132; Open an Issue</a>
+			</p>
+			<p style="margin:0;padding:12px;background:#fff8f0;border-radius:6px;font-size:13px;color:#856404;border:1px solid #ffc107;">&#9888; Help is not guaranteed (FOSS). We will need your assistance to troubleshoot.</p>
+		</div>
+	</div>';
 	echo '</div>';
 
 	// Config Tab
 	$config= Capsule::table('mod_pvewhmcs')->where('id', '=', '1')->get()[0];
 	echo '<div id="config" class="tab-pane '.($_GET['tab']=="config" ? "active" : "").'" >' ;
 	echo '
+	<div style="max-width:800px;">
+	<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;">
+	<h3 style="margin:0 0 20px 0;color:#5c3d7a;font-weight:600;">&#9881; Module Configuration</h3>
 	<form method="post">
-	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
+	<table style="width:100%;border-collapse:collapse;">
 	<tr>
-	<td class="fieldlabel">VNC Secret</td>
-	<td class="fieldarea">
-	<input type="text" size="35" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'"> Password of "vnc"@"pve" user. Mandatory for VNC proxying. (See the <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank">README</a> for more info)
-	</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;width:160px;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">VNC Secret</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
+		</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">VMID Start</td>
-	<td class="fieldarea">
-	<input type="text" size="35" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'"> Starting VMID (PVE). Default is 100. (Module will increment this until vacant VMID is found)
-	</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">VMID Start</label>
+		</td>
+		<td style="padding:15px 0;border-bottom:1px solid #eee;">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">For Guests. Increments until a vacant VMID found. Default is <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">100</code></p>
+		</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Debug?</td>
-	<td class="fieldarea">
-	<label class="checkbox-inline">
-	<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").'> Whether or not you want Debug Logging enabled - must also enable WHMCS Module Log (WHMCS Debug) & then view <u><a href="/admin/index.php?rp=/admin/logs/module-log">at this link here.</a></u>
-	</label>
-	</td>
+		<td style="padding:15px 0;vertical-align:top;">
+			<label style="font-weight:600;color:#333;">Debug Mode</label>
+		</td>
+		<td style="padding:15px 0;">
+			<label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+				<input type="checkbox" name="debug_mode" value="1" '. ($config->debug_mode=="1" ? "checked" : "").' style="width:18px;height:18px;">
+				<span style="font-size:14px;color:#333;">Enable Debug Logging</span>
+			</label>
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Must also enable WHMCS Module Log. <a href="/admin/index.php?rp=/admin/logs/module-log" style="color:#5c3d7a;"><u>View Module Logs</u></a></p>
+		</td>
 	</tr>
 	</table>
-	<div class="btn-container">
-	<input type="submit" class="btn btn-primary" value="Save Changes" name="save_config" id="save_config">
-	<input type="reset" class="btn btn-default" value="Cancel Changes">
+	<div style="margin-top:25px;padding-top:20px;border-top:1px solid #eee;">
+		<input type="submit" style="background:#5c3d7a;color:#fff;border:none;padding:10px 24px;border-radius:4px;font-size:14px;font-weight:500;cursor:pointer;margin-right:10px;" value="Save Changes" name="save_config" id="save_config">
+		<input type="reset" style="background:#f5f5f5;color:#333;border:1px solid #ddd;padding:10px 24px;border-radius:4px;font-size:14px;font-weight:500;cursor:pointer;" value="Cancel">
 	</div>
 	</form>
+	</div>
+	</div>
 	';
 	echo '</div>';
 
 	// LOGS tab in ADMIN GUI
 	echo '<div id="logs" class="tab-pane ' . (isset($_GET['tab']) && $_GET['tab'] === 'logs' ? 'active' : '') . '">';
-	echo '<strong><h2>Cluster History</h2></strong>';
 
 	try {
 	    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
@@ -784,8 +878,8 @@ function pvewhmcs_output($vars) {
 	            return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
 	        });
 
-	        echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
-	        echo '<tbody><tr>
+	        echo '<table class="pve-table">';
+	        echo '<thead><tr>
 	                <th>Task</th>
 	                <th>VMID</th>
 	                <th>Status</th>
@@ -794,7 +888,7 @@ function pvewhmcs_output($vars) {
 	                <th>Duration</th>
 	                <th>Start</th>
 	                <th>End</th>
-	              </tr>';
+	              </tr></thead><tbody>';
 
 	        foreach ($tasks as $t) {
 	            $node   = $t['node'] ?? '—';
@@ -834,10 +928,10 @@ function pvewhmcs_output($vars) {
 	                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
 
 	            echo '<tr>';
-	            echo '<td><strong>' . htmlspecialchars($type) . '</strong></td>';
-	            echo '<td>' . htmlspecialchars($vmid) . '</td>';
+	            echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
+	            echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
 	            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
-	            echo '<td><strong>' . htmlspecialchars($node) . '</strong></td>';
+	            echo '<td>' . htmlspecialchars($node) . '</td>';
 	            echo '<td>' . htmlspecialchars($user) . '</td>';
 	            echo '<td>' . htmlspecialchars($durH) . '</td>';
 	            echo '<td>' . htmlspecialchars($start) . '</td>';

@@ -22,13 +22,17 @@
 
 https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
-**Client Area GUI - Landing:**
+**Client Area GUI - w/ Stats:**
 
-<img alt="Client Area GUI showing management of a powered-on VM" src="_images/zVMclientGUI.png">
+<img alt="Client Area GUI showing management of a powered-on Guest, after the Statistics action has been clicked resulting in the graphs at the bottom." src="_images/zVMclientGUI.png">
 
-**Admin Area GUI - Landing:**
+**Admin Area GUI - PVE Nodes:**
 
-<img alt="Admin Area GUI for the Module, showing the Nodes & Guests" src="_images/zClusterGuests.png">
+<img alt="Admin Area GUI for the Module, showing the Nodes tab that you land on upon opening the Module." src="_images/zClusterNodes.png">
+
+**Admin Area GUI - Guests:**
+
+<img alt="Admin Area GUI for the Module, showing the Guests tab which lists and details Virtual Machines and Containers." src="_images/zClusterGuests.png">
 
 # ❤️ RTFM: Read the Manual & Review the Module!
 

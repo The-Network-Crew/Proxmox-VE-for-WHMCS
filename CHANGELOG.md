@@ -1,12 +1,17 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.3.x] - TBC 2026-??-??
+## [1.3.0] - 2025-12-03 - _"RRD: Clients & Admins"_
+
+### 🚀 Feature
+- Nodes RRD: View CPU/RAM/Network/Disk graphs in Admin Area
+
+### 💅 Polish
+- Admin Area: Overhaul Nodes, Guests, Support, Config & Logs tabs
+- Client Area: Overhaul Graphs, Specs Table, and Statistics display
 
 ### 🐛 Bug Fix
 - RRD Schema Update: Adjustments to Client/Admin Areas (#162)
-
-https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/milestones
 
 ## [1.2.19] - 2025-10-24 - _"Remove TigerVNC (Java)"_
 
