@@ -887,6 +887,63 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 	return $buttonarray;
 }
 
+/**
+ * Fetch RRD statistics from Proxmox with graceful error handling.
+ * 
+ * Proxmox RRD schema changed in PVE 9 from pve2-{type} to pve-{type}-9.0.
+ * The ds parameter names (cpu, mem, netin, netout, diskread, diskwrite) remain valid
+ * across both old and new schemas - verified in pve-cluster/src/pmxcfs/status.c.
+ * 
+ * RRD data may be unavailable when:
+ *   - VM/CT was just created (RRD takes ~60s to populate)
+ *   - RRD schema migration is incomplete on the PVE host
+ *   - RRD files are corrupted or missing
+ * 
+ * Refs:
+ *   - Issue #162: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/162
+ *   - PVE RRD schema: https://github.com/proxmox/pve-cluster/blob/master/src/pmxcfs/status.c
+ *   - Schema change: https://www.mail-archive.com/pve-devel@lists.proxmox.com/msg28317.html
+ * 
+ * @param PVE2_API $proxmox    The Proxmox API client instance
+ * @param string   $node       The Proxmox node name
+ * @param string   $vtype      Guest type: 'qemu' or 'lxc'
+ * @param int      $vmid       The VM/CT ID
+ * @param string   $timeframe  RRD timeframe: 'day', 'week', 'month', 'year'
+ * @param string   $ds         Data source(s): 'cpu', 'mem', 'netin,netout', 'diskread,diskwrite'
+ * @return string|null         Base64-encoded PNG image, or null if unavailable
+ */
+function pvewhmcs_fetch_rrd_stat($proxmox, $node, $vtype, $vmid, $timeframe, $ds) {
+	// Build the API path and query params for RRD image
+	$rrd_path = '/nodes/' . $node . '/' . $vtype . '/' . $vmid . '/rrd';
+	$rrd_params = '?timeframe=' . $timeframe . '&ds=' . $ds . '&cf=AVERAGE';
+	
+	try {
+		// Attempt to fetch RRD graph image from PVE API
+		$vm_rrd = $proxmox->get($rrd_path . $rrd_params);
+		
+		// Check if we got a valid response with image data
+		if (isset($vm_rrd['image']) && !empty($vm_rrd['image'])) {
+			// Decode and re-encode the image data for template use
+			$image = utf8_decode($vm_rrd['image']);
+			return base64_encode($image);
+		}
+	} catch (Exception $e) {
+		// RRD data unavailable - this is normal for new VMs or during migration.
+		// Log if debug mode is on, but don't crash the Client Area.
+		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			logModuleCall(
+				'pvewhmcs',
+				'pvewhmcs_fetch_rrd_stat',
+				'RRD fetch failed for ' . $vtype . '/' . $vmid . ' (' . $ds . ', ' . $timeframe . ')',
+				$e->getMessage()
+			);
+		}
+	}
+	
+	// Return null when RRD data is unavailable
+	return null;
+}
+
 // OUTPUT: Module output to the Client Area
 function pvewhmcs_ClientArea($params) {
 	// Retrieve virtual machine info from table mod_pvewhmcs_vms
@@ -969,103 +1026,35 @@ function pvewhmcs_ClientArea($params) {
 			echo "VM/CT not found in Cluster Resources.";
 		}
 
-		// Max CPU usage Yearly
-		$rrd_params = '?timeframe=year&ds=cpu&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid . '/rrd' . $rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['year'] = base64_encode($vm_rrd['image']);
+		// ----------------------------------------------------------------
+		// Fetch RRD statistics graphs from Proxmox.
+		// Uses pvewhmcs_fetch_rrd_stat() for graceful error handling.
+		// RRD data may be unavailable for new VMs or during PVE migration.
+		// ----------------------------------------------------------------
 
-		// Max CPU usage monthly
-		$rrd_params = '?timeframe=month&ds=cpu&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['month'] = base64_encode($vm_rrd['image']);
+		// CPU usage statistics (day/week/month/year)
+		$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
+		$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
+		$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
+		$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
 
-		// Max CPU usage weekly
-		$rrd_params = '?timeframe=week&ds=cpu&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['week'] = base64_encode($vm_rrd['image']);
+		// Memory usage statistics (day/week/month/year)
+		$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'mem');
+		$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'mem');
+		$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'mem');
+		$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'mem');
 
-		// Max CPU usage daily
-		$rrd_params = '?timeframe=day&ds=cpu&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['cpu']['day'] = base64_encode($vm_rrd['image']);
+		// Network I/O statistics (day/week/month/year)
+		$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
+		$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
+		$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
+		$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
 
-		// Max memory Yearly
-		$rrd_params = '?timeframe=year&ds=mem&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['mem']['year'] = base64_encode($vm_rrd['image']);
-
-		// Max memory monthly
-		$rrd_params = '?timeframe=month&ds=mem&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['mem']['month'] = base64_encode($vm_rrd['image']);
-
-		// Max memory weekly
-		$rrd_params = '?timeframe=week&ds=mem&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['mem']['week'] = base64_encode($vm_rrd['image']);
-
-		// Max memory daily
-		$rrd_params = '?timeframe=day&ds=mem&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['mem']['day'] = base64_encode($vm_rrd['image']);
-
-		// Network rate Yearly
-		$rrd_params = '?timeframe=year&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['year'] = base64_encode($vm_rrd['image']);
-
-		// Network rate monthly
-		$rrd_params = '?timeframe=month&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['month'] = base64_encode($vm_rrd['image']);
-
-		// Network rate weekly
-		$rrd_params = '?timeframe=week&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['week'] = base64_encode($vm_rrd['image']);
-
-		// Network rate daily
-		$rrd_params = '?timeframe=day&ds=netin,netout&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['netinout']['day'] = base64_encode($vm_rrd['image']);
-
-		// Max IO Yearly
-		$rrd_params = '?timeframe=year&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['year'] = base64_encode($vm_rrd['image']);
-
-		// Max IO monthly
-		$rrd_params = '?timeframe=month&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['month'] = base64_encode($vm_rrd['image']);
-
-		// Max IO weekly
-		$rrd_params = '?timeframe=week&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['week'] = base64_encode($vm_rrd['image']);
-
-		// Max IO daily
-		$rrd_params = '?timeframe=day&ds=diskread,diskwrite&cf=AVERAGE';
-		$vm_rrd = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/rrd'.$rrd_params) ;
-		$vm_rrd['image'] = utf8_decode($vm_rrd['image']) ;
-		$vm_statistics['diskrw']['day'] = base64_encode($vm_rrd['image']);
-
-		unset($vm_rrd) ;
+		// Disk I/O statistics (day/week/month/year)
+		$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
 
 		$vm_config['vtype'] = $guest->vtype ;
 		$vm_config['ipv4'] = $guest->ipaddress ;

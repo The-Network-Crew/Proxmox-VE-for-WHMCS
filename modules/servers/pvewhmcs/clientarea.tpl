@@ -108,6 +108,7 @@
 	</table>
 	{if ($smarty.get.a eq 'vmStat')}
 	<h4>VM Statistics</h4>
+	{if $vm_statistics['cpu']['day']}
 	<ul class="nav nav-tabs client-tabs" role="tab-list">
 		<li class="active"><a id="dailytab" data-toggle="tab" role="tab" href="#dailystat">Daily</a></li>
 		<li><a id="dailytab" data-toggle="tab" role="tab" href="#weeklystat">Weekly</a></li>
@@ -117,29 +118,32 @@
 	<div class="tab-content admin-tabs">
 		<div id="dailystat" class="tab-pane active">
 			<img src="data:image/png;base64,{$vm_statistics['cpu']['day']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['day']}"/>
+			<img src="data:image/png;base64,{$vm_statistics['mem']['day']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['netinout']['day']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['diskrw']['day']}"/>
 		</div>
 		<div id="weeklystat" class="tab-pane">
 			<img src="data:image/png;base64,{$vm_statistics['cpu']['week']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['week']}"/>
+			<img src="data:image/png;base64,{$vm_statistics['mem']['week']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['netinout']['week']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['diskrw']['week']}"/>
 		</div>
 		<div id="monthlystat" class="tab-pane">
 			<img src="data:image/png;base64,{$vm_statistics['cpu']['month']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['month']}"/>
+			<img src="data:image/png;base64,{$vm_statistics['mem']['month']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['netinout']['month']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['diskrw']['month']}"/>
 		</div>
 		<div id="yearlystat" class="tab-pane">
 			<img src="data:image/png;base64,{$vm_statistics['cpu']['year']}"/>
-			<img src="data:image/png;base64,{$vm_statistics['maxmem']['year']}"/>
+			<img src="data:image/png;base64,{$vm_statistics['mem']['year']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['netinout']['year']}"/>
 			<img src="data:image/png;base64,{$vm_statistics['diskrw']['year']}"/>
 		</div>
 	</div>
+	{else}
+	<div class="alert alert-warning">Stats Error: RRD data unavailable. Please ask Support to upgrade RRD stored data from 2.x to 9.0 format on their Nodes.</div>
+	{/if}
 	{/if}
 
 	
