@@ -174,6 +174,48 @@ function get_pvewhmcs_latest_version(){
 	return str_replace("\n", "", $result);
 }
 
+/**
+ * Fetch RRD statistics from Proxmox with graceful error handling (Admin Area).
+ * 
+ * Proxmox RRD schema changed in PVE 9 from pve2-{type} to pve-{type}-9.0.
+ * The ds parameter names (cpu, mem, netin, netout, etc.) remain valid.
+ * 
+ * RRD data may be unavailable when:
+ *   - Node/VM was just created (RRD takes ~60s to populate)
+ *   - RRD schema migration is incomplete on the PVE host
+ *   - RRD files are corrupted or missing
+ * 
+ * @param PVE2_API $proxmox    The Proxmox API client instance
+ * @param string   $path       The RRD API path (e.g., /nodes/{node}/rrd)
+ * @param string   $timeframe  RRD timeframe: 'hour', 'day', 'week', 'month', 'year'
+ * @param string   $ds         Data source(s): 'cpu', 'mem', 'netin,netout', etc.
+ * @return string|null         Base64-encoded PNG image, or null if unavailable
+ */
+function pvewhmcs_addon_fetch_rrd($proxmox, $path, $timeframe, $ds) {
+	$rrd_params = '?timeframe=' . $timeframe . '&ds=' . $ds . '&cf=AVERAGE';
+	
+	try {
+		$rrd_data = $proxmox->get($path . $rrd_params);
+		
+		if (isset($rrd_data['image']) && !empty($rrd_data['image'])) {
+			$image = utf8_decode($rrd_data['image']);
+			return base64_encode($image);
+		}
+	} catch (Exception $e) {
+		// RRD data unavailable - log if debug mode on
+		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+			logModuleCall(
+				'pvewhmcs',
+				'pvewhmcs_addon_fetch_rrd',
+				'RRD fetch failed: ' . $path . ' (' . $ds . ', ' . $timeframe . ')',
+				$e->getMessage()
+			);
+		}
+	}
+	
+	return null;
+}
+
 // ADMIN MODULE GUI: output (HTML etc)
 function pvewhmcs_output($vars) {
 	$modulelink = $vars['modulelink'];
@@ -240,7 +282,6 @@ function pvewhmcs_output($vars) {
 
 	// NODES / GUESTS tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
-	echo ('<strong><h2>Cluster Members</h2></strong>');
 
 	// Fetch all enabled Servers that use pvewhmcs
 	$servers = Capsule::table('tblservers')
@@ -299,88 +340,143 @@ function pvewhmcs_output($vars) {
 				}
 			}
 
-			// -------- Nodes table --------
-			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
-			echo '<tbody><tr>
-					<th>Node</th>
-					<th>Version</th>
-					<th>Status</th>
-					<th>IPv4</th>
-					<th>CPU %</th>
-					<th>RAM %</th>
-					<th>Uptime</th>
-				</tr>';
+			// Count running guests
+			$running_guests = array_filter($guests, function($g) {
+				return isset($g['status']) && $g['status'] === 'running';
+			});
 
+			// ======== CLUSTER HEADER PANEL ========
+			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
+			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
+			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-server"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ccc;">('.htmlspecialchars($serverip).')</small></h3>';
+			echo '</div>';
+			echo '<div class="panel-body">';
+
+			// -------- Per-Node Info with RRD Graphs --------
 			foreach ($nodes as $n) {
-				$n_cpu_pct = isset($n['maxcpu']) ? round($n['maxcpu'] * 100, 2) : 0;
-				$n_mem_pct = (isset($n['meminfo']['memused']) && $n['meminfo']['memused'] > 0)
-					? intval(($n['meminfo']['memused'] ?? 0) * 100 / $n['meminfo']['memtotal'])
-					: 0;
-				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
+				$n_name    = isset($n['node']) ? $n['node'] : '(node)';
 				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
-				$n_name    = isset($n['node'])   ? $n['node']   : '(node)';
+				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
 				$n_version = $proxmox->get_version();
+				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 1) : 0;
+				$n_maxcpu  = isset($n['maxcpu']) ? $n['maxcpu'] : 0;
+				$n_mem_pct = (isset($n['mem']) && isset($n['maxmem']) && $n['maxmem'] > 0)
+					? round($n['mem'] * 100 / $n['maxmem'], 1)
+					: 0;
+				$n_mem_used = isset($n['mem']) ? round($n['mem'] / 1073741824, 1) : 0;
+				$n_mem_max  = isset($n['maxmem']) ? round($n['maxmem'] / 1073741824, 1) : 0;
 
-				echo '<tr>';
-				echo '<td><strong>'.htmlspecialchars($n_name).'</strong></td>';
-				echo '<td>'.htmlspecialchars($n_version).'</td>';
-				echo '<td>'.htmlspecialchars($n_status).'</td>';
-				echo '<td>'.htmlspecialchars($serverip).'</td>';
-				echo '<td>'.$n_cpu_pct.'</td>';
-				echo '<td>'.$n_mem_pct.'</td>';
-				echo '<td>'.htmlspecialchars($n_uptime).'</td>';
-				echo '</tr>';
-			}
-			echo '</tbody></table>';
+				$status_color = ($n_status === 'online') ? '#5cb85c' : '#d9534f';
 
-			// -------- Active Guests (running only) --------
-			echo '<h2 style="margin-top:16px;">Active Guests</h2>';
-			echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
-			echo '<tbody><tr>
-					<th>VMID</th>
-					<th>Name</th>
-					<th>Status</th>
-					<th>Type</th>
-					<th>Node</th>
-					<th>CPU %</th>
-					<th>RAM %</th>
-					<th>Disk %</th>
-					<th>Uptime</th>
-				</tr>';
+				echo '<div style="border:1px solid #ddd;border-radius:4px;padding:15px;margin-bottom:15px;background:#fafafa;">';
+				
+				// Node Header Row
+				echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
+				echo '<div>';
+				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> '.htmlspecialchars($n_name).'</h4>';
+				echo '<span style="color:#888;font-size:12px;">PVE '.htmlspecialchars($n_version).' &bull; Uptime: '.htmlspecialchars($n_uptime).'</span>';
+				echo '</div>';
+				echo '<div style="text-align:right;">';
+				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:'.$status_color.';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">'.htmlspecialchars($n_status).'</span>';
+				echo '</div>';
+				echo '</div>';
 
-			foreach ($guests as $g) {
-				// Only running guests for the "active" overview
-				if (!isset($g['status']) || $g['status'] !== 'running') {
-					continue;
+				// Live Stats Row
+				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
+				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">'.$n_cpu_pct.'%</div>';
+				echo '<div style="font-size:11px;color:#888;">CPU ('.$n_maxcpu.' cores)</div>';
+				echo '</div>';
+				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">'.$n_mem_pct.'%</div>';
+				echo '<div style="font-size:11px;color:#888;">RAM ('.$n_mem_used.'/'.$n_mem_max.' GB)</div>';
+				echo '</div>';
+				echo '</div>';
+
+				// RRD Graphs Section
+				$rrd_path = '/nodes/' . $n_name . '/rrd';
+				$rrd_cpu = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'cpu');
+				$rrd_mem = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'memused');
+				$rrd_net = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'netin,netout');
+				$rrd_io  = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'iowait');
+
+				if ($rrd_cpu || $rrd_mem || $rrd_net || $rrd_io) {
+					echo '<div style="margin-top:10px;">';
+					echo '<div style="font-size:12px;color:#666;margin-bottom:8px;"><i class="fa fa-line-chart"></i> Performance Graphs (Last Hour)</div>';
+					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+					if ($rrd_cpu) {
+						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_cpu.'" style="max-width:100%;border-radius:3px;"/></div>';
+					}
+					if ($rrd_mem) {
+						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_mem.'" style="max-width:100%;border-radius:3px;"/></div>';
+					}
+					if ($rrd_net) {
+						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_net.'" style="max-width:100%;border-radius:3px;"/></div>';
+					}
+					if ($rrd_io) {
+						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_io.'" style="max-width:100%;border-radius:3px;"/></div>';
+					}
+					echo '</div>';
+					echo '</div>';
+				} else {
+					echo '<div class="alert alert-warning" style="margin:10px 0 0 0;padding:10px;font-size:12px;">';
+					echo '<i class="fa fa-exclamation-triangle"></i> RRD data unavailable. Please ask Support to upgrade RRD stored data from 2.x to 9.0 format on their Nodes.';
+					echo '</div>';
 				}
-				$g_node   = $g['node']  ?? '—';
-				$g_type   = $g['type']  ?? '—';
-				$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
-				$g_name   = $g['name']  ?? '';
-				$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
-				$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 2) : 0;
-				$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
-					? intval(($g['mem'] ?? 0) * 100 / $g['maxmem'])
-					: 0;
-				$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
-					? intval(($g['disk'] ?? 0) * 100 / $g['maxdisk'])
-					: 0;
 
-				echo '<tr>';
-				echo '<td><strong>'.$g_vmid.'</strong></td>';
-				echo '<td><strong>'.htmlspecialchars($g_name).'</strong></td>';
-				echo '<td>'.htmlspecialchars($g['status']).'</td>';
-				echo '<td>'.htmlspecialchars($g_type).'</td>';
-				echo '<td>'.htmlspecialchars($g_node).'</td>';
-				echo '<td>'.$g_cpu_pct.'</td>';
-				echo '<td>'.$g_mem_pct.'</td>';
-				echo '<td>'.$g_dsk_pct.'</td>';
-				echo '<td>'.htmlspecialchars($g_uptime).'</td>';
-				echo '</tr>';
+				echo '</div>'; // End node panel
 			}
-			echo '</tbody></table>';
 
-			echo '<hr style="margin:24px 0;">';
+			// -------- Active Guests Table --------
+			if (count($running_guests) > 0) {
+				echo '<h4 style="margin:20px 0 10px 0;color:#5c3d7a;"><i class="fa fa-desktop"></i> Active Guests ('.count($running_guests).' running)</h4>';
+				echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
+				echo '<tbody><tr>
+						<th>VMID</th>
+						<th>Name</th>
+						<th>Type</th>
+						<th>Node</th>
+						<th>CPU %</th>
+						<th>RAM %</th>
+						<th>Disk %</th>
+						<th>Uptime</th>
+					</tr>';
+
+				foreach ($guests as $g) {
+					if (!isset($g['status']) || $g['status'] !== 'running') {
+						continue;
+					}
+					$g_node   = $g['node']  ?? '—';
+					$g_type   = $g['type']  ?? '—';
+					$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
+					$g_name   = $g['name']  ?? '';
+					$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
+					$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 1) : 0;
+					$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
+						? round(($g['mem'] ?? 0) * 100 / $g['maxmem'], 1)
+						: 0;
+					$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
+						? round(($g['disk'] ?? 0) * 100 / $g['maxdisk'], 1)
+						: 0;
+
+					$type_icon = ($g_type === 'qemu') ? 'fa-desktop' : 'fa-cube';
+
+					echo '<tr>';
+					echo '<td><strong>'.$g_vmid.'</strong></td>';
+					echo '<td><i class="fa '.$type_icon.'" style="color:#888;"></i> '.htmlspecialchars($g_name).'</td>';
+					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">'.htmlspecialchars($g_type).'</span></td>';
+					echo '<td>'.htmlspecialchars($g_node).'</td>';
+					echo '<td>'.$g_cpu_pct.'%</td>';
+					echo '<td>'.$g_mem_pct.'%</td>';
+					echo '<td>'.$g_dsk_pct.'%</td>';
+					echo '<td>'.htmlspecialchars($g_uptime).'</td>';
+					echo '</tr>';
+				}
+				echo '</tbody></table>';
+			}
+
+			echo '</div>'; // panel-body
+			echo '</div>'; // panel
 		}
 	}
 	echo '</div>';
