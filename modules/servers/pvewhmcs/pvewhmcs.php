@@ -146,11 +146,11 @@ function pvewhmcs_CreateAccount($params) {
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
 
-	////////////////////////
-	// CREATE IF QEMU/KVM //
-	////////////////////////
+	////////////////////
+	// CREATE IF QEMU //
+	////////////////////
 	if (!empty($params['customfields']['KVMTemplate'])) {
-		// KVM TEMPLATE - CREATION LOGIC
+		// QEMU TEMPLATE - CREATION LOGIC
 		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 		if ($proxmox->login()) {
 			// Get first node name.
@@ -162,7 +162,7 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['newid'] = $vmid;
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
-			// KVM TEMPLATE - Conduct the VM CLONE from Template to Machine
+			// QEMU TEMPLATE - Conduct the VM CLONE from Template to Machine
 			$logrequest = '/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
 			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 

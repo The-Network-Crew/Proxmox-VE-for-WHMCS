@@ -441,7 +441,7 @@
 		</tr>
 		{/if}
 		<tr>
-			<td><span class="spec-label">Operating System</span></td>
+			<td><span class="spec-label">Kernel</span> <span class="spec-sublabel">(OS)</span></td>
 			<td><span class="spec-value">{$vm_config['ostype']}</span></td>
 		</tr>
 	</table>

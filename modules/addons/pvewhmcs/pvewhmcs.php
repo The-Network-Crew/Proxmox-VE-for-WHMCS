@@ -304,23 +304,24 @@ function pvewhmcs_output($vars) {
 	<div class="tab-content admin-tabs">';
 
 	// Handle form submissions for saving or updating plans
-	if (isset($_POST['addnewkvmplan']))
+	if (isset($_POST['plan_save_qemu']))
 	{
-		save_kvm_plan() ;
+		save_qemu_plan() ;
 	}
 
-	if (isset($_POST['updatekvmplan']))
+	if (isset($_POST['plan_update_qemu']))
 	{
-		update_kvm_plan() ;
-	}
-	if (isset($_POST['updatelxcplan']))
-	{
-		update_lxc_plan() ;
+		update_qemu_plan() ;
 	}
 
-	if (isset($_POST['addnewlxcplan']))
+	if (isset($_POST['plan_save_lxc']))
 	{
 		save_lxc_plan() ;
+	}
+
+	if (isset($_POST['plan_update_lxc']))
+	{
+		update_lxc_plan() ;
 	}
 
 	// NODES / GUESTS tab in ADMIN GUI
@@ -591,7 +592,7 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=planlist">
 	<i class="fa fa-list"></i>&nbsp; List: Guest Plans
 	</a>
-	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_kvm_plan">
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_qemu_plan">
 	<i class="fa fa-plus-square"></i>&nbsp; Add: QEMU Plan
 	</a>
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=add_lxc_plan">
@@ -608,13 +609,13 @@ function pvewhmcs_output($vars) {
 		import_guest() ;
 	}
 	
-	if ($_GET['action']=='add_kvm_plan') {
-		kvm_plan_add() ;
+	if ($_GET['action']=='add_qemu_plan') {
+		qemu_plan_add() ;
 	}
 
 	if ($_GET['action']=='editplan') {
 		if ($_GET['vmtype']=='kvm')
-			kvm_plan_edit($_GET['id']) ;
+			qemu_plan_edit($_GET['id']) ;
 		else
 			lxc_plan_edit($_GET['id']) ;
 	}
@@ -1106,8 +1107,8 @@ function save_config() {
 	}
 }
 
-// MODULE FORM: Add new KVM Plan
-function kvm_plan_add() {
+// MODULE FORM: Add new QEMU Plan
+function qemu_plan_add() {
 	echo '
 	<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
@@ -1407,15 +1408,15 @@ function kvm_plan_add() {
 	</table>
 
 	<div class="btn-container">
-	<input type="submit" class="btn btn-primary" value="Save Changes" name="addnewkvmplan" id="addnewkvmplan">
+	<input type="submit" class="btn btn-primary" value="Save Changes" name="plan_save_qemu" id="plan_save_qemu">
 	<input type="reset" class="btn btn-default" value="Cancel Changes">
 	</div>
 	</form>
 	';
 }
 
-// MODULE FORM: Edit a KVM Plan
-function kvm_plan_edit($id) {
+// MODULE FORM: Edit a QEMU Plan
+function qemu_plan_edit($id) {
 	$plan= Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $id)->get()[0];
 	if (empty($plan)) {
 		echo 'Plan Not found' ;
@@ -1723,7 +1724,7 @@ function kvm_plan_edit($id) {
 	</table>
 
 	<div class="btn-container">
-	<input type="submit" class="btn btn-primary" value="Save Changes" name="updatekvmplan" id="saveeditedkvmplan">
+	<input type="submit" class="btn btn-primary" value="Save Changes" name="plan_update_qemu" id="plan_update_qemu">
 	<input type="reset" class="btn btn-default" value="Cancel Changes">
 	</div>
 	</form>
@@ -1859,7 +1860,7 @@ function lxc_plan_add() {
 	</table>
 
 	<div class="btn-container">
-	<input type="submit" class="btn btn-primary" value="Save Changes" name="addnewlxcplan" id="addnewlxcplan">
+	<input type="submit" class="btn btn-primary" value="Save Changes" name="plan_save_lxc" id="plan_save_lxc">
 	<input type="reset" class="btn btn-default" value="Cancel Changes">
 	</div>
 	</form>
@@ -2004,15 +2005,15 @@ function lxc_plan_edit($id) {
 	</table>
 
 	<div class="btn-container">
-	<input type="submit" class="btn btn-primary" value="Save Changes" name="updatelxcplan" id="updatelxcplan">
+	<input type="submit" class="btn btn-primary" value="Save Changes" name="plan_update_lxc" id="plan_update_lxc">
 	<input type="reset" class="btn btn-default" value="Cancel Changes">
 	</div>
 	</form>
 	';
 }
 
-// MODULE FORM ACTION: Save KVM Plan
-function save_kvm_plan() {
+// MODULE FORM ACTION: Save QEMU Plan
+function save_qemu_plan() {
 	try {
 		Capsule::connection()->transaction(
 			function ($connectionManager)
@@ -2058,8 +2059,8 @@ function save_kvm_plan() {
 	}
 }
 
-// MODULE FORM ACTION: Update KVM Plan
-function update_kvm_plan() {
+// MODULE FORM ACTION: Update QEMU Plan
+function update_qemu_plan() {
 	Capsule::table('mod_pvewhmcs_plans')
 	->where('id', $_GET['id'])
 	->update(
