@@ -248,17 +248,17 @@ function pvewhmcs_output($vars) {
 	echo '
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
-	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#nodes">Nodes & Guests</a></li>
-	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#plans">Plans: VM & CT</a></li>
-	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
-	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
-	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#support">Support</a></li>
-	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#config">Config</a></li>
-	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#logs">Logs</a></li>
+	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#nodes">Nodes</a></li>
+	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#guests">Guests</a></li>
+	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#plans">Plans: VM & CT</a></li>
+	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#ippools">IPv4 Pools</a></li>
+	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
+	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#support">Support</a></li>
+	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#config">Config</a></li>
+	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" data-toggle="tab" role="tab" href="#logs">Logs</a></li>
 	</ul>
 	</div>
-	<div class="tab-content admin-tabs">
-	' ;
+	<div class="tab-content admin-tabs">';
 
 	// Handle form submissions for saving or updating plans
 	if (isset($_POST['addnewkvmplan']))
@@ -374,7 +374,7 @@ function pvewhmcs_output($vars) {
 				echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
 				echo '<div>';
 				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> '.htmlspecialchars($n_name).'</h4>';
-				echo '<span style="color:#888;font-size:12px;">PVE '.htmlspecialchars($n_version).' &bull; Uptime: '.htmlspecialchars($n_uptime).'</span>';
+				echo '<span style="color:#555;font-size:12px;">PVE '.htmlspecialchars($n_version).' &bull; Uptime: '.htmlspecialchars($n_uptime).'</span>';
 				echo '</div>';
 				echo '<div style="text-align:right;">';
 				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:'.$status_color.';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">'.htmlspecialchars($n_status).'</span>';
@@ -385,11 +385,11 @@ function pvewhmcs_output($vars) {
 				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">'.$n_cpu_pct.'%</div>';
-				echo '<div style="font-size:11px;color:#888;">CPU ('.$n_maxcpu.' cores)</div>';
+				echo '<div style="font-size:11px;color:#555;">CPU ('.$n_maxcpu.' cores)</div>';
 				echo '</div>';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">'.$n_mem_pct.'%</div>';
-				echo '<div style="font-size:11px;color:#888;">RAM ('.$n_mem_used.'/'.$n_mem_max.' GB)</div>';
+				echo '<div style="font-size:11px;color:#555;">RAM ('.$n_mem_used.'/'.$n_mem_max.' GB)</div>';
 				echo '</div>';
 				echo '</div>';
 
@@ -402,19 +402,23 @@ function pvewhmcs_output($vars) {
 
 				if ($rrd_cpu || $rrd_mem || $rrd_net || $rrd_io) {
 					echo '<div style="margin-top:10px;">';
-					echo '<div style="font-size:12px;color:#666;margin-bottom:8px;"><i class="fa fa-line-chart"></i> Performance Graphs (Last Hour)</div>';
-					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+					echo '<div style="font-size:12px;color:#555;margin-bottom:8px;"><i class="fa fa-line-chart"></i> Performance Graphs (Last Hour)</div>';
+					// Row 1: CPU and Memory
+					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
 					if ($rrd_cpu) {
-						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_cpu.'" style="max-width:100%;border-radius:3px;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_cpu.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					if ($rrd_mem) {
-						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_mem.'" style="max-width:100%;border-radius:3px;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_mem.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
+					echo '</div>';
+					// Row 2: Network and I/O
+					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
 					if ($rrd_net) {
-						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_net.'" style="max-width:100%;border-radius:3px;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_net.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					if ($rrd_io) {
-						echo '<div style="flex:1;min-width:200px;"><img src="data:image/png;base64,'.$rrd_io.'" style="max-width:100%;border-radius:3px;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_io.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					echo '</div>';
 					echo '</div>';
@@ -427,13 +431,67 @@ function pvewhmcs_output($vars) {
 				echo '</div>'; // End node panel
 			}
 
-			// -------- Active Guests Table --------
-			if (count($running_guests) > 0) {
-				echo '<h4 style="margin:20px 0 10px 0;color:#5c3d7a;"><i class="fa fa-desktop"></i> Active Guests ('.count($running_guests).' running)</h4>';
+			echo '</div>'; // panel-body
+			echo '</div>'; // panel
+		}
+	}
+	echo '</div>';
+
+	// ======== GUESTS TAB ========
+	echo '<div id="guests" class="tab-pane '.($_GET['tab']=="guests" ? "active" : "").'" >';
+
+	// Re-use servers data for guests tab
+	$servers = Capsule::table('tblservers')
+		->where('type', '=', 'pvewhmcs')
+		->where('disabled', '=', 0)
+		->orderBy('id', 'asc')
+		->get();
+
+	if ($servers->isEmpty()) {
+		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>.</div>';
+	} else {
+		foreach ($servers as $srv) {
+			$api_data = array('password2' => $srv->password);
+			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverip       = $srv->ipaddress;
+			$serverusername = $srv->username;
+			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
+
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			if (!$proxmox->login()) {
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'.</div>';
+				continue;
+			}
+
+			$cluster_resources = $proxmox->get('/cluster/resources');
+			if (!is_array($cluster_resources) || empty($cluster_resources)) {
+				echo '<div class="alert alert-info">No resources returned.</div>';
+				continue;
+			}
+
+			// Filter guests only
+			$guests = [];
+			foreach ($cluster_resources as $res) {
+				if (isset($res['type']) && ($res['type'] === 'qemu' || $res['type'] === 'lxc')) {
+					$guests[] = $res;
+				}
+			}
+
+			$running_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'running'; }));
+			$stopped_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'stopped'; }));
+
+			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
+			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
+			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ddd;">('.count($guests).' guests: '.$running_count.' running, '.$stopped_count.' stopped)</small></h3>';
+			echo '</div>';
+			echo '<div class="panel-body" style="padding:0;">';
+
+			if (count($guests) > 0) {
 				echo '<table class="datatable" border="0" cellpadding="3" cellspacing="1" width="100%">';
 				echo '<tbody><tr>
 						<th>VMID</th>
 						<th>Name</th>
+						<th>Status</th>
 						<th>Type</th>
 						<th>Node</th>
 						<th>CPU %</th>
@@ -443,13 +501,11 @@ function pvewhmcs_output($vars) {
 					</tr>';
 
 				foreach ($guests as $g) {
-					if (!isset($g['status']) || $g['status'] !== 'running') {
-						continue;
-					}
 					$g_node   = $g['node']  ?? '—';
 					$g_type   = $g['type']  ?? '—';
 					$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
 					$g_name   = $g['name']  ?? '';
+					$g_status = $g['status'] ?? 'unknown';
 					$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
 					$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 1) : 0;
 					$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
@@ -460,10 +516,12 @@ function pvewhmcs_output($vars) {
 						: 0;
 
 					$type_icon = ($g_type === 'qemu') ? 'fa-desktop' : 'fa-cube';
+					$status_color = ($g_status === 'running') ? '#5cb85c' : '#999';
 
 					echo '<tr>';
 					echo '<td><strong>'.$g_vmid.'</strong></td>';
-					echo '<td><i class="fa '.$type_icon.'" style="color:#888;"></i> '.htmlspecialchars($g_name).'</td>';
+					echo '<td><i class="fa '.$type_icon.'" style="color:#666;"></i> '.htmlspecialchars($g_name).'</td>';
+					echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:'.$status_color.';color:#fff;font-size:10px;text-transform:uppercase;">'.htmlspecialchars($g_status).'</span></td>';
 					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">'.htmlspecialchars($g_type).'</span></td>';
 					echo '<td>'.htmlspecialchars($g_node).'</td>';
 					echo '<td>'.$g_cpu_pct.'%</td>';
@@ -473,6 +531,8 @@ function pvewhmcs_output($vars) {
 					echo '</tr>';
 				}
 				echo '</tbody></table>';
+			} else {
+				echo '<div class="alert alert-info" style="margin:15px;">No guests found on this cluster.</div>';
 			}
 
 			echo '</div>'; // panel-body
