@@ -50,7 +50,7 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 - **(PHP)** v8.x.x (latest stable version)
 - **(PHP)** max_execution_time = 300
 - **(Proxmox)** 2 users (API & VNC)
-- **(Proxmox)** VE v8.x.x (current)
+- **(Proxmox)** VE v8.4/v9 (latest)
 
 Please note specific VNC & Network requirements below - read 100% of the README.md. :-)
 
@@ -273,14 +273,14 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 
 > **Logging in _should_ trigger the self-upgrade procedure for the SQL database.**
 > 
-> (**Beta in v1.2.x:** for now, verify yourself that updates were successful)
+> (**Beta Feature:** For now, verify yourself that updates were successful)
 
 ### SQL: Keeping your DB up-to-date
 
 > [!IMPORTANT]  
-> Since v1.3.0, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
+> Since v1.3.x, logging into WHMCS Admin & opening the module should run any needed SQL Ops.
 > 
-> v1.2.9 & below, consult the **_docs/UPDATE-SQL.md** file, open your SQL DB & run statements. 
+> v1.2.x & below, consult the **_docs/UPDATE-SQL.md** file, open your SQL DB & run statements. 
 
 Then you're done with each update!
 
