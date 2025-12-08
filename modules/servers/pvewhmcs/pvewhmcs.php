@@ -560,16 +560,16 @@ function pvewhmcs_SuspendAccount(array $params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Log and fire request
-                $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-                $response = $proxmox->post($logrequest, $pve_cmdparam);
-        }
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
+	}
 
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -598,16 +598,16 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Log and fire request
-                $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-                $response = $proxmox->post($logrequest, $pve_cmdparam);
-        }
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
+	}
 
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -637,26 +637,26 @@ function pvewhmcs_TerminateAccount(array $params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
 		// Find virtual machine type
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Stop the service if it is not already stopped
-                $guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
+		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
-                        $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
+			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
 			sleep(30);
 		}
 
-                if ($proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1))) {
+		if ($proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1))) {
 			// Delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
 		}
 	}
-        $response_message = json_encode($proxmox['data']['errors'] ?? []);
+	$response_message = json_encode($proxmox['data']['errors'] ?? []);
 	return "Error performing action. " . $response_message;
 }
 
@@ -967,14 +967,13 @@ function pvewhmcs_ClientArea($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
-
-                // Where node lives ? 
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        throw new Exception(
-                                "PVEWHMCS Error: Unable to determine node for VMID {$guest->vmid} (Service #{$params['serviceid']})."
-                        );
-                }
+		// Where node lives ? 
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			throw new Exception(
+			"PVEWHMCS Error: Unable to determine node for VMID {$guest->vmid} (Service #{$params['serviceid']})."
+			);
+		}
 
 		# Get and set VM variables
 		$vm_config = $proxmox->get('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/config') ;
@@ -1105,12 +1104,12 @@ function pvewhmcs_noVNC($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		// Early prep work
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return 'Failed to prepare noVNC. Unable to determine node.';
-                }
-                $vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return 'Failed to prepare noVNC. Unable to determine node.';
+		}
+		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
@@ -1143,18 +1142,18 @@ function pvewhmcs_SPICE($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
 		// Early prep work
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return 'Failed to prepare SPICE. Unable to determine node.';
-                }
-                $vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return 'Failed to prepare SPICE. Unable to determine node.';
+		}
+		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
-                $path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
 		// Construct the SPICE Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
@@ -1181,14 +1180,14 @@ function pvewhmcs_vmStart($params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
-                $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-                $response = $proxmox->post($logrequest, $pve_cmdparam);
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -1224,11 +1223,11 @@ function pvewhmcs_vmReboot($params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Check status before doing anything
                 $guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
@@ -1238,10 +1237,10 @@ function pvewhmcs_vmReboot($params) {
                         $response = $proxmox->post($logrequest , $pve_cmdparam);
 		} else {
 			// REBOOT if Started
-                        $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
-                        $response = $proxmox->post($logrequest , $pve_cmdparam);
-                }
-        }
+			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
+			$response = $proxmox->post($logrequest , $pve_cmdparam);
+		}
+	}
 
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -1278,16 +1277,16 @@ function pvewhmcs_vmShutdown($params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-                $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown';
-                $response = $proxmox->post($logrequest , $pve_cmdparam);
-        }
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown';
+		$response = $proxmox->post($logrequest , $pve_cmdparam);
+	}
 
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -1323,16 +1322,16 @@ function pvewhmcs_vmStop($params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-                $guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-                $guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-                if (empty($guest_node)) {
-                        return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-                }
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-                $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-                $response = $proxmox->post($logrequest , $pve_cmdparam);
-        }
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
+		$response = $proxmox->post($logrequest , $pve_cmdparam);
+	}
 
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
