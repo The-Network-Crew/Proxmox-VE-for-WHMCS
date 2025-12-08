@@ -646,7 +646,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 		// Stop the service if it is not already stopped
 		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
-			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
+			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
 			sleep(30);
 		}
 
@@ -1234,11 +1234,11 @@ function pvewhmcs_vmReboot($params) {
 		if ($guest_specific['status'] == 'stopped') {
 			// START if Stopped
 			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-			$response = $proxmox->post($logrequest , $pve_cmdparam);
+			$response = $proxmox->post($logrequest, $pve_cmdparam);
 		} else {
 			// REBOOT if Started
 			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
-			$response = $proxmox->post($logrequest , $pve_cmdparam);
+			$response = $proxmox->post($logrequest, $pve_cmdparam);
 		}
 	}
 
@@ -1285,7 +1285,7 @@ function pvewhmcs_vmShutdown($params) {
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
 		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown';
-		$response = $proxmox->post($logrequest , $pve_cmdparam);
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
 
 	// DEBUG - Log the request parameters before it's fired
@@ -1330,7 +1330,7 @@ function pvewhmcs_vmStop($params) {
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
 		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-		$response = $proxmox->post($logrequest , $pve_cmdparam);
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
 
 	// DEBUG - Log the request parameters before it's fired
