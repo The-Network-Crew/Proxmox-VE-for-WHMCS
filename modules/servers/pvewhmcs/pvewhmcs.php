@@ -1230,11 +1230,11 @@ function pvewhmcs_vmReboot($params) {
 		}
 		$pve_cmdparam = array();
 		// Check status before doing anything
-                $guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
-                if ($guest_specific['status'] == 'stopped') {
+		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
+		if ($guest_specific['status'] == 'stopped') {
 			// START if Stopped
-                        $logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-                        $response = $proxmox->post($logrequest , $pve_cmdparam);
+			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+			$response = $proxmox->post($logrequest , $pve_cmdparam);
 		} else {
 			// REBOOT if Started
 			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
