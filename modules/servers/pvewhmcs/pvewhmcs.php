@@ -655,15 +655,18 @@ function pvewhmcs_TerminateAccount(array $params) {
 			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
 			sleep(30);
 		}
-
-		if ($proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1))) {
+		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1));
+		if ($delete_response) {
 			// Delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
+		} else {
+			$response_message = isset($delete_response['errors']) ? json_encode($delete_response['errors']) : "Unknown Error, consider using Debug Mode.";
+			return "Error terminating account: {$response_message}";
 		}
+	} else {
+		return "Error terminating account. Couldn't login to PVE.";
 	}
-	$response_message = json_encode($proxmox['data']['errors'] ?? []);
-	return "Error performing action. " . $response_message;
 }
 
 // GENERAL CLASS: WHMCS Decrypter
