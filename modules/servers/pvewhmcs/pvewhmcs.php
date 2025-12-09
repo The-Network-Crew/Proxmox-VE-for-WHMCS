@@ -561,6 +561,9 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
@@ -638,6 +641,9 @@ function pvewhmcs_TerminateAccount(array $params) {
 	if ($proxmox->login()){
 		// Find virtual machine type
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
@@ -1105,6 +1111,9 @@ function pvewhmcs_noVNC($params) {
 	if ($proxmox->login()) {
 		// Early prep work
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return 'Failed to prepare noVNC. Unable to determine node.';
@@ -1143,6 +1152,9 @@ function pvewhmcs_SPICE($params) {
 	if ($proxmox->login()) {
 		// Early prep work
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return 'Failed to prepare SPICE. Unable to determine node.';
@@ -1181,6 +1193,9 @@ function pvewhmcs_vmStart($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
@@ -1224,6 +1239,9 @@ function pvewhmcs_vmReboot($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
@@ -1278,6 +1296,9 @@ function pvewhmcs_vmShutdown($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
@@ -1323,6 +1344,9 @@ function pvewhmcs_vmStop($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
