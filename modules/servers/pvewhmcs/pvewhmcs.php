@@ -681,7 +681,7 @@ class pvewhmcs_hash_encryption {
 	 * String length of hashed values using the current algorithm
          * @var int
 	 **/
-	var $hash_lenth;
+	var $hash_length;
 	
 	/**
 	 * Switch base64 enconding on / off
@@ -700,7 +700,7 @@ class pvewhmcs_hash_encryption {
 	 *
 	 * Used to set key for encryption and decryption.
      * @param       string  $key    Your secret key used for encryption and decryption
-     * @param       boold   $base64 Enable base64 en- / decoding
+     * @param       bool   $base64 Enable base64 en- / decoding
 	 * @return mixed
 	 */
 	function pvewhmcs_hash_encryption($key, $base64 = true) {
