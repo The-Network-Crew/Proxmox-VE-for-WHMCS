@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.3.1] - 2025-12-12 - _"Relativity & Nodes"_
+
+### 💅 Polish
+- Clusters: Requests are made to the node hosting Guest (#16)
+
+### 🐛 Bug Fix
+- Client Area: Images load in sub-dir installs (relative src)
+
 ## [1.3.0] - 2025-12-03 - _"RRD: Clients & Admins"_
 
 ### 🚀 Feature
