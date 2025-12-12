@@ -10,6 +10,8 @@ This document seeks to say "cheers", "many thanks" & "love your work" to the peo
 - [@nodespacehosting](https://github.com/nodespacehosting)
 - [@WaldperlachFabi](https://github.com/WaldperlachFabi)
 - [@is7Qin](https://github.com/is7Qin)
+- [@chrismfz](https://github.com/chrismfz)
+- [@hliasa](https://github.com/hliasa)
 
 ## Why not make it even better?
 

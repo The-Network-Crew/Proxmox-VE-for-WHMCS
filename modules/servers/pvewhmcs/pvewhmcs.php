@@ -1,6 +1,6 @@
 <?php
 
-/*  
+/*
 	Proxmox VE for WHMCS - Addon/Server Modules for WHMCS (& PVE)
 	https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 	File: /modules/servers/pvewhmcs/pvewhmcs.php (PVE Work)
@@ -19,7 +19,7 @@
     GNU General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 // DEP: Proxmox API Class - make sure we can access via PVE via API
@@ -560,16 +560,20 @@ function pvewhmcs_SuspendAccount(array $params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-		// Get first node name & prepare
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Log and fire request
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
+
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 		logModuleCall(
@@ -597,16 +601,17 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()) {
-		// Get first node name & prepare
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Log and fire request
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start');
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
+
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 		logModuleCall(
@@ -634,53 +639,59 @@ function pvewhmcs_TerminateAccount(array $params) {
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 	if ($proxmox->login()){
-		// Get first node name
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
 		// Find virtual machine type
-		$guest=Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->get()[0];
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Stop the service if it is not already stopped
-		$guest_specific = $proxmox->get('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
+		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
-			$proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
+			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
 			sleep(30);
 		}
-
-		if ($proxmox->delete('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1))) {
+		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1));
+		if ($delete_response) {
 			// Delete entry from module table once service terminated in PVE
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
+		} else {
+			$response_message = isset($delete_response['errors']) ? json_encode($delete_response['errors']) : "Unknown Error, consider using Debug Mode.";
+			return "Error terminating account: {$response_message}";
 		}
+	} else {
+		return "Error terminating account. Couldn't login to PVE.";
 	}
-	$response_message = json_encode($proxmox['data']['errors']);
-	return "Error performing action. " . $response_message;
 }
 
 // GENERAL CLASS: WHMCS Decrypter
 class pvewhmcs_hash_encryption {
 	/**
 	 * Hashed value of the user provided encryption key
-	 * @var	string
+	 * @var string
 	 **/
 	var $hash_key;
 	
 	/**
 	 * String length of hashed values using the current algorithm
-	 * @var	int
+         * @var int
 	 **/
-	var $hash_lenth;
+	var $hash_length;
 	
 	/**
 	 * Switch base64 enconding on / off
-	 * @var	bool	true = use base64, false = binary output / input
+         * @var bool    true = use base64, false = binary output / input
 	 **/
 	var $base64;
 	
 	/**
 	 * Secret value added to randomize output and protect the user provided key
-	 * @var	string	Change this value to add more randomness to your encryption
+         * @var string  Change this value to add more randomness to your encryption
 	 **/
 	var $salt = 'Change this to any secret value you like. "d41d8cd98f00b204e9800998ecf8427e" might be a good example.';
 
@@ -688,8 +699,8 @@ class pvewhmcs_hash_encryption {
 	 * Constructor method
 	 *
 	 * Used to set key for encryption and decryption.
-	 * @param	string	$key	Your secret key used for encryption and decryption
-	 * @param	boold	$base64	Enable base64 en- / decoding
+     * @param       string  $key    Your secret key used for encryption and decryption
+     * @param       bool   $base64 Enable base64 en- / decoding
 	 * @return mixed
 	 */
 	function pvewhmcs_hash_encryption($key, $base64 = true) {
@@ -708,8 +719,8 @@ class pvewhmcs_hash_encryption {
 
 	/**
 	 * Method used for encryption
-	 * @param	string	$string	Message to be encrypted
-	 * @return string	Encrypted message
+         * @param       string  $string Message to be encrypted
+         * @return string       Encrypted message
 	 */
 	function encrypt($string) {
 		$iv = $this->_generate_iv();
@@ -744,8 +755,8 @@ class pvewhmcs_hash_encryption {
 
 	/**
 	 * Method used for decryption
-	 * @param	string	$string	Message to be decrypted
-	 * @return string	Decrypted message
+         * @param       string  $string Message to be decrypted
+         * @return string       Decrypted message
 	 */
 	function decrypt($string) {
 		// Apply base64 decoding if necessary
@@ -789,9 +800,9 @@ class pvewhmcs_hash_encryption {
 	 * Currently support for md5 and sha1 is provided. In theory even crc32 could be used
 	 * but I don't recommend this.
 	 *
-	 * @access	private
-	 * @param	string	$string	Message to hashed
-	 * @return string	Hash value of input message
+         * @access      private
+         * @param       string  $string Message to hashed
+         * @return string       Hash value of input message
 	 */
 	function _hash($string) {
 		// Use sha1() if possible, php versions >= 4.3.0 and 5
@@ -817,10 +828,10 @@ class pvewhmcs_hash_encryption {
 	 * is the basis of encryption. The encrypted IV will be added to the encrypted message
 	 * to make decryption possible. The transmitted IV will be encoded using the user provided key.
 	 *
-	 * @todo	Add more random sources.
-	 * @access	private
-	 * @see function	pvewhmcs_hash_encryption
-	 * @return string	Binary pseudo random string
+         * @todo        Add more random sources.
+         * @access      private
+         * @see function        pvewhmcs_hash_encryption
+         * @return string       Binary pseudo random string
 	 **/
 	function _generate_iv() {
 		// Initialize pseudo random generator
@@ -841,9 +852,9 @@ class pvewhmcs_hash_encryption {
 	 *
 	 * This method converts any given hexadecimal number between 00 and ff to the corresponding ASCII char
 	 *
-	 * @access	private
-	 * @param	string	Hexadecimal number between 00 and ff
-	 * @return	string	Character representation of input value
+         * @access      private
+         * @param       string  Hexadecimal number between 00 and ff
+         * @return      string  Character representation of input value
 	 **/
 	function _hex2chr($num) {
 		return chr(hexdec($num));
@@ -889,21 +900,21 @@ function pvewhmcs_ClientAreaCustomButtonArray() {
 
 /**
  * Fetch RRD statistics from Proxmox with graceful error handling.
- * 
+ *
  * Proxmox RRD schema changed in PVE 9 from pve2-{type} to pve-{type}-9.0.
  * The ds parameter names (cpu, mem, netin, netout, diskread, diskwrite) remain valid
  * across both old and new schemas - verified in pve-cluster/src/pmxcfs/status.c.
- * 
+ *
  * RRD data may be unavailable when:
  *   - VM/CT was just created (RRD takes ~60s to populate)
  *   - RRD schema migration is incomplete on the PVE host
  *   - RRD files are corrupted or missing
- * 
+ *
  * Refs:
  *   - Issue #162: https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/issues/162
  *   - PVE RRD schema: https://github.com/proxmox/pve-cluster/blob/master/src/pmxcfs/status.c
  *   - Schema change: https://www.mail-archive.com/pve-devel@lists.proxmox.com/msg28317.html
- * 
+ *
  * @param PVE2_API $proxmox    The Proxmox API client instance
  * @param string   $node       The Proxmox node name
  * @param string   $vtype      Guest type: 'qemu' or 'lxc'
@@ -965,16 +976,18 @@ function pvewhmcs_ClientArea($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
-		# Get first node name.
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
+		// Where node lives ? 
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			throw new Exception(
+			"PVEWHMCS Error: Unable to determine node for VMID {$guest->vmid} (Service #{$params['serviceid']})."
+			);
+		}
 
 		# Get and set VM variables
-		$vm_config = $proxmox->get('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/config') ;
+		$vm_config = $proxmox->get('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/config') ;
 		$cluster_resources = $proxmox->get('/cluster/resources');
 		$vm_status = null;
-
 		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
 		$cluster_encoded = json_encode($cluster_resources);
 		$vmspecs_encoded = json_encode($vm_config);
@@ -1013,10 +1026,10 @@ function pvewhmcs_ClientArea($params) {
 
 			if ($guest->vtype == 'lxc') {
 				// Check on swap before setting graph value
-				$ct_specific = $proxmox->get('/nodes/'.$first_node.'/lxc/'.$guest->vmid.'/status/current');
+				$ct_specific = $proxmox->get('/nodes/'.$guest_node.'/lxc/'.$guest->vmid.'/status/current');
 				if ($ct_specific['maxswap'] != 0) {
 					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
-				} 
+				}
 			} else {
 				// Fall back to 0% usage to satisfy chart requirement
 				$vm_status['swapusepercent'] = 0;
@@ -1033,28 +1046,28 @@ function pvewhmcs_ClientArea($params) {
 		// ----------------------------------------------------------------
 
 		// CPU usage statistics (day/week/month/year)
-		$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
-		$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
-		$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
-		$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
+		$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
+		$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
+		$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
+		$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
 
 		// Memory usage statistics (day/week/month/year)
-		$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'mem');
-		$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'mem');
-		$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'mem');
-		$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'mem');
+		$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'mem');
+		$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'mem');
+		$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'mem');
+		$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'mem');
 
 		// Network I/O statistics (day/week/month/year)
-		$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
-		$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
-		$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
-		$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
+		$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
+		$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
+		$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
+		$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
 
 		// Disk I/O statistics (day/week/month/year)
-		$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $first_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
+		$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
 
 		$vm_config['vtype'] = $guest->vtype ;
 		$vm_config['ipv4'] = $guest->ipaddress ;
@@ -1064,7 +1077,7 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config['v6prefix'] = $guest->v6prefix ;
 	}
 	else {
-		echo '<center><strong>Error: Unable to gather data from Hypervisor.<br>Please contact Tech Support!</strong></center>'; 
+		echo '<center><strong>Error: Unable to gather data from Hypervisor.<br>Please contact Tech Support!</strong></center>';
 		exit;
 	}
 
@@ -1099,18 +1112,22 @@ function pvewhmcs_noVNC($params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
-		// Get first node name
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
 		// Early prep work
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return 'Failed to prepare noVNC. Unable to determine node.';
+		}
+		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
-		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
 		// Construct the noVNC Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
@@ -1136,18 +1153,22 @@ function pvewhmcs_SPICE($params) {
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
 	if ($proxmox->login()) {
-		// Get first node name
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
 		// Early prep work
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
-		$vm_vncproxy = $proxmox->post('/nodes/'.$first_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return 'Failed to prepare SPICE. Unable to determine node.';
+		}
+		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
-		$path = 'api2/json/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
 		// Construct the SPICE Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
@@ -1171,16 +1192,20 @@ function pvewhmcs_vmStart($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		# Get first node name.
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start' , $pve_cmdparam);
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -1213,26 +1238,31 @@ function pvewhmcs_vmReboot($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		# Get first node name.
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// Check status before doing anything
-		$guest_specific = $proxmox->get('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
-        	if ($guest_specific['status'] = 'stopped') {
+		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
+		if ($guest_specific['status'] == 'stopped') {
 			// START if Stopped
-			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start' , $pve_cmdparam);
+			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
+			$response = $proxmox->post($logrequest, $pve_cmdparam);
 		} else {
 			// REBOOT if Started
-			$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
-			$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot' , $pve_cmdparam);
+			$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/reboot';
+			$response = $proxmox->post($logrequest, $pve_cmdparam);
 		}
 	}
+
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 		logModuleCall(
@@ -1265,18 +1295,23 @@ function pvewhmcs_vmShutdown($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		# Get first node name.
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown' , $pve_cmdparam);
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/shutdown';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
+
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 		logModuleCall(
@@ -1308,18 +1343,23 @@ function pvewhmcs_vmStop($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 	if ($proxmox->login()) {
-		# Get first node name.
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
+		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		if (empty($guest_node)) {
+			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+		}
 		$pve_cmdparam = array();
 		// $pve_cmdparam['timeout'] = '60';
-		$logrequest = '/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-		$response = $proxmox->post('/nodes/' . $first_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop' , $pve_cmdparam);
+		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
+		$response = $proxmox->post($logrequest, $pve_cmdparam);
 	}
+
 	// DEBUG - Log the request parameters before it's fired
 	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 		logModuleCall(
@@ -1350,6 +1390,53 @@ function mask2cidr($mask){
 	$base = ip2long('255.255.255.255');
 	return 32-log(($long ^ $base)+1,2);
 }
+
+
+
+
+/**
+ * Locate the Proxmox node that hosts a given VM/CT.
+ *
+ * @param PVE2_API $proxmox
+ * @param object   $guest   Row from mod_pvewhmcs_vms (expects ->vmid, ->vtype)
+ * @param int      $serviceId WHMCS service ID (compatibility)
+ * @return string|null
+ */
+function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
+{
+    // 1) Where guest lives ? //
+    $cluster_resources = $proxmox->get('/cluster/resources');
+
+    if (is_array($cluster_resources)) {
+        foreach ($cluster_resources as $res) {
+            if (!isset($res['type'], $res['vmid'], $res['node'])) {
+                continue;
+            }
+
+            // match vmid + type
+            if ($res['vmid'] == $guest->vmid && $res['type'] === $guest->vtype) {
+                return $res['node'];
+            }
+
+            // Legacy fallback (<1.2.9): vmid == serviceid
+            if ($res['vmid'] == $serviceId && $res['type'] === $guest->vtype) {
+                return $res['node'];
+            }
+        }
+    }
+
+    // 2) Fallback old behavior
+    $nodes = $proxmox->get_node_list();
+    if (is_array($nodes) && !empty($nodes)) {
+        return $nodes[0];
+    }
+
+    return null;
+}
+
+
+
+
 
 function bytes2format($bytes, $precision = 2, $_1024 = true) {
 	$units = array( 'B', 'KB', 'MB', 'GB', 'TB' );

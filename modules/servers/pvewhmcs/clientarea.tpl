@@ -287,20 +287,20 @@
 		<div class="pve-status-section">
 			{* VM Type & OS Icons *}
 			<div class="pve-vm-icons">
-				<img src="/modules/servers/pvewhmcs/img/{$vm_config['vtype']}.png" alt="{$vm_config['vtype']}" title="Type: {$vm_config['vtype']}"/>
-				<img src="/modules/servers/pvewhmcs/img/os/{$vm_config['ostype']}.png" alt="{$vm_config['ostype']}" title="OS: {$vm_config['ostype']}"/>
+				<img src="./modules/servers/pvewhmcs/img/{$vm_config['vtype']}.png" alt="{$vm_config['vtype']}" title="Type: {$vm_config['vtype']}"/>
+				<img src="./modules/servers/pvewhmcs/img/os/{$vm_config['ostype']}.png" alt="{$vm_config['ostype']}" title="OS: {$vm_config['ostype']}"/>
 			</div>
 			
 			{* Status Badge *}
 			<div class="pve-status-badge">
-				<img src="/modules/servers/pvewhmcs/img/{$vm_status['status']}.png" alt="{$vm_status['status']}"/>
+				<img src="./modules/servers/pvewhmcs/img/{$vm_status['status']}.png" alt="{$vm_status['status']}"/>
 				<span class="status-text">{$vm_status['status']}</span>
 				<span class="uptime-text">Up {$vm_status['uptime']}</span>
 			</div>
 			
 			{* Resource Gauges *}
 			<div class="pve-gauges">
-				<script src="/modules/servers/pvewhmcs/js/CircularLoader.js"></script>
+				<script src="./modules/servers/pvewhmcs/js/CircularLoader.js"></script>
 				<div class="pve-gauge-item">
 					<div id="c1" class="circle" data-percent="{$vm_status['cpu']}"></div>
 					<strong>CPU</strong>
