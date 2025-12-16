@@ -141,8 +141,26 @@ function pvewhmcs_CreateAccount($params) {
 	$vm_settings = array();
 
 	// Select an IP Address from Pool
-	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
+	$result = Capsule::select(
+    'SELECT i.ipaddress, i.mask, p.gateway 
+     FROM mod_pvewhmcs_ip_addresses i 
+     INNER JOIN mod_pvewhmcs_ip_pools p ON (i.pool_id = p.id AND p.id = :pool_id) 
+     WHERE i.ipaddress NOT IN (
+        SELECT dedicatedip 
+        FROM tblhosting 
+        WHERE domainstatus IN ("Active", "Suspended", "Completed")
+        AND dedicatedip != ""
+     ) 
+     LIMIT 1',
+    ['pool_id' => $params['configoption2']]
+	);
 
+	// Check if we actually found an IP before trying to access index [0]
+	if (!empty($result)) {
+		$ip = $result[0];
+	} else {
+		throw new Exception("No free IP addresses available in the selected pool.");
+	}
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
 
@@ -225,6 +243,11 @@ function pvewhmcs_CreateAccount($params) {
 						'v6prefix' => $plan->ipv6,
 					]
 				);
+				Capsule::table('tblhosting')
+                ->where('id', $params['serviceid'])
+                ->update([
+                    'dedicatedip' => $ip->ipaddress,
+                ]);
 				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
 				$cloned_tweaks['memory'] = $plan->memory;
 				$cloned_tweaks['ostype'] = $plan->ostype;
@@ -233,7 +256,31 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['cpu'] = $plan->cpuemu;
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
+				$cidr_suffix = 0;
+				if (strpos($ip->mask, '.') !== false) {
+					$mask_parts = explode('.', $ip->mask);
+					foreach($mask_parts as $part) {
+						$cidr_suffix += substr_count(decbin($part), "1");
+					}
+				} else {
+					$cidr_suffix = $ip->mask;
+				}
+				$cloned_tweaks['ipconfig0'] = "ip={$ip->ipaddress}/{$cidr_suffix},gw={$ip->gateway}";
 				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+				if (!empty($params['password'])) {
+                	$cloned_tweaks['cipassword'] = $params['password'];
+           		 }
+
+				if (!empty($params['customfields']['Password'])) {
+	                 $cloned_tweaks['cipassword'] = $params['customfields']['Password'];
+	         	}
+				$config_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/config';
+				$proxmox->post($config_url, $cloned_tweaks);
+				if($plan->onboot){
+					$start_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/status/start';
+           			$proxmox->post($start_url, []);
+				}
+ 				
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
