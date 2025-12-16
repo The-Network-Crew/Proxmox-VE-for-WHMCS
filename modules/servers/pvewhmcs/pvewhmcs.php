@@ -252,6 +252,7 @@ function pvewhmcs_CreateAccount($params) {
 				Capsule::table('tblhosting')
 					->where('id', $params['serviceid'])
 					->update(['dedicatedip' => $ip->ipaddress]);
+
 				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
 				$cloned_tweaks['memory'] = $plan->memory;
 				$cloned_tweaks['ostype'] = $plan->ostype;
@@ -283,13 +284,13 @@ function pvewhmcs_CreateAccount($params) {
 							break;
 					}
 				}
-				
+
 				// Set VM configuration
 				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
-				
+
 				// Start the VM
 				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start', array());
-				
+
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
