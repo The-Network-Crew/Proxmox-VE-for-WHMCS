@@ -285,11 +285,28 @@ function pvewhmcs_CreateAccount($params) {
 					}
 				}
 
-				// Set VM configuration
-				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+				// Optionally set cloud-init password if provided
+				if (!empty($params['password'])) {
+					$cloned_tweaks['cipassword'] = $params['password'];
+				}
 
-				// Start the VM
-				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start', array());
+				if (!empty($params['customfields']['Password'])) {
+					$cloned_tweaks['cipassword'] = $params['customfields']['Password'];
+				}
+
+				// Apply VM configuration on the node where the VM was cloned
+				$proxmox->post(
+					'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config',
+					$cloned_tweaks
+				};
+
+				// Start the VM only if onboot is enabled
+				if (!empty($plan->onboot)) {
+					$proxmox->post(
+						'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start',
+						array()
+					);
+				}
 
 				return true;
 			} else {
