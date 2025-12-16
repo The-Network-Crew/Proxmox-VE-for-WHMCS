@@ -265,8 +265,23 @@ function pvewhmcs_CreateAccount($params) {
 				} else {
 					$cidr_suffix = $ip->mask;
 				}
+				
 				$cloned_tweaks['ipconfig0'] = "ip={$ip->ipaddress}/{$cidr_suffix},gw={$ip->gateway}";
 				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+				  
+				if (!empty($params['password'])) {
+	                $cloned_tweaks['cipassword'] = $params['password'];
+	            }
+	
+				if (!empty($params['customfields']['Password'])) {
+	                $cloned_tweaks['cipassword'] = $params['customfields']['Password'];
+	            }
+	            $config_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/config';
+				$proxmox->post($config_url, $cloned_tweaks);
+				if($plan->onboot){
+					$start_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/status/start';
+           			$proxmox->post($start_url, []);
+				}
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
