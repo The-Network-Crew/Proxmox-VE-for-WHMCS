@@ -276,10 +276,11 @@ function pvewhmcs_CreateAccount($params) {
 	         	}
 				$config_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/config';
 				$proxmox->post($config_url, $cloned_tweaks);
-				
- 				$start_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/status/start';
-				
-           		$proxmox->post($start_url, []);
+				if($plan->onboot){
+					$start_url = '/nodes/' . $first_node . '/qemu/' . $vmid . '/status/start';
+           			$proxmox->post($start_url, []);
+				}
+ 				
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
