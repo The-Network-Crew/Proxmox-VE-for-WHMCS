@@ -473,49 +473,71 @@ function pvewhmcs_CreateAccount($params) {
 }
 
 /**
- * Find the next free VMID cluster-wide by probing /cluster/nextid.
- * Returns the first VMID >= $start_vmid for which /cluster/nextid?vmid=X returns X.
+ * Find the next available VMID in the Proxmox cluster.
  *
- * @param PVE2_API $proxmox  Proxmox API client
- * @param string   $node     Ignored (VMIDs are cluster-wide)
+ * This function first tries to use Proxmox's /cluster/nextid endpoint directly,
+ * which is the most reliable method. If the returned VMID is below the configured
+ * start_vmid, it will probe for an available VMID starting from start_vmid.
+ *
+ * @param PVE2_API $proxmox    Proxmox API client (logged in)
+ * @param string   $node       Ignored (VMIDs are cluster-wide)
  * @param int      $start_vmid Starting VMID from Module config
- * @return int
- * @throws Exception on unexpected API errors or if cap exceeded
+ * @return int     The next available VMID
+ * @throws Exception on unexpected API errors or if no free VMID found
  */
 function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
-	$max_attempts = 1000; // Safety cap to avoid infinite loops
-	$vmid = (int) $start_vmid; // Starting with configured VMID
+	$start_vmid = (int) $start_vmid;
 
-    for ($i = 0; $i < $max_attempts; $i++, $vmid++) {
-        try {
-            // Proxmox API: is this VMID vacant?
-            // If vacant, servers echo it back in 'data'.
-            $resp = $proxmox->get('/cluster/nextid', ['vmid' => $vmid]);
+	// First, try to get the cluster's next available VMID directly
+	try {
+		$resp = $proxmox->get('/cluster/nextid');
+		$data = (is_array($resp) && array_key_exists('data', $resp)) ? $resp['data'] : $resp;
+		$cluster_next = (int) $data;
 
-            // Different PHP clients return either ['data' => '123'] or just '123'
-            $data = (is_array($resp) && array_key_exists('data', $resp)) ? $resp['data'] : $resp;
+		// If cluster's next VMID is >= our start, use it directly
+		if ($cluster_next >= $start_vmid) {
+			return $cluster_next;
+		}
+	} catch (\Throwable $e) {
+		// If /cluster/nextid fails entirely, fall through to the probe method
+	}
 
-            if ((int) $data === $vmid) {
-                return $vmid; // confirmed vacant
-            }
+	// If cluster's next VMID is below our start_vmid, or the call failed,
+	// we need to probe starting from start_vmid
+	$max_attempts = 1000;
+	$vmid = $start_vmid;
 
-            // If the API returns a *different* number here, we ignore it and keep probing
-            continue;
+	for ($i = 0; $i < $max_attempts; $i++, $vmid++) {
+		try {
+			// Ask Proxmox if this specific VMID is available
+			// If available, it returns the same VMID; if not, it throws an error
+			$resp = $proxmox->get('/cluster/nextid', ['vmid' => $vmid]);
+			$data = (is_array($resp) && array_key_exists('data', $resp)) ? $resp['data'] : $resp;
 
-        } catch (\Throwable $e) {
-            $msg = strtolower($e->getMessage());
+			// Proxmox confirmed this VMID is available
+			if ((int) $data === $vmid) {
+				return $vmid;
+			}
 
-            // Occupied case looks like: "400 Parameter verification failed. vmid: VM 106 already exists"
-            if (strpos($msg, 'already exists') !== false || strpos($msg, 'parameter verification failed') !== false) {
-                continue; // try the next VMID
-            }
+			// If API returns a different number, that's unexpected but try next
+			continue;
 
-            // Any other error is unexpected; surface it.
-            throw $e;
-        }
-    }
+		} catch (\Throwable $e) {
+			$msg = strtolower($e->getMessage());
 
-    throw new Exception("Unable to find a free VMID starting at {$start_vmid} after {$max_attempts} attempts");
+			// VMID is occupied - these are expected errors, try next VMID
+			if (strpos($msg, 'already exists') !== false ||
+				strpos($msg, 'parameter verification failed') !== false ||
+				strpos($msg, 'vm ') !== false) {
+				continue;
+			}
+
+			// Any other error is unexpected; surface it
+			throw $e;
+		}
+	}
+
+	throw new Exception("Unable to find a free VMID starting at {$start_vmid} after {$max_attempts} attempts");
 }
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
