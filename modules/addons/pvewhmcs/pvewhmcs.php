@@ -338,13 +338,13 @@ function pvewhmcs_output($vars) {
 	if ($servers->isEmpty()) {
 		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
 	} else {
-		foreach ($servers as $srv) {
+		foreach ($servers as $pve) {
 			// Decrypt server password (same approach as ClientArea)
-			$api_data = array('password2' => $srv->password);
+			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
-			$serverip       = $srv->ipaddress;
-			$serverusername = $srv->username;
-			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
+			$serverip       = $pve->ipaddress;
+			$serverusername = $pve->username;
+			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #'.$pve->id);
 
 			// Login + get cluster/resources
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
@@ -373,14 +373,14 @@ function pvewhmcs_output($vars) {
 			// Split resources
 			$nodes = [];
 			$guests = []; // qemu + lxc
-			foreach ($cluster_resources as $res) {
-				if (!isset($res['type'])) {
+			foreach ($cluster_resources as $resource) {
+				if (!isset($resource['type'])) {
 					continue;
 				}
-				if ($res['type'] === 'node') {
-					$nodes[] = $res;
-				} elseif ($res['type'] === 'qemu' || $res['type'] === 'lxc') {
-					$guests[] = $res;
+				if ($resource['type'] === 'node') {
+					$nodes[] = $resource;
+				} elseif ($resource['type'] === 'qemu' || $resource['type'] === 'lxc') {
+					$guests[] = $resource;
 				}
 			}
 
@@ -494,12 +494,12 @@ function pvewhmcs_output($vars) {
 	if ($servers->isEmpty()) {
 		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>.</div>';
 	} else {
-		foreach ($servers as $srv) {
-			$api_data = array('password2' => $srv->password);
+		foreach ($servers as $pve) {
+			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
-			$serverip       = $srv->ipaddress;
-			$serverusername = $srv->username;
-			$serverlabel    = !empty($srv->name) ? $srv->name : ('Server #'.$srv->id);
+			$serverip       = $pve->ipaddress;
+			$serverusername = $pve->username;
+			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #'.$pve->id);
 
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
@@ -515,9 +515,9 @@ function pvewhmcs_output($vars) {
 
 			// Filter guests only
 			$guests = [];
-			foreach ($cluster_resources as $res) {
-				if (isset($res['type']) && ($res['type'] === 'qemu' || $res['type'] === 'lxc')) {
-					$guests[] = $res;
+			foreach ($cluster_resources as $resource) {
+				if (isset($resource['type']) && ($resource['type'] === 'qemu' || $resource['type'] === 'lxc')) {
+					$guests[] = $resource;
 				}
 			}
 
@@ -840,23 +840,23 @@ function pvewhmcs_output($vars) {
 	try {
 	    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
 	    if (!isset($proxmox)) {
-	        $srv = Capsule::table('tblservers')
+	        $pve = Capsule::table('tblservers')
 	            ->where('type', 'pvewhmcs')
 	            ->where('disabled', 0)
 	            ->orderBy('id', 'asc')
 	            ->first();
 
-	        if (!$srv) {
+	        if (!$pve) {
 	            throw new Exception('No enabled WHMCS server found for module type pvewhmcs.');
 	        }
 
-	        $dec = localAPI('DecryptPassword', ['password2' => $srv->password]);
+	        $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
 	        $serverpassword = $dec['password'] ?? '';
 	        if (!$serverpassword) {
 	            throw new Exception('Could not decrypt Proxmox server password.');
 	        }
 
-	        $proxmox = new PVE2_API($srv->ipaddress, $srv->username, 'pam', $serverpassword);
+	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, 'pam', $serverpassword);
 	        if (!$proxmox->login()) {
 	            throw new Exception('Login to Proxmox API failed.');
 	        }

@@ -76,24 +76,6 @@ function pvewhmcs_ConfigOptions() {
 		$ippools[$ippool->id] = $ippool->title ;
 	}
 	
-	/*
-	$proxmox = new PVE2_API($server->ipaddress, $server->username, "pam", pvewhmcs_get_whmcs_server_password($server->password));
-	if ($proxmox->login()) {
-		# Get first node name.
-		$nodes = $proxmox->get_node_list();
-		$first_node = $nodes[0];
-		unset($nodes);
-
-		$storage_contents = $proxmox->get('/nodes/'.$first_node.'/storage/local/content') ;
-
-		foreach ($storage_contents as $storage_content) {
-			if ($storage_content['content']=='vztmpl') {
-				$templates[$storage_content['volid']]=explode('.',explode('/',$storage_content['volid'])[1])[0] ;
-			}
-		}
-	}
-	*/
-	
 	// OPTIONS FOR THE QEMU/LXC PACKAGE; ties WHMCS PRODUCT to MODULE PLAN/POOL
 	// Ref: https://developers.whmcs.com/provisioning-modules/config-options/
 	// SQL/Param: configoption1 configoption2
@@ -153,18 +135,22 @@ function pvewhmcs_CreateAccount($params) {
 		// QEMU TEMPLATE - CREATION LOGIC
 		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 		if ($proxmox->login()) {
-			// Get first node name.
+			// Get template node: prefer TPL_Node_QEMU custom field, fallback to first node
 			$nodes = $proxmox->get_node_list();
-			$first_node = $nodes[0];
+			if (!empty($params['customfields']['TPL_Node_QEMU'])) {
+				$template_node = $params['customfields']['TPL_Node_QEMU'];
+			} else {
+				$template_node = $nodes[0];
+			}
 			unset($nodes);
 			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $first_node, $vmid);
+			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
 			$vm_settings['newid'] = $vmid;
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
 			// QEMU TEMPLATE - Conduct the VM CLONE from Template to Machine
-			$logrequest = '/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
-			$response = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
+			$logrequest = '/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
+			$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
 
 			// DEBUG - Log the request parameters before it's fired
 			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -187,7 +173,7 @@ function pvewhmcs_CreateAccount($params) {
 
 				for ($i = 0; $i < $max_retries; $i++) {
 					// Check task status
-					$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $upid . '/status');
+					$task_status = $proxmox->get('/nodes/' . $template_node . '/tasks/' . $upid . '/status');
 
 					if (isset($task_status['status']) && $task_status['status'] === 'stopped') {
 						// Task is completed, now check exit status
@@ -233,7 +219,7 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['cpu'] = $plan->cpuemu;
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
-				$amendment = $proxmox->post('/nodes/' . $first_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+				$amendment = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
@@ -371,24 +357,28 @@ function pvewhmcs_CreateAccount($params) {
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
 
 			if ($proxmox->login()) {
-				// Get first node name.
+				// Get template node: prefer TPL_Node_LXC custom field for LXC, fallback to first node
 				$nodes = $proxmox->get_node_list();
-				$first_node = $nodes[0];
+				if ($plan->vmtype != 'kvm' && !empty($params['customfields']['TPL_Node_LXC'])) {
+					$template_node = $params['customfields']['TPL_Node_LXC'];
+				} else {
+					$template_node = $nodes[0];
+				}
 				unset($nodes);
 
 				// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $first_node, $vmid);
+				$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
 				$vm_settings['vmid'] = $vmid;
 
 				if ($plan->vmtype == 'kvm') {
-					$v = 'qemu';
+					$guest_type = 'qemu';
 				} else {
-					$v = 'lxc';
+					$guest_type = 'lxc';
 				}
 
 				// ACTION - Fire the attempt to create
-				$logrequest = '/nodes/' . $first_node . '/' . $v . $vm_settings;
-				$response = $proxmox->post('/nodes/' . $first_node . '/' . $v, $vm_settings);
+				$logrequest = '/nodes/' . $template_node . '/' . $guest_type . $vm_settings;
+				$response = $proxmox->post('/nodes/' . $template_node . '/' . $guest_type, $vm_settings);
 
 				// DEBUG - Log the request parameters after it's fired
 				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -411,7 +401,7 @@ function pvewhmcs_CreateAccount($params) {
 
 					for ($i = 0; $i < $max_retries; $i++) {
 						// Check task status
-						$task_status = $proxmox->get('/nodes/' . $first_node . '/tasks/' . $upid . '/status');
+						$task_status = $proxmox->get('/nodes/' . $template_node . '/tasks/' . $upid . '/status');
 
 						if (isset($task_status['status']) && $task_status['status'] === 'stopped') {
 							// Task is completed, now check exit status
@@ -441,7 +431,7 @@ function pvewhmcs_CreateAccount($params) {
 							'id' => $params['serviceid'],
 							'vmid' => $vmid,
 							'user_id' => $params['clientsdetails']['userid'],
-							'vtype' => $v,
+							'vtype' => $guest_type,
 							'ipaddress' => $ip->ipaddress,
 							'subnetmask' => $ip->mask,
 							'gateway' => $ip->gateway,
@@ -1127,22 +1117,28 @@ function pvewhmcs_noVNC($params) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
 	}
 	
-	// Get login credentials then make the Proxmox connection attempt.
+	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$serverusername = 'vnc';
-	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"]);
+	if (!$proxmox_server->login()) {
+		return 'Failed to prepare noVNC. Unable to connect to server.';
+	}
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+	// Early prep work - find guest and node using server credentials
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest, $params['serviceid']);
+	if (empty($guest_node)) {
+		return 'Failed to prepare noVNC. Unable to determine node.';
+	}
+	
+	// Now use VNC credentials for the actual VNC proxy request (restricted permissions)
+	$vncusername = 'vnc';
+	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword);
 	if ($proxmox->login()) {
-		// Early prep work
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return 'Failed to prepare noVNC. Unable to determine node.';
-		}
 		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		// Get both tickets prepared
@@ -1168,22 +1164,28 @@ function pvewhmcs_SPICE($params) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
 	}
 	
-	// Get login credentials then make the Proxmox connection attempt.
+	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$serverusername = 'vnc';
-	$serverpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"]);
+	if (!$proxmox_server->login()) {
+		return 'Failed to prepare SPICE. Unable to connect to server.';
+	}
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pve", $serverpassword);
+	// Early prep work - find guest and node using server credentials
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+	if ($guest === null) {
+		return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+	}
+	$guest_node = pvewhmcs_find_guest_node($proxmox_server, $guest, $params['serviceid']);
+	if (empty($guest_node)) {
+		return 'Failed to prepare SPICE. Unable to determine node.';
+	}
+	
+	// Now use VNC credentials for the actual SPICE proxy request (restricted permissions)
+	$vncusername = 'vnc';
+	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword);
 	if ($proxmox->login()) {
-		// Early prep work
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return 'Failed to prepare SPICE. Unable to determine node.';
-		}
 		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
 
 		// Get both tickets prepared
@@ -1401,21 +1403,6 @@ function pvewhmcs_vmStop($params) {
 	}
 }
 
-// CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
-function pvewhmcs_vmCheck($params) {
-	return "success";
-}
-
-// NETWORKING FUNCTION: Convert subnet mask to CIDR
-function mask2cidr($mask){
-	$long = ip2long($mask);
-	$base = ip2long('255.255.255.255');
-	return 32-log(($long ^ $base)+1,2);
-}
-
-
-
-
 /**
  * Locate the Proxmox node that hosts a given VM/CT.
  *
@@ -1426,7 +1413,7 @@ function mask2cidr($mask){
  */
 function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
 {
-    // 1) Where guest lives ? //
+    // 1) Where guest lives?
     $cluster_resources = $proxmox->get('/cluster/resources');
 
     if (is_array($cluster_resources)) {
@@ -1456,9 +1443,17 @@ function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
     return null;
 }
 
+// CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
+function pvewhmcs_vmCheck($params) {
+	return "success";
+}
 
-
-
+// NETWORKING FUNCTION: Convert subnet mask to CIDR
+function mask2cidr($mask){
+	$long = ip2long($mask);
+	$base = ip2long('255.255.255.255');
+	return 32-log(($long ^ $base)+1,2);
+}
 
 function bytes2format($bytes, $precision = 2, $_1024 = true) {
 	$units = array( 'B', 'KB', 'MB', 'GB', 'TB' );

@@ -215,24 +215,30 @@ This needs configuring for each `WHMCS Admin > Products & Services` entry.
 
 Firstly, create the Template VM in PVE. You need its unique PVE ID.
 
-Use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
+Secondly, use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
 
 > **Note**: `ID` is the Unique ID that your Template VM has in PVE.<br>
 > **Note**: `Name` is what will be displayed to your Clients in WHMCS.
+
+Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
 
 ### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 
 Firstly, create the Plan in WHMCS Module. Then too in WHMCS Config > Services.
 
 > Under the Service, you need to add a Custom Field `ISO` with the full location.<br>
-> This ISO must be located on the PVE Host, and not on the WHMCS installation side.
+> This ISO must be located on all PVE Nodes, and not on the WHMCS installation side.
 
 ### CT Option 1: LXC, PVE Template File
 
 Firstly, store the Template in PVE. You need its storage, folder & File Name.
 
-> Use that prefixed file name in the Custom Field `Template`, as in:<br>
+Secondly, use that prefixed file name in the Custom Field `Template`.
+
+> Here is the syntax for that field, including display name:<br>
 > `local:vztmpl/ubuntu-99.99-standard_amd64.tar.gz|Ubuntu 99`
+
+Thirdly, add another Custom Field `TPL_Node_LXC` with the node short name.
 
 ### VM/CT Import/Associate Existing Guest
 
