@@ -56,11 +56,13 @@ function pvewhmcs_activate() {
 	if (!$sql) {
 		return array('status'=>'error','description'=>'The db.sql file was not found.');
 	}
+
 	// SQL file is good, let's proceed with pulling it in
 	$err=false;
 	$i=0;
 	$query_array=explode(';',$sql) ;
 	$query_count=count($query_array) ;
+
 	// Iterate through the SQL commands to finalise init.
 	foreach ( $query_array as $query) {
 		if ($i<$query_count-1)
@@ -68,20 +70,16 @@ function pvewhmcs_activate() {
 		$err=true;
 		$i++ ;
 	}
+
 	// Return success or error.
 	if (!$err)
 		return array('status'=>'success','description'=>'Proxmox VE for WHMCS was installed successfully!');
 
 	return array('status'=>'error','description'=>'Proxmox VE for WHMCS was not activated properly.');
-
 }
 
 // WHMCS MODULE: DEACTIVATION
 function pvewhmcs_deactivate() {
-	// Drop all module-related tables
-	// NOTE: Disabled/Deleted via #160
-	// Capsule::statement('drop table mod_pvewhmcs_ip_addresses,mod_pvewhmcs_ip_pools,mod_pvewhmcs_plans,mod_pvewhmcs_vms,mod_pvewhmcs');
-	
 	// Return the assumed result (change?)
 	return array('status'=>'success','description'=>'Proxmox VE for WHMCS successfully deactivated. Database tables/data retained.');
 }
@@ -159,7 +157,7 @@ function pvewhmcs_upgrade($vars) {
 // UPDATE CHECKER: live vs repo
 function is_pvewhmcs_outdated(){
 	if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
-		return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases'>Download the new version!</a></span>";
+		return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest'>Download the new version!</a></span>";
 	}
 }
 

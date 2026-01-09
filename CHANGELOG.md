@@ -11,6 +11,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - QEMU CPU: Add AMD EPYC-Milan-v2 processor model
 - QEMU CPU: Link to Admin Guide for CPU comparisons
 - Spacing: Clean-up all files to space concatenations
+- Update Available: Links directly to the latest release
 - Naming: $srv -> $pve; $res -> $resource; $v -> $guest_type
 
 ### 🐛 Bug Fix
