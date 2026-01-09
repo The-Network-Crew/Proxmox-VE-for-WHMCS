@@ -271,6 +271,14 @@ Create a 2nd Custom Field `Password` for the Container's root user on all CT Ser
 
 ### Updating to a newer release!
 
+> [!WARNING]  
+> There are 2x states that new Proxmox VE for WHMCS releases typically go through.
+> 
+> 1. Module shows Update Available, but GitHub repo does NOT have a published release.<br>
+>    In this state, it is ready for testing - but we do not recommend deploying to prod.
+> 2. Module shows Update Available, and GitHub repo DOES have a published release.<br>
+>    In this state, it is tested and considered ready for production usage.
+
 1. Download the new version
 2. Upload it over the top (FTP)
 3. Login to WHMCS Admin

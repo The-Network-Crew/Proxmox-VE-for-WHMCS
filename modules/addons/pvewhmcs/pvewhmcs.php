@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.1";
+	return "1.3.2";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -64,7 +64,7 @@ function pvewhmcs_activate() {
 	// Iterate through the SQL commands to finalise init.
 	foreach ( $query_array as $query) {
 		if ($i<$query_count-1)
-			if (!Capsule::statement($query.';'))
+			if (!Capsule::statement($query . ';'))
 		$err=true;
 		$i++ ;
 	}
@@ -231,12 +231,12 @@ function pvewhmcs_output($vars) {
 		echo '
 		<div class="infobox">
 		<strong>
-		<span class="title">'.$_SESSION['pvewhmcs']['infomsg']['title'].'</span>
+		<span class="title">' . $_SESSION['pvewhmcs']['infomsg']['title'] . '</span>
 		</strong><br/>
-		'.$_SESSION['pvewhmcs']['infomsg']['message'].'
+		' . $_SESSION['pvewhmcs']['infomsg']['message'] . '
 		</div>
-		' ;
-		unset($_SESSION['pvewhmcs']) ;
+		';
+		unset($_SESSION['pvewhmcs']);
 	}
 
 	// Set the active tab based on the GET parameter, default to 'vmplans'
@@ -344,12 +344,12 @@ function pvewhmcs_output($vars) {
 			$serverpassword = localAPI('DecryptPassword', $api_data);
 			$serverip       = $pve->ipaddress;
 			$serverusername = $pve->username;
-			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #'.$pve->id);
+			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
 
 			// Login + get cluster/resources
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'. Check credentials / connectivity.</div>';
+				echo '<div class=\"alert alert-danger\">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials / connectivity.</div>';
 				continue;
 			}
 
@@ -360,7 +360,7 @@ function pvewhmcs_output($vars) {
 				logModuleCall(
 					'pvewhmcs',
 					__FUNCTION__,
-					'CLUSTER RESOURCES ['.$serverlabel.']:',
+					'CLUSTER RESOURCES [' . $serverlabel . ']:',
 					json_encode($cluster_resources)
 				);
 			}
@@ -417,23 +417,23 @@ function pvewhmcs_output($vars) {
 				// Node Header Row
 				echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
 				echo '<div>';
-				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> '.htmlspecialchars($n_name).'</h4>';
-				echo '<span style="color:#555;font-size:12px;">PVE '.htmlspecialchars($n_version).' &bull; Uptime: '.htmlspecialchars($n_uptime).'</span>';
+				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> ' . htmlspecialchars($n_name) . '</h4>';
+				echo '<span style="color:#555;font-size:12px;">PVE ' . htmlspecialchars($n_version) . ' &bull; Uptime: ' . htmlspecialchars($n_uptime) . '</span>';
 				echo '</div>';
 				echo '<div style="text-align:right;">';
-				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:'.$status_color.';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">'.htmlspecialchars($n_status).'</span>';
+				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:' . $status_color . ';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">' . htmlspecialchars($n_status) . '</span>';
 				echo '</div>';
 				echo '</div>';
 
 				// Live Stats Row
 				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">'.$n_cpu_pct.'%</div>';
-				echo '<div style="font-size:11px;color:#555;">CPU ('.$n_maxcpu.' cores)</div>';
+				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">' . $n_cpu_pct . '%</div>';
+				echo '<div style="font-size:11px;color:#555;">CPU (' . $n_maxcpu . ' cores)</div>';
 				echo '</div>';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">'.$n_mem_pct.'%</div>';
-				echo '<div style="font-size:11px;color:#555;">RAM ('.$n_mem_used.'/'.$n_mem_max.' GB)</div>';
+				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">' . $n_mem_pct . '%</div>';
+				echo '<div style="font-size:11px;color:#555;">RAM (' . $n_mem_used . '/' . $n_mem_max . ' GB)</div>';
 				echo '</div>';
 				echo '</div>';
 
@@ -450,19 +450,19 @@ function pvewhmcs_output($vars) {
 					// Row 1: CPU and Memory
 					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
 					if ($rrd_cpu) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_cpu.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_cpu . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					if ($rrd_mem) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_mem.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_mem . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					echo '</div>';
 					// Row 2: Network and I/O
 					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
 					if ($rrd_net) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_net.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_net . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					if ($rrd_io) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,'.$rrd_io.'" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_io . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
 					}
 					echo '</div>';
 					echo '</div>';
@@ -499,11 +499,11 @@ function pvewhmcs_output($vars) {
 			$serverpassword = localAPI('DecryptPassword', $api_data);
 			$serverip       = $pve->ipaddress;
 			$serverusername = $pve->username;
-			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #'.$pve->id);
+			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
 
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on '.htmlspecialchars($serverip).'.</div>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '.</div>';
 				continue;
 			}
 
@@ -526,7 +526,7 @@ function pvewhmcs_output($vars) {
 
 			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
 			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
-			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ddd;">('.count($guests).' guests: '.$running_count.' running, '.$stopped_count.' stopped)</small></h3>';
+			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> ' . htmlspecialchars($serverlabel) . ' <small style="color:#ddd;">(' . count($guests) . ' guests: ' . $running_count . ' running, ' . $stopped_count . ' stopped)</small></h3>';
 			echo '</div>';
 			echo '<div class="panel-body" style="padding:0;padding-top:8px;">';
 
@@ -563,15 +563,15 @@ function pvewhmcs_output($vars) {
 					$status_color = ($g_status === 'running') ? '#5cb85c' : '#999';
 
 					echo '<tr>';
-					echo '<td><code>'.$g_vmid.'</code></td>';
-					echo '<td><i class="fa '.$type_icon.'" style="color:#666;"></i> <strong>'.htmlspecialchars($g_name).'</strong></td>';
-					echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:'.$status_color.';color:#fff;font-size:10px;text-transform:uppercase;">'.htmlspecialchars($g_status).'</span></td>';
-					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">'.htmlspecialchars($g_type).'</span></td>';
-					echo '<td>'.htmlspecialchars($g_node).'</td>';
-					echo '<td>'.$g_cpu_pct.'%</td>';
-					echo '<td>'.$g_mem_pct.'%</td>';
-					echo '<td>'.$g_dsk_pct.'%</td>';
-					echo '<td>'.htmlspecialchars($g_uptime).'</td>';
+					echo '<td><code>' . $g_vmid . '</code></td>';
+					echo '<td><i class="fa ' . $type_icon . '" style="color:#666;"></i> <strong>' . htmlspecialchars($g_name) . '</strong></td>';
+					echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:' . $status_color . ';color:#fff;font-size:10px;text-transform:uppercase;">' . htmlspecialchars($g_status) . '</span></td>';
+					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">' . htmlspecialchars($g_type) . '</span></td>';
+					echo '<td>' . htmlspecialchars($g_node) . '</td>';
+					echo '<td>' . $g_cpu_pct . '%</td>';
+					echo '<td>' . $g_mem_pct . '%</td>';
+					echo '<td>' . $g_dsk_pct . '%</td>';
+					echo '<td>' . htmlspecialchars($g_uptime) . '</td>';
 					echo '</tr>';
 				}
 				echo '</tbody></table>';
@@ -660,32 +660,32 @@ function pvewhmcs_output($vars) {
 		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
-			echo '<td>'.$vm->id . PHP_EOL .'</td>';
-			echo '<td>'.$vm->title . PHP_EOL .'</td>';
-			echo '<td>'.$vm->vmtype . PHP_EOL .'</td>';
-			echo '<td>'.$vm->ostype . PHP_EOL .'</td>';
-			echo '<td>'.$vm->cpus . PHP_EOL .'</td>';
-			echo '<td>'.$vm->cores . PHP_EOL .'</td>';
-			echo '<td>'.$vm->memory . PHP_EOL .'</td>';
-			echo '<td>'.$vm->balloon . PHP_EOL .'</td>';
-			echo '<td>'.$vm->swap . PHP_EOL .'</td>';
-			echo '<td>'.$vm->disk . PHP_EOL .'</td>';
-			echo '<td>'.$vm->disktype . PHP_EOL .'</td>';
-			echo '<td>'.$vm->diskio . PHP_EOL .'</td>';
-			echo '<td>'.$vm->storage . PHP_EOL .'</td>';
-			echo '<td>'.$vm->netmode . PHP_EOL .'</td>';
-			echo '<td>'.$vm->bridge.$vm->vmbr . PHP_EOL .'</td>';
-			echo '<td>'.$vm->netmodel . PHP_EOL .'</td>';
-			echo '<td>'.$vm->vlanid . PHP_EOL .'</td>';
-			echo '<td>'.$vm->netrate . PHP_EOL .'</td>';
-			echo '<td>'.$vm->bw . PHP_EOL .'</td>';
-			echo '<td>'.$vm->ipv6 . PHP_EOL .'</td>';
-			echo '<td>'.$vm->unpriv . PHP_EOL .'</td>';
+			echo '<td>' . $vm->id . '</td>';
+			echo '<td>' . $vm->title . '</td>';
+			echo '<td>' . $vm->vmtype . '</td>';
+			echo '<td>' . $vm->ostype . '</td>';
+			echo '<td>' . $vm->cpus . '</td>';
+			echo '<td>' . $vm->cores . '</td>';
+			echo '<td>' . $vm->memory . '</td>';
+			echo '<td>' . $vm->balloon . '</td>';
+			echo '<td>' . $vm->swap . '</td>';
+			echo '<td>' . $vm->disk . '</td>';
+			echo '<td>' . $vm->disktype . '</td>';
+			echo '<td>' . $vm->diskio . '</td>';
+			echo '<td>' . $vm->storage . '</td>';
+			echo '<td>' . $vm->netmode . '</td>';
+			echo '<td>' . $vm->bridge . $vm->vmbr . '</td>';
+			echo '<td>' . $vm->netmodel . '</td>';
+			echo '<td>' . $vm->vlanid . '</td>';
+			echo '<td>' . $vm->netrate . '</td>';
+			echo '<td>' . $vm->bw . '</td>';
+			echo '<td>' . $vm->ipv6 . '</td>';
+			echo '<td>' . $vm->unpriv . '</td>';
 			echo '<td>
-			<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=editplan&amp;id='.$vm->id.'&amp;vmtype='.$vm->vmtype.'"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
-			<a href="'.pvewhmcs_BASEURL.'&amp;tab=vmplans&amp;action=removeplan&amp;id='.$vm->id.'" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
-			</td>' ;
-			echo '</tr>' ;
+			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . $vm->id . '&amp;vmtype=' . $vm->vmtype . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
+			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=removeplan&amp;id=' . $vm->id . '" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
+			</td>';
+			echo '</tr>';
 		}
 		echo '</tbody></table>';
 	}
@@ -798,7 +798,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VNC Secret</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="'.$config->vnc_secret.'">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="' . $config->vnc_secret . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
 		</td>
 	</tr>
@@ -807,7 +807,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VMID Start</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="'.$config->start_vmid.'">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="' . $config->start_vmid . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">For Guests. Increments until a vacant VMID found. Default is <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">100</code></p>
 		</td>
 	</tr>
@@ -856,7 +856,7 @@ function pvewhmcs_output($vars) {
 	            throw new Exception('Could not decrypt Proxmox server password.');
 	        }
 
-	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, 'pam', $serverpassword);
+	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
 	        if (!$proxmox->login()) {
 	            throw new Exception('Login to Proxmox API failed.');
 	        }
@@ -973,12 +973,12 @@ function import_guest() {
 		// Validate Client ID
 		$client = Capsule::table('tblclients')->where('id', $userid)->where('status', 'Active')->first();
 		if (!$client) {
-			$resultMsg = '<div class="errorbox">No active WHMCS Client found with ID '.$userid.'</div>';
+			$resultMsg = '<div class="errorbox">No active WHMCS Client found with ID ' . $userid . '</div>';
 		} else {
 			// Validate Product
 			$product = Capsule::table('tblproducts')->where('id', $productid)->where('retired', 0)->first();
 			if (!$product) {
-				$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID '.$productid.'</div>';
+				$resultMsg = '<div class="errorbox">No active WHMCS Product found with ID ' . $productid . '</div>';
 			} else {
 				// Create WHMCS Service (Order)
 				try {
@@ -1016,10 +1016,10 @@ function import_guest() {
 						'suspendreason' => '',
 						'overideautosuspend' => 0,
 						'overidesuspenduntil' => '',
-						'notes' => 'PVEWHMCS: Imported from Proxmox Guest VMID '.$vmid,
+						'notes' => 'PVEWHMCS: Imported from Proxmox Guest VMID ' . $vmid,
 					]);
 				} catch (Exception $e) {
-					$resultMsg = '<div class="errorbox">Could not create WHMCS service: '.htmlspecialchars($e->getMessage()).'</div>';
+					$resultMsg = '<div class="errorbox">Could not create WHMCS service: ' . htmlspecialchars($e->getMessage()) . '</div>';
 					$serviceID = false;
 				}
 				if ($serviceID) {
@@ -1035,9 +1035,9 @@ function import_guest() {
 							'gateway' => $gateway,
 							'created' => date('Y-m-d H:i:s'),
 						]);
-						$resultMsg = '<div class="successbox">Successfully imported PVE VMID '.$vmid.' (' . $vtype . ') as Service ' . $serviceID . ' (' . $product->name . ') for ' . $client->firstname . ' ' . $client->lastname . '. ' . $client->company . '</div>';
+						$resultMsg = '<div class="successbox">Successfully imported PVE VMID ' . $vmid . ' (' . $vtype . ') as Service ' . $serviceID . ' (' . $product->name . ') for ' . $client->firstname . ' ' . $client->lastname . '. ' . $client->company . '</div>';
 					} catch (Exception $e) {
-						$resultMsg = '<div class="errorbox">Database error: '.htmlspecialchars($e->getMessage()).'</div>';
+						$resultMsg = '<div class="errorbox">Database error: ' . htmlspecialchars($e->getMessage()) . '</div>';
 					}
 				}
 			}
@@ -1055,8 +1055,8 @@ function import_guest() {
 	$clients = Capsule::table('tblclients')->where('status', 'Active')->orderBy('companyname')->orderBy('firstname')->orderBy('lastname')->get();
 	echo '<tr><td class="fieldlabel">Target Client</td><td class="fieldarea"><select name="import_clientid" required>';
 	foreach ($clients as $client) {
-		$label = $client->id.' - '.($client->companyname ? $client->companyname.' - ' : '').$client->firstname.' '.$client->lastname;
-		echo '<option value="'.$client->id.'">'.htmlspecialchars($label).'</option>';
+		$label = $client->id . ' - ' . ($client->companyname ? $client->companyname . ' - ' : '') . $client->firstname . ' ' . $client->lastname;
+		echo '<option value="' . $client->id . '">' . htmlspecialchars($label) . '</option>';
 	}
 	echo '</select></td></tr>';
 	
@@ -1064,7 +1064,7 @@ function import_guest() {
 	$products = Capsule::table('tblproducts')->where('type', 'server')->where('retired', 0)->orderBy('name')->get();
 	echo '<tr><td class="fieldlabel">Service</td><td class="fieldarea"><select name="import_productid" required>';
 	foreach ($products as $product) {
-		echo '<option value="'.$product->id.'">'.htmlspecialchars($product->name).'</option>';
+		echo '<option value="' . $product->id . '">' . htmlspecialchars($product->name) . '</option>';
 	}
 	echo '</select></td></tr>';
 	
@@ -1206,6 +1206,7 @@ function qemu_plan_add() {
 	<option value="EPYC">(AMD) EPYC</option>
 	<option value="EPYC-IBPB">(AMD) EPYC-IBPB</option>
 	<option value="EPYC-Milan">(AMD) EPYC-Milan</option>
+	<option value="EPYC-Milan-v2">(AMD) EPYC-Milan-v2</option>
 	<option value="EPYC-Rome">(AMD) EPYC-Rome</option>
 	<option value="EPYC-Rome-v2">(AMD) EPYC-Rome-v2</option>
 	<option value="EPYC-v3">(AMD) EPYC-v3</option>
@@ -1215,10 +1216,9 @@ function qemu_plan_add() {
 	<option value="Opteron_G4">(AMD) Opteron_G4</option>
 	<option value="Opteron_G5">(AMD) Opteron_G5</option>
 	</select>
-	Default is x86-64 psABI v2-AES.
+	Learn more in the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Proxmox VE Admin Guide</u></a>.
 	</td>
 	</tr>
-
 	<tr>
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
@@ -1431,7 +1431,7 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="title" id="title" required value="'.$plan->title.'">
+	<input type="text" size="35" name="title" id="title" required value="' . $plan->title . '">
 	</td>
 	</tr>
 	<tr>
@@ -1522,6 +1522,7 @@ function qemu_plan_edit($id) {
 	<option value="EPYC" ' . ($plan->cpuemu == "EPYC" ? "selected" : "") . '>(AMD) EPYC</option>
 	<option value="EPYC-IBPB" ' . ($plan->cpuemu == "EPYC-IBPB" ? "selected" : "") . '>(AMD) EPYC-IBPB</option>
 	<option value="EPYC-Milan" ' . ($plan->cpuemu == "EPYC-Milan" ? "selected" : "") . '>(AMD) EPYC-Milan</option>
+	<option value="EPYC-Milan-v2" ' . ($plan->cpuemu == "EPYC-Milan-v2" ? "selected" : "") . '>(AMD) EPYC-Milan-v2</option>
 	<option value="EPYC-Rome" ' . ($plan->cpuemu == "EPYC-Rome" ? "selected" : "") . '>(AMD) EPYC-Rome</option>
 	<option value="EPYC-Rome-v2" ' . ($plan->cpuemu == "EPYC-Rome-v2" ? "selected" : "") . '>(AMD) EPYC-Rome-v2</option>
 	<option value="EPYC-v3" ' . ($plan->cpuemu == "EPYC-v3" ? "selected" : "") . '>(AMD) EPYC-v3</option>
@@ -1531,56 +1532,56 @@ function qemu_plan_edit($id) {
 	<option value="Opteron_G4" ' . ($plan->cpuemu == "Opteron_G4" ? "selected" : "") . '>(AMD) Opteron_G4</option>
 	<option value="Opteron_G5" ' . ($plan->cpuemu == "Opteron_G5" ? "selected" : "") . '>(AMD) Opteron_G5</option>
 	</select>
-	Default is x86-64 psABI v2-AES.
+	Learn more in the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Proxmox VE Admin Guide</u></a>.
 	</td>
 	</tr>
 
 	<tr>
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpus" id="cpus" value="'.$plan->cpus.'" required>
+	<input type="text" size="8" name="cpus" id="cpus" value="' . $plan->cpus . '" required>
 	The number of CPU Sockets (typically 1-4).
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Cores</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cores" id="cores" value="'.$plan->cores.'" required>
+	<input type="text" size="8" name="cores" id="cores" value="' . $plan->cores . '" required>
 	The number of CPU Cores per Socket (1-N).
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpulimit" id="cpulimit" value="'.$plan->cpulimit.'" required>
+	<input type="text" size="8" name="cpulimit" id="cpulimit" value="' . $plan->cpulimit . '" required>
 	Limit of CPU usage. Note if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpuunits" id="cpuunits" value="'.$plan->cpuunits.'" required>
+	<input type="text" size="8" name="cpuunits" id="cpuunits" value="' . $plan->cpuunits . '" required>
 	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. Disable fair-scheduler by setting this to 0.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
+	<input type="text" size="8" name="memory" id="memory" required value="' . $plan->memory . '">
 	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="balloon" id="balloon" required value="'.$plan->balloon.'">
+	<input type="text" size="8" name="balloon" id="balloon" required value="' . $plan->balloon . '">
 	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" required value="'.$plan->disk.'">
+	<input type="text" size="8" name="disk" id="disk" required value="' . $plan->disk . '">
 	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
@@ -1588,9 +1589,9 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Disk - Format</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="diskformat">
-	<option value="raw" '. ($plan->diskformat=="raw" ? "selected" : "").'>Disk Image (raw)</option>
-	<option value="qcow2" '. ($plan->diskformat=="qcow2" ? "selected" : "").'>QEMU image (qcow2)</option>
-	<option value="vmdk" '. ($plan->diskformat=="vmdk" ? "selected" : "").'>VMware image (vmdk)</option>
+	<option value="raw" ' . ($plan->diskformat == "raw" ? "selected" : "") . '>Disk Image (raw)</option>
+	<option value="qcow2" ' . ($plan->diskformat == "qcow2" ? "selected" : "") . '>QEMU image (qcow2)</option>
+	<option value="vmdk" ' . ($plan->diskformat == "vmdk" ? "selected" : "") . '>VMware image (vmdk)</option>
 	</select>
 	Recommend "QEMU/qcow2 format" (supports Snapshots)
 	</td>
@@ -1599,12 +1600,12 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Disk - Cache</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="diskcache">
-	<option value="" '. ($plan->diskcache=="" ? "selected" : "").'>No Cache (Default)</option>
-	<option value="directsync" '. ($plan->diskcache=="directsync" ? "selected" : "").'>Direct Sync</option>
-	<option value="writethrough" '. ($plan->diskcache=="writethrough" ? "selected" : "").'>Write Through</option>
-	<option value="writeback" '. ($plan->diskcache=="writeback" ? "selected" : "").'>Write Back</option>
-	<option value="unsafe" '. ($plan->diskcache=="unsafe" ? "selected" : "").'>Write Back (Unsafe)</option>
-	<option value="none" '. ($plan->diskcache=="none" ? "selected" : "").'>No Cache</option>
+	<option value="" ' . ($plan->diskcache == "" ? "selected" : "") . '>No Cache (Default)</option>
+	<option value="directsync" ' . ($plan->diskcache == "directsync" ? "selected" : "") . '>Direct Sync</option>
+	<option value="writethrough" ' . ($plan->diskcache == "writethrough" ? "selected" : "") . '>Write Through</option>
+	<option value="writeback" ' . ($plan->diskcache == "writeback" ? "selected" : "") . '>Write Back</option>
+	<option value="unsafe" ' . ($plan->diskcache == "unsafe" ? "selected" : "") . '>Write Back (Unsafe)</option>
+	<option value="none" ' . ($plan->diskcache == "none" ? "selected" : "") . '>No Cache</option>
 	</select>
 	</td>
 	</tr>
@@ -1612,10 +1613,10 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Disk - Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="disktype">
-	<option value="virtio" '. ($plan->disktype=="virtio" ? "selected" : "").'>Virtio</option>
-	<option value="scsi" '. ($plan->disktype=="scsi" ? "selected" : "").'>SCSI</option>
-	<option value="sata" '. ($plan->disktype=="sata" ? "selected" : "").'>SATA</option>
-	<option value="ide" '. ($plan->disktype=="ide" ? "selected" : "").'>IDE</option>
+	<option value="virtio" ' . ($plan->disktype == "virtio" ? "selected" : "") . '>Virtio</option>
+	<option value="scsi" ' . ($plan->disktype == "scsi" ? "selected" : "") . '>SCSI</option>
+	<option value="sata" ' . ($plan->disktype == "sata" ? "selected" : "") . '>SATA</option>
+	<option value="ide" ' . ($plan->disktype == "ide" ? "selected" : "") . '>IDE</option>
 	</select>
 	Virtio is the fastest option, then SCSI, then SATA, etc.
 	</td>
@@ -1623,14 +1624,14 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" required value="'.$plan->diskio.'">
+	<input type="text" size="8" name="diskio" id="diskio" required value="' . $plan->diskio . '">
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" required value="'.$plan->storage.'">
+	<input type="text" size="8" name="storage" id="storage" required value="' . $plan->storage . '">
 	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
@@ -1638,24 +1639,24 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Network - NIC Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
-	<option value="e1000" '. ($plan->netmodel=="e1000" ? "selected" : "").'>Intel E1000 (Stable but slower)</option>
-	<option value="virtio" '. ($plan->netmodel=="virtio" ? "selected" : "").'>VirtIO (Paravirtualised)</option>
-	<option value="rtl8139" '. ($plan->netmodel=="rtl8139" ? "selected" : "").'>Realtek RTL8139</option>
-	<option value="vmxnet3" '. ($plan->netmodel=="vmxnet3" ? "selected" : "").'>VMware vmxnet3</option>
+	<option value="e1000" ' . ($plan->netmodel == "e1000" ? "selected" : "") . '>Intel E1000 (Stable but slower)</option>
+	<option value="virtio" ' . ($plan->netmodel == "virtio" ? "selected" : "") . '>VirtIO (Paravirtualised)</option>
+	<option value="rtl8139" ' . ($plan->netmodel == "rtl8139" ? "selected" : "") . '>Realtek RTL8139</option>
+	<option value="vmxnet3" ' . ($plan->netmodel == "vmxnet3" ? "selected" : "") . '>VMware vmxnet3</option>
 	</select>
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
+	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
 	Network Rate Limit in Megabit. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
+	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
 	Monthly Bandwidth Limit in Gigabyte. Blank for unlimited.
 	</td>
 	</tr>
@@ -1663,10 +1664,10 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
-	<option value="0" '. ($plan->ipv6=="0" ? "selected" : "").'>Off</option>
-	<option value="auto" '. ($plan->ipv6=="auto" ? "selected" : "").'>SLAAC</option>
-	<option value="dhcp" '. ($plan->ipv6=="dhcp" ? "selected" : "").'>DHCPv6</option>
-	<option value="prefix" '. ($plan->ipv6=="prefix" ? "selected" : "").'>Prefix</option>
+	<option value="0" ' . ($plan->ipv6 == "0" ? "selected" : "") . '>Off</option>
+	<option value="auto" ' . ($plan->ipv6 == "auto" ? "selected" : "") . '>SLAAC</option>
+	<option value="dhcp" ' . ($plan->ipv6 == "dhcp" ? "selected" : "") . '>DHCPv6</option>
+	<option value="prefix" ' . ($plan->ipv6 == "prefix" ? "selected" : "") . '>Prefix</option>
 	</select>
 	</td>
 	</tr>
@@ -1674,23 +1675,23 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Network - Mode</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmode">
-	<option value="bridge" '. ($plan->netmode=="bridge" ? "selected" : "").'>Bridge</option>
-	<option value="nat" '. ($plan->netmode=="nat" ? "selected" : "").'>NAT</option>
-	<option value="none" '. ($plan->netmode=="none" ? "selected" : "").'>No network</option>
+	<option value="bridge" ' . ($plan->netmode == "bridge" ? "selected" : "") . '>Bridge</option>
+	<option value="nat" ' . ($plan->netmode == "nat" ? "selected" : "") . '>NAT</option>
+	<option value="none" ' . ($plan->netmode == "none" ? "selected" : "") . '>No network</option>
 	</select>
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
+	<input type="text" size="8" name="bridge" id="bridge" value="' . $plan->bridge . '">
 	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
+	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '">
 	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
@@ -1707,7 +1708,7 @@ function qemu_plan_edit($id) {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="kvm" value="1" '. ($plan->kvm=="1" ? "checked" : "").'> Enable KVM hardware virtualisation. Requires support/enablement in BIOS. (Recommended)
+	<input type="checkbox" name="kvm" value="1" ' . ($plan->kvm == "1" ? "checked" : "") . '> Enable KVM hardware virtualisation. Requires support/enablement in BIOS. (Recommended)
 	</label>
 	</td>
 	</tr>
@@ -1717,7 +1718,7 @@ function qemu_plan_edit($id) {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="onboot" value="1" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a VM will be started during hypervisor boot-up. (Recommended)
+	<input type="checkbox" name="onboot" value="1" ' . ($plan->onboot == "1" ? "checked" : "") . '> Specifies whether a VM will be started during hypervisor boot-up. (Recommended)
 	</label>
 	</td>
 	</tr>
@@ -1884,69 +1885,69 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="title" id="title" required value="'.$plan->title.'">
+	<input type="text" size="35" name="title" id="title" required value="' . $plan->title . '">
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpulimit" id="cpulimit" value="'.$plan->cpulimit.'" required>
+	<input type="text" size="8" name="cpulimit" id="cpulimit" value="' . $plan->cpulimit . '" required>
 	Limit of CPU usage. Default is 1. If the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpuunits" id="cpuunits" value="'.$plan->cpuunits.'" required>
+	<input type="text" size="8" name="cpuunits" id="cpuunits" value="' . $plan->cpuunits . '" required>
 	Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value="'.$plan->memory.'">
+	<input type="text" size="8" name="memory" id="memory" required value="' . $plan->memory . '">
 	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Swap - Space</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="swap" id="swap" value="'.$plan->swap.'">
+	<input type="text" size="8" name="swap" id="swap" value="' . $plan->swap . '">
 	Swap capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" value="'.$plan->disk.'" required>
+	<input type="text" size="8" name="disk" id="disk" value="' . $plan->disk . '" required>
 	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="'.$plan->diskio.'" required>
+	<input type="text" size="8" name="diskio" id="diskio" value="' . $plan->diskio . '" required>
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" value="'.$plan->storage.'" required>
+	<input type="text" size="8" name="storage" id="storage" value="' . $plan->storage . '" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bridge" id="bridge" value="'.$plan->bridge.'">
+	<input type="text" size="8" name="bridge" id="bridge" value="' . $plan->bridge . '">
 	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="'.$plan->vmbr.'">
+	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '">
 	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
@@ -1960,14 +1961,14 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value="'.$plan->netrate.'">
+	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
 	Network Rate Limit in Megabit/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - BW Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value="'.$plan->bw.'">
+	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
 	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
@@ -1975,10 +1976,10 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
-	<option value="0" '. ($plan->ipv6=="0" ? "selected" : "").'>Off</option>
-	<option value="auto" '. ($plan->ipv6=="auto" ? "selected" : "").'>SLAAC</option>
-	<option value="dhcp" '. ($plan->ipv6=="dhcp" ? "selected" : "").'>DHCPv6</option>
-	<option value="prefix" '. ($plan->ipv6=="prefix" ? "selected" : "").'>Prefix</option>
+	<option value="0" ' . ($plan->ipv6 == "0" ? "selected" : "") . '>Off</option>
+	<option value="auto" ' . ($plan->ipv6 == "auto" ? "selected" : "") . '>SLAAC</option>
+	<option value="dhcp" ' . ($plan->ipv6 == "dhcp" ? "selected" : "") . '>DHCPv6</option>
+	<option value="prefix" ' . ($plan->ipv6 == "prefix" ? "selected" : "") . '>Prefix</option>
 	</select>
 	</td>
 	</tr>
@@ -1988,7 +1989,7 @@ function lxc_plan_edit($id) {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" value="1" name="onboot" '. ($plan->onboot=="1" ? "checked" : "").'> Specifies whether a CT will be started during hypervisor boot-up. (Recommended)
+	<input type="checkbox" value="1" name="onboot" ' . ($plan->onboot == "1" ? "checked" : "") . '> Specifies whether a CT will be started during hypervisor boot-up. (Recommended)
 	</label>
 	</td>
 	</tr>
@@ -1998,7 +1999,7 @@ function lxc_plan_edit($id) {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" value="1" name="unpriv" '. ($plan->unpriv=="1" ? "checked" : "").'> Specifies whether a CT will be unprivileged. (Recommended) Set at-create only.
+	<input type="checkbox" value="1" name="unpriv" ' . ($plan->unpriv == "1" ? "checked" : "") . '> Specifies whether a CT will be unprivileged. (Recommended) Set at-create only.
 	</label>
 	</td>
 	</tr>
@@ -2180,18 +2181,18 @@ function update_lxc_plan() {
 
 // IP POOLS: List all Pools
 function list_ip_pools() {
-	echo '<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IPv4 Pool</a>';
+	echo '<a class="btn btn-default" href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=new_ip_pool"><i class="fa fa-plus-square"></i>&nbsp; New IPv4 Pool</a>';
 	echo '<table class="datatable"><tr><th>ID</th><th>Pool</th><th>Gateway</th><th>Action</th></tr>';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 		echo '<tr>';
-		echo '<td>'.$pool->id . PHP_EOL .'</td>';
-		echo '<td>'.$pool->title . PHP_EOL .'</td>';
-		echo '<td>'.$pool->gateway . PHP_EOL .'</td>';
+		echo '<td>' . $pool->id . '</td>';
+		echo '<td>' . $pool->title . '</td>';
+		echo '<td>' . $pool->gateway . '</td>';
 		echo '<td>
-		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=list_ips&amp;id='.$pool->id.'"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
-		<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeippool&amp;id='.$pool->id.'" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
-		</td>' ;
-		echo '</tr>' ;
+		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=list_ips&amp;id=' . $pool->id . '"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
+		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeippool&amp;id=' . $pool->id . '" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
+		</td>';
+		echo '</tr>';
 	}
 	echo '</table>';
 }
@@ -2261,8 +2262,8 @@ function add_ip_2_pool() {
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="pool_id">';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
-		echo '<option value="'.$pool->id.'">'.$pool->title.'</option>';
-		$gateways[]=$pool->gateway ;
+		echo '<option value="' . $pool->id . '">' . $pool->title . '</option>';
+		$gateways[] = $pool->gateway;
 	}
 	echo '</select>
 	</td>
@@ -2305,9 +2306,9 @@ function add_ip_2_pool() {
 				);
 			}
 		}
-		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$_POST['pool_id']);
-		$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Address/Blocks added to Pool.' ;
-		$_SESSION['pvewhmcs']['infomsg']['message']='You can remove IPv4 Addresses from the pool.' ;
+		header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $_POST['pool_id']);
+		$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Address/Blocks added to Pool.';
+		$_SESSION['pvewhmcs']['infomsg']['message'] = 'You can remove IPv4 Addresses from the pool.';
 	}
 }
 
@@ -2315,25 +2316,25 @@ function add_ip_2_pool() {
 function list_ips() {
 		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
 		//echo '<div id="dialog">' ;
-	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
+	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>Action</th></tr>';
 	foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
-		echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>';
-		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
-			echo 'is in use' ;
+		echo '<tr><td>' . $ip->ipaddress . '</td><td>' . $ip->mask . '</td><td>';
+		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress', '=', $ip->ipaddress)->get()) > 0)
+			echo 'is in use';
 		else
-			echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
+			echo '<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeip&amp;pool_id=' . $ip->pool_id . '&amp;id=' . $ip->id . '" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
 		echo '</td></tr>';
 	}
-	echo '</table>' ;
+	echo '</table>';
 
 }
 
 // IP POOL FORM ACTION: Remove IP from Pool
-function removeip($id,$pool_id) {
+function removeip($id, $pool_id) {
 	Capsule::table('mod_pvewhmcs_ip_addresses')->where('id', '=', $id)->delete();
-	header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ips&id=".$pool_id);
-	$_SESSION['pvewhmcs']['infomsg']['title']='IPv4 Address deleted.' ;
-	$_SESSION['pvewhmcs']['infomsg']['message']='Deleted selected item successfully.' ;
+	header("Location: " . pvewhmcs_BASEURL . "&tab=ippools&action=list_ips&id=" . $pool_id);
+	$_SESSION['pvewhmcs']['infomsg']['title'] = 'IPv4 Address deleted.';
+	$_SESSION['pvewhmcs']['infomsg']['message'] = 'Deleted selected item successfully.';
 }
 
 function time2format($s) {

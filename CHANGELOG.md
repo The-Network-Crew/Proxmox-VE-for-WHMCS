@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.3.2] - 2026-01-10 - _"VNC, Cleaning, etc."_
+
+### 🚀 Feature
+- Custom Fields: TPL_Node_QEMU/LXC (Template Storage Node)
+- Template Node: Honour Fields if set, else fallback (#186)
+
+### 💅 Polish
+- QEMU CPU: Add AMD EPYC-Milan-v2 processor model
+- QEMU CPU: Link to Admin Guide for CPU comparisons
+- Spacing: Clean-up all files to space concatenations
+- Naming: $srv -> $pve; $res -> $resource; $v -> $guest_type
+
+### 🐛 Bug Fix
+- VNC: Resolve node as root, then connect VNC as limited user (#183)
+- nextid: No param, so we get nextid; then declare as required (#185)
+
 ## [1.3.1] - 2025-12-12 - _"Relativity & Nodes"_
 
 ### 💅 Polish

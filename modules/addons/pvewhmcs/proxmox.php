@@ -171,7 +171,7 @@ class PVE2_API {
 	private function action ($action_path, $http_method, $put_post_parameters = null) {
 		// Check if we have a prefixed / on the path, if not add one.
 		if (substr($action_path, 0, 1) != "/") {
-			$action_path = "/".$action_path;
+			$action_path = "/" . $action_path;
 		}
 
 		if (!$this->check_login_ticket()) {
@@ -225,7 +225,7 @@ class PVE2_API {
 
 		curl_setopt($prox_ch, CURLOPT_HEADER, true);
 		curl_setopt($prox_ch, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=".$this->login_ticket['ticket']);
+		curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=" . $this->login_ticket['ticket']);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, false);
 

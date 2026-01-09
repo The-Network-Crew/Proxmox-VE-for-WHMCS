@@ -877,10 +877,10 @@ class pvewhmcs_hash_encryption {
 function pvewhmcs_get_whmcs_server_password($enc_pass){
 	global $cc_encryption_hash;
 	// Include WHMCS database configuration file
-	include_once(dirname(dirname(dirname(dirname(__FILE__)))).'/configuration.php');
+	include_once(dirname(dirname(dirname(dirname(__FILE__)))) . '/configuration.php');
 	$key1 = md5 (md5 ($cc_encryption_hash));
 	$key2 = md5 ($cc_encryption_hash);
-	$key = $key1.$key2;
+	$key = $key1 . $key2;
 	$hasher = new pvewhmcs_hash_encryption($key);
 	return $hasher->decrypt($enc_pass);
 }
@@ -997,7 +997,7 @@ function pvewhmcs_ClientArea($params) {
 		}
 
 		# Get and set VM variables
-		$vm_config = $proxmox->get('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/config') ;
+		$vm_config = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/config');
 		$cluster_resources = $proxmox->get('/cluster/resources');
 		$vm_status = null;
 		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
@@ -1038,7 +1038,7 @@ function pvewhmcs_ClientArea($params) {
 
 			if ($guest->vtype == 'lxc') {
 				// Check on swap before setting graph value
-				$ct_specific = $proxmox->get('/nodes/'.$guest_node.'/lxc/'.$guest->vmid.'/status/current');
+				$ct_specific = $proxmox->get('/nodes/' . $guest_node . '/lxc/' . $guest->vmid . '/status/current');
 				if ($ct_specific['maxswap'] != 0) {
 					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
 				}
@@ -1139,7 +1139,7 @@ function pvewhmcs_noVNC($params) {
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
 	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword);
 	if ($proxmox->login()) {
-		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
@@ -1149,7 +1149,7 @@ function pvewhmcs_noVNC($params) {
 		// Construct the noVNC Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
-		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="'.$url.'" target="_blanK" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>' ;
+		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare noVNC. Please contact Technical Support.';
@@ -1186,7 +1186,7 @@ function pvewhmcs_SPICE($params) {
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
 	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword);
 	if ($proxmox->login()) {
-		$vm_vncproxy = $proxmox->post('/nodes/'.$guest_node.'/'.$guest->vtype.'/'.$guest->vmid .'/vncproxy', array( 'websocket' => '1' )) ;
+		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
 		// Get both tickets prepared
 		$pveticket = $proxmox->getTicket();
@@ -1196,7 +1196,7 @@ function pvewhmcs_SPICE($params) {
 		// Construct the SPICE Router URL with the path already prepared now
 		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
-		$vncreply = '<center style="background-color: green;"><strong>Console (SPICE) successfully prepared.<br><a href="'.$url.'" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch SPICE.</strong></center>' ;
+		$vncreply = '<center style="background-color: green;"><strong>Console (SPICE) successfully prepared.<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch SPICE.</strong></center>';
 		return $vncreply;
 	} else {
 		$vncreply = 'Failed to prepare SPICE. Please contact Technical Support.';
