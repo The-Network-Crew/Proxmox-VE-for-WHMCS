@@ -349,7 +349,7 @@ function pvewhmcs_output($vars) {
 			// Login + get cluster/resources
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
-				echo '<div class=\"alert alert-danger\">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials / connectivity.</div>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials / connectivity.</div>';
 				continue;
 			}
 
@@ -503,7 +503,7 @@ function pvewhmcs_output($vars) {
 
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '.</div>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials / connectivity.</div>';
 				continue;
 			}
 
@@ -858,7 +858,7 @@ function pvewhmcs_output($vars) {
 
 	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
 	        if (!$proxmox->login()) {
-	            throw new Exception('Login to Proxmox API failed.');
+	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials / connectivity.');
 	        }
 	    }
 
@@ -940,14 +940,12 @@ function pvewhmcs_output($vars) {
 	            echo '</tr>';
 	        }
 	        echo '</tbody></table>';
-	        // Always close the tab-pane div
-	    	echo '</div>';
 	    }
 	} catch (Throwable $e) {
 	    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
 	        . htmlspecialchars($e->getMessage()) . '</div>';
 	}
-	echo '</div>'; 
+	echo '</div></div>'; 
 	// End of tabbed content
 
 	// Handle saving the configuration if the form was submitted

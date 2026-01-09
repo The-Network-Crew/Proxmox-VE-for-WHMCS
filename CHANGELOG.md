@@ -16,6 +16,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 🐛 Bug Fix
 - VNC: Resolve node as root, then connect VNC as limited user (#183)
 - nextid: No param, so we get nextid; then declare as required (#185)
+- CSS: If node authentication fails, close div so render is OK (#177)
 
 ## [1.3.1] - 2025-12-12 - _"Relativity & Nodes"_
 
