@@ -2313,19 +2313,45 @@ function add_ip_2_pool() {
 
 // IP POOL FORM: List IPs in Pool
 function list_ips() {
-		//echo '<script>$(function() {$( "#dialog" ).dialog();});</script>' ;
-		//echo '<div id="dialog">' ;
-	echo '<table class="datatable"><tr><th>IPv4 Address</th><th>Subnet Mask</th><th>Action</th></tr>' ;
-	foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
-		echo '<tr><td>'.$ip->ipaddress.'</td><td>'.$ip->mask.'</td><td>';
-		if (count(Capsule::table('mod_pvewhmcs_vms')->where('ipaddress','=',$ip->ipaddress)->get())>0)
-			echo 'is in use' ;
-		else
-			echo '<a href="'.pvewhmcs_BASEURL.'&amp;tab=ippools&amp;action=removeip&amp;pool_id='.$ip->pool_id.'&amp;id='.$ip->id.'" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>';
-		echo '</td></tr>';
-	}
-	echo '</table>' ;
+    // Determine the WHMCS Admin Directory URL for the link
+    $adminUrl = 'clientsservices.php'; 
 
+    echo '<table class="datatable">
+            <tr>
+                <th>IPv4 Address</th>
+                <th>Subnet Mask</th>
+                <th>Action</th>
+            </tr>';
+
+    // Loop through IPs in the pool
+    foreach (Capsule::table('mod_pvewhmcs_ip_addresses')->where('pool_id', '=', $_GET['id'])->get() as $ip) {
+        
+        // Query tblhosting to see if this IP is currently "occupied"
+        // Occupied = assigned to a service that is Active, Suspended, or Completed
+        $service = Capsule::table('tblhosting')
+            ->where('dedicatedip', '=', $ip->ipaddress)
+            ->whereIn('domainstatus', ['Active', 'Suspended', 'Completed'])
+            ->first();
+
+        echo '<tr>
+                <td>' . $ip->ipaddress . '</td>
+                <td>' . $ip->mask . '</td>
+                <td>';
+
+        if ($service) {
+            // IP is in use: Create a link to the related service
+            $serviceLink = $adminUrl . '?userid=' . $service->userid . '&id=' . $service->id;
+            echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
+        } else {
+            // IP is free (not in tblhosting OR status is Terminated/Cancelled/Fraud/Pending)
+            echo '<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeip&amp;pool_id=' . $ip->pool_id . '&amp;id=' . $ip->id . '" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')">
+                    <img height="16" width="16" border="0" alt="Edit" src="images/delete.gif">
+                  </a>';
+        }
+        
+        echo '</td></tr>';
+    }
+    echo '</table>';
 }
 
 // IP POOL FORM ACTION: Remove IP from Pool
