@@ -347,7 +347,7 @@ function pvewhmcs_output($vars) {
 			// Login + get cluster/resources
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials / connectivity.</div>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
 			}
 
@@ -415,8 +415,8 @@ function pvewhmcs_output($vars) {
 				// Node Header Row
 				echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
 				echo '<div>';
-				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> ' . htmlspecialchars($n_name) . '</h4>';
-				echo '<span style="color:#555;font-size:12px;">PVE ' . htmlspecialchars($n_version) . ' &bull; Uptime: ' . htmlspecialchars($n_uptime) . '</span>';
+				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> ' . htmlspecialchars($n_name) . ' (v' . htmlspecialchars($n_version) . ')</h4>';
+				echo '<span style="color:#555;font-size:12px;"><strong>Last Boot:</strong> <code>' . htmlspecialchars($n_uptime) . '</code></span>';
 				echo '</div>';
 				echo '<div style="text-align:right;">';
 				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:' . $status_color . ';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">' . htmlspecialchars($n_status) . '</span>';
@@ -427,11 +427,11 @@ function pvewhmcs_output($vars) {
 				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">' . $n_cpu_pct . '%</div>';
-				echo '<div style="font-size:11px;color:#555;">CPU (' . $n_maxcpu . ' cores)</div>';
+				echo '<div style="font-size:11px;color:#555;"><strong>CPU</strong> (' . $n_maxcpu . ' Cores)</div>';
 				echo '</div>';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
 				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">' . $n_mem_pct . '%</div>';
-				echo '<div style="font-size:11px;color:#555;">RAM (' . $n_mem_used . '/' . $n_mem_max . ' GB)</div>';
+				echo '<div style="font-size:11px;color:#555;"><strong>RAM</strong> (' . $n_mem_used . ' of ' . $n_mem_max . 'GB)</div>';
 				echo '</div>';
 				echo '</div>';
 
@@ -444,7 +444,7 @@ function pvewhmcs_output($vars) {
 
 				if ($rrd_cpu || $rrd_mem || $rrd_net || $rrd_io) {
 					echo '<div style="margin-top:10px;">';
-					echo '<div style="font-size:12px;color:#555;margin-bottom:8px;"><i class="fa fa-line-chart"></i> Performance Graphs (Last Hour)</div>';
+					echo '<div style="font-size:12px;color:#555;margin-bottom:8px;"><i class="fa fa-line-chart"></i> <strong>Performance Graphs</strong> (Last Hour)</div>';
 					// Row 1: CPU and Memory
 					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
 					if ($rrd_cpu) {
@@ -501,7 +501,7 @@ function pvewhmcs_output($vars) {
 
 			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
 			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials / connectivity.</div>';
+				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
 			}
 
@@ -743,11 +743,11 @@ function pvewhmcs_output($vars) {
 		<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;margin-bottom:20px;">
 			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> System Environment</h3>
 			<table style="width:100%;font-size:14px;">
-				<tr><td style="padding:6px 0;width:180px;color:#666;">Module Version</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . pvewhmcs_version() . '</code></td></tr>
-				<tr><td style="padding:6px 0;color:#666;">Latest Available</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . get_pvewhmcs_latest_version() . '</code></td></tr>
-				<tr><td style="padding:6px 0;color:#666;">Web Server</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_SOFTWARE']) . '</code></td></tr>
-				<tr><td style="padding:6px 0;color:#666;">PHP Version</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . phpversion() . '</code></td></tr>
-				<tr><td style="padding:6px 0;color:#666;">Server Name</td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_NAME']) . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;width:150px;"><strong>Module Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . pvewhmcs_version() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;"><strong>Latest Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . get_pvewhmcs_latest_version() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;"><strong>Web Server</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_SOFTWARE']) . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;"><strong>PHP Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . phpversion() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;"><strong>Server Name</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_NAME']) . '</code></td></tr>
 			</table>
 		</div>
 		
@@ -779,6 +779,7 @@ function pvewhmcs_output($vars) {
 			</p>
 			<p style="margin:0;padding:12px;background:#fff8f0;border-radius:6px;font-size:13px;color:#856404;border:1px solid #ffc107;">&#9888; Help is not guaranteed (FOSS). We will need your assistance to troubleshoot.</p>
 		</div>
+		<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>';
 	echo '</div>';
 
@@ -788,11 +789,11 @@ function pvewhmcs_output($vars) {
 	echo '
 	<div style="max-width:800px;">
 	<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;">
-	<h3 style="margin:0 0 20px 0;color:#5c3d7a;font-weight:600;">&#9881; Module Configuration</h3>
+	<h3 style="margin:0 0 20px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> Module Configuration</h3>
 	<form method="post">
 	<table style="width:100%;border-collapse:collapse;">
 	<tr>
-		<td style="padding:15px 0;border-bottom:1px solid #eee;width:160px;vertical-align:top;">
+		<td style="padding:15px 0;border-bottom:1px solid #eee;width:150px;vertical-align:top;">
 			<label style="font-weight:600;color:#333;">VNC Secret</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
@@ -828,6 +829,7 @@ function pvewhmcs_output($vars) {
 	</div>
 	</form>
 	</div>
+	<a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a>
 	</div>
 	';
 	echo '</div>';
@@ -856,7 +858,7 @@ function pvewhmcs_output($vars) {
 
 	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
 	        if (!$proxmox->login()) {
-	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials / connectivity.');
+	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials, connectivity & configurations.');
 	        }
 	    }
 
@@ -1121,9 +1123,9 @@ function qemu_plan_add() {
 	<option value="l26">Linux 6.x - 2.6 Kernel</option>
 	<option value="l24">Linux 2.4 Kernel</option>
 	<option value="solaris">Solaris Kernel</option>
-	<option value="win11">Windows 11 / 2022</option>
+	<option value="win11">Windows 11 / 2022 / 2025</option>
 	<option value="win10">Windows 10 / 2016 / 2019</option>
-	<option value="win8">Windows 8.x / 2012 / 2012r2</option>
+	<option value="win8">Windows 8 / 2012 / 2012r2</option>
 	<option value="win7">Windows 7 / 2008r2</option>
 	<option value="wvista">Windows Vista / 2008</option>
 	<option value="wxp">Windows XP / 2003</option>
@@ -1212,21 +1214,21 @@ function qemu_plan_add() {
 	<option value="Opteron_G4">(AMD) Opteron_G4</option>
 	<option value="Opteron_G5">(AMD) Opteron_G5</option>
 	</select>
-	Learn more in the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Proxmox VE Admin Guide</u></a>.
+	Host is best. Read the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a>.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpus" id="cpus" value="1" required>
-	The number of CPU Sockets (typically 1-4).
+	The number of CPU Sockets (typically 1-4). Governed by your physical Server.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Cores</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cores" id="cores" value="1" required>
-	The number of CPU Cores per Socket (1-N).
+	The number of CPU Cores per Socket (1-N). Guest Compute = allocated Sockets * Cores.
 	</td>
 	</tr>
 	<tr>
@@ -1279,13 +1281,13 @@ function qemu_plan_add() {
 	<td class="fieldlabel">Disk - Cache</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="diskcache">
-	<option selected="" value="">No Cache (Default)</option>
+	<option selected="" value="none">No Cache</option>
 	<option value="directsync">Direct Sync</option>
 	<option value="writethrough">Write Through</option>
 	<option value="writeback">Write Back</option>
 	<option value="unsafe">Write Back (Unsafe)</option>
-	<option value="none">No Cache</option>
 	</select>
+	Read & understand the <a href="https://pve.proxmox.com/wiki/Performance_Tweaks#Disk_Cache" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a> before overriding default.
 	</td>
 	</tr>
 	<tr>
@@ -1304,7 +1306,7 @@ function qemu_plan_add() {
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
@@ -1318,25 +1320,26 @@ function qemu_plan_add() {
 	<td class="fieldlabel">Network - NIC Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
-	<option value="e1000">Intel E1000 (Stable but slower)</option>
 	<option selected="" value="virtio">VirtIO (Paravirtualised)</option>
+	<option value="e1000">Intel E1000 (Stable)</option>
 	<option value="rtl8139">Realtek RTL8139</option>
 	<option value="vmxnet3">VMware vmxnet3</option>
 	</select>
+	Recommend VirtIO, unless you need others.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="0">
-	Network Rate Limit in Megabit/Second. Zero for unlimited.
+	Network Rate Limit in Megabits/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - BW Limit</td>
+	<td class="fieldlabel">Network - Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
-	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
+	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
 	<tr>
@@ -1348,6 +1351,7 @@ function qemu_plan_add() {
 	<option value="dhcp">DHCPv6</option>
 	<option value="prefix">Prefix</option>
 	</select>
+	SLAAC & DHCPv6 working. Prefix in future.
 	</td>
 	</tr>
 	<tr>
@@ -1358,6 +1362,7 @@ function qemu_plan_add() {
 	<option value="nat">NAT</option>
 	<option value="none">No Network</option>
 	</select>
+	Bridge, NAT or disconnect (no link) the Guest.
 	</td>
 	</tr>
 	<tr>
@@ -1418,9 +1423,6 @@ function qemu_plan_edit($id) {
 		echo 'Plan Not found' ;
 		return false ;
 	}
-	echo '<pre>' ;
-		//print_r($plan) ;
-	echo '</pre>' ;
 	echo '
 	<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
@@ -1437,9 +1439,9 @@ function qemu_plan_edit($id) {
 	<option value="l26" ' . ($plan->ostype == "l26" ? "selected" : "") . '>Linux 6.x - 2.6 Kernel</option>
 	<option value="l24" ' . ($plan->ostype == "l24" ? "selected" : "") . '>Linux 2.4 Kernel</option>
 	<option value="solaris" ' . ($plan->ostype == "solaris" ? "selected" : "") . '>Solaris Kernel</option>
-	<option value="win11" ' . ($plan->ostype == "win11" ? "selected" : "") . '>Windows 11 / 2022</option>
+	<option value="win11" ' . ($plan->ostype == "win11" ? "selected" : "") . '>Windows 11 / 2022 / 2025</option>
 	<option value="win10" ' . ($plan->ostype == "win10" ? "selected" : "") . '>Windows 10 / 2016 / 2019</option>
-	<option value="win8" ' . ($plan->ostype == "win8" ? "selected" : "") . '>Windows 8.x / 2012 / 2012r2</option>
+	<option value="win8" ' . ($plan->ostype == "win8" ? "selected" : "") . '>Windows 8 / 2012 / 2012r2</option>
 	<option value="win7" ' . ($plan->ostype == "win7" ? "selected" : "") . '>Windows 7 / 2008r2</option>
 	<option value="wvista" ' . ($plan->ostype == "wvista" ? "selected" : "") . '>Windows Vista / 2008</option>
 	<option value="wxp" ' . ($plan->ostype == "wxp" ? "selected" : "") . '>Windows XP / 2003</option>
@@ -1528,7 +1530,7 @@ function qemu_plan_edit($id) {
 	<option value="Opteron_G4" ' . ($plan->cpuemu == "Opteron_G4" ? "selected" : "") . '>(AMD) Opteron_G4</option>
 	<option value="Opteron_G5" ' . ($plan->cpuemu == "Opteron_G5" ? "selected" : "") . '>(AMD) Opteron_G5</option>
 	</select>
-	Learn more in the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Proxmox VE Admin Guide</u></a>.
+	Host is best. Read the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a>.
 	</td>
 	</tr>
 
@@ -1536,14 +1538,14 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpus" id="cpus" value="' . $plan->cpus . '" required>
-	The number of CPU Sockets (typically 1-4).
+	The number of CPU Sockets (typically 1-4). Governed by your physical Server.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Cores</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cores" id="cores" value="' . $plan->cores . '" required>
-	The number of CPU Cores per Socket (1-N).
+	The number of CPU Cores per Socket (1-N). Guest Compute = allocated Sockets * Cores.
 	</td>
 	</tr>
 	<tr>
@@ -1596,13 +1598,13 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Disk - Cache</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="diskcache">
-	<option value="" ' . ($plan->diskcache == "" ? "selected" : "") . '>No Cache (Default)</option>
+	<option value="none" ' . ($plan->diskcache == "none" ? "selected" : "") . '>No Cache</option>
 	<option value="directsync" ' . ($plan->diskcache == "directsync" ? "selected" : "") . '>Direct Sync</option>
 	<option value="writethrough" ' . ($plan->diskcache == "writethrough" ? "selected" : "") . '>Write Through</option>
 	<option value="writeback" ' . ($plan->diskcache == "writeback" ? "selected" : "") . '>Write Back</option>
 	<option value="unsafe" ' . ($plan->diskcache == "unsafe" ? "selected" : "") . '>Write Back (Unsafe)</option>
-	<option value="none" ' . ($plan->diskcache == "none" ? "selected" : "") . '>No Cache</option>
 	</select>
+	Read & understand the <a href="https://pve.proxmox.com/wiki/Performance_Tweaks#Disk_Cache" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a> before overriding default.
 	</td>
 	</tr>
 	<tr>
@@ -1621,7 +1623,7 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" required value="' . $plan->diskio . '">
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
@@ -1635,25 +1637,26 @@ function qemu_plan_edit($id) {
 	<td class="fieldlabel">Network - NIC Type</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="netmodel">
-	<option value="e1000" ' . ($plan->netmodel == "e1000" ? "selected" : "") . '>Intel E1000 (Stable but slower)</option>
 	<option value="virtio" ' . ($plan->netmodel == "virtio" ? "selected" : "") . '>VirtIO (Paravirtualised)</option>
+	<option value="e1000" ' . ($plan->netmodel == "e1000" ? "selected" : "") . '>Intel E1000 (Stable)</option>
 	<option value="rtl8139" ' . ($plan->netmodel == "rtl8139" ? "selected" : "") . '>Realtek RTL8139</option>
 	<option value="vmxnet3" ' . ($plan->netmodel == "vmxnet3" ? "selected" : "") . '>VMware vmxnet3</option>
 	</select>
+	Recommend VirtIO, unless you need others.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
-	Network Rate Limit in Megabit. Zero for unlimited.
+	Network Rate Limit in Megabits/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - BW Limit</td>
+	<td class="fieldlabel">Network - Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
-	Monthly Bandwidth Limit in Gigabyte. Blank for unlimited.
+	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
 	<tr>
@@ -1665,6 +1668,7 @@ function qemu_plan_edit($id) {
 	<option value="dhcp" ' . ($plan->ipv6 == "dhcp" ? "selected" : "") . '>DHCPv6</option>
 	<option value="prefix" ' . ($plan->ipv6 == "prefix" ? "selected" : "") . '>Prefix</option>
 	</select>
+	SLAAC & DHCPv6 working. Prefix in future.
 	</td>
 	</tr>
 	<tr>
@@ -1675,6 +1679,7 @@ function qemu_plan_edit($id) {
 	<option value="nat" ' . ($plan->netmode == "nat" ? "selected" : "") . '>NAT</option>
 	<option value="none" ' . ($plan->netmode == "none" ? "selected" : "") . '>No network</option>
 	</select>
+	Bridge, NAT or disconnect (no link) the Guest.
 	</td>
 	</tr>
 	<tr>
@@ -1778,7 +1783,7 @@ function lxc_plan_add() {
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="0" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
@@ -1813,14 +1818,14 @@ function lxc_plan_add() {
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="0">
-	Network Rate Limit in Megabit/Second. Zero for unlimited.
+	Network Rate Limit in Megabits/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Data - Monthly</td>
+	<td class="fieldlabel">Network - Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw">
-	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
+	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
 	<tr>
@@ -1832,6 +1837,7 @@ function lxc_plan_add() {
 	<option value="dhcp">DHCPv6</option>
 	<option value="prefix">Prefix</option>
 	</select>
+	SLAAC & DHCPv6 working. Prefix in future.
 	</td>
 	</tr>
 	<tr>
@@ -1850,7 +1856,7 @@ function lxc_plan_add() {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" name="unpriv" value="0"> Specifies whether a CT will be unprivileged. (Recommended) Set at-create only.
+	<input type="checkbox" name="unpriv" value="0"> Specifies whether a CT will be unprivileged. (Recommended) <strong>Set at-create only!</strong>
 	</label>
 	</td>
 	</tr>
@@ -1871,10 +1877,6 @@ function lxc_plan_edit($id) {
 		echo 'Plan Not found' ;
 		return false ;
 	}
-	echo '<pre>' ;
-		//print_r($plan) ;
-	echo '</pre>' ;
-
 	echo '
 	<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
@@ -1923,7 +1925,7 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="diskio" id="diskio" value="' . $plan->diskio . '" required>
-	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access.
+	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
@@ -1958,14 +1960,14 @@ function lxc_plan_edit($id) {
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
-	Network Rate Limit in Megabit/Second. Zero for unlimited.
+	Network Rate Limit in Megabits/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - BW Limit</td>
+	<td class="fieldlabel">Network - Cap</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
-	Monthly Bandwidth Limit in Gigabytes. Blank for unlimited.
+	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
 	<tr>
@@ -1977,6 +1979,7 @@ function lxc_plan_edit($id) {
 	<option value="dhcp" ' . ($plan->ipv6 == "dhcp" ? "selected" : "") . '>DHCPv6</option>
 	<option value="prefix" ' . ($plan->ipv6 == "prefix" ? "selected" : "") . '>Prefix</option>
 	</select>
+	SLAAC & DHCPv6 working. Prefix in future.
 	</td>
 	</tr>
 	<tr>
@@ -1995,7 +1998,7 @@ function lxc_plan_edit($id) {
 	</td>
 	<td class="fieldarea">
 	<label class="checkbox-inline">
-	<input type="checkbox" value="1" name="unpriv" ' . ($plan->unpriv == "1" ? "checked" : "") . '> Specifies whether a CT will be unprivileged. (Recommended) Set at-create only.
+	<input type="checkbox" value="1" name="unpriv" ' . ($plan->unpriv == "1" ? "checked" : "") . '> Specifies whether a CT will be unprivileged. (Recommended) <strong>Set at-create only!</strong>
 	</label>
 	</td>
 	</tr>
