@@ -415,8 +415,8 @@ function pvewhmcs_output($vars) {
 				// Node Header Row
 				echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
 				echo '<div>';
-				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> ' . htmlspecialchars($n_name) . ' (v' . htmlspecialchars($n_version) . ')</h4>';
-				echo '<span style="color:#555;font-size:12px;"><strong>Last Boot:</strong> <code>' . htmlspecialchars($n_uptime) . '</code></span>';
+				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> <strong>' . htmlspecialchars($n_name) . '</strong> [<code>v' . htmlspecialchars($n_version) . '</code>]</h4>';
+				echo '<span style="color:#555;font-size:12px;"><strong>Last Booted:</strong> <code>' . htmlspecialchars($n_uptime) . '</code></span>';
 				echo '</div>';
 				echo '<div style="text-align:right;">';
 				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:' . $status_color . ';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">' . htmlspecialchars($n_status) . '</span>';
@@ -426,12 +426,12 @@ function pvewhmcs_output($vars) {
 				// Live Stats Row
 				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">' . $n_cpu_pct . '%</div>';
-				echo '<div style="font-size:11px;color:#555;"><strong>CPU</strong> (' . $n_maxcpu . ' Cores)</div>';
+				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">CPU: <code>' . $n_cpu_pct . '%</code></div>';
+				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_maxcpu . ' Cores</strong></div>';
 				echo '</div>';
 				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">' . $n_mem_pct . '%</div>';
-				echo '<div style="font-size:11px;color:#555;"><strong>RAM</strong> (' . $n_mem_used . ' of ' . $n_mem_max . 'GB)</div>';
+				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">RAM: <code>' . $n_mem_pct . '%</code></div>';
+				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_mem_used . ' of ' . $n_mem_max . 'GB</strong></div>';
 				echo '</div>';
 				echo '</div>';
 
@@ -1287,7 +1287,7 @@ function qemu_plan_add() {
 	<option value="writeback">Write Back</option>
 	<option value="unsafe">Write Back (Unsafe)</option>
 	</select>
-	Read & understand the <a href="https://pve.proxmox.com/wiki/Performance_Tweaks#Disk_Cache" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a> before overriding default.
+	Before overriding the default, read &amp; understand the <a href="https://pve.proxmox.com/wiki/Performance_Tweaks#Disk_Cache" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a>.
 	</td>
 	</tr>
 	<tr>
@@ -1604,7 +1604,7 @@ function qemu_plan_edit($id) {
 	<option value="writeback" ' . ($plan->diskcache == "writeback" ? "selected" : "") . '>Write Back</option>
 	<option value="unsafe" ' . ($plan->diskcache == "unsafe" ? "selected" : "") . '>Write Back (Unsafe)</option>
 	</select>
-	Read & understand the <a href="https://pve.proxmox.com/wiki/Performance_Tweaks#Disk_Cache" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a> before overriding default.
+	Before overriding the default, read &amp; understand the <a href="https://pve.proxmox.com/wiki/Performance_Tweaks#Disk_Cache" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a>.
 	</td>
 	</tr>
 	<tr>
