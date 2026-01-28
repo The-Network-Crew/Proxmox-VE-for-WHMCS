@@ -26,6 +26,14 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 <img alt="Client Area GUI showing management of a powered-on Guest, after the Statistics action has been clicked resulting in the graphs at the bottom." src="_images/zVMclientGUI.png">
 
+> [!IMPORTANT]  
+> Nodes must be using RRD `PVE-$TYPE-9.0` format. You can use `proxmox-rrd-migration-tool` to migrate.
+> 
+> Old RRD Dir for VMs: `/var/lib/rrdcached/db/pve2-vm/` <br>
+> New RRD Dir for VMs: `/var/lib/rrdcached/db/pve-vm-9.0/`
+> 
+> You can research more online, and <a href="https://www.mail-archive.com/pve-devel@lists.proxmox.com/msg29223.html" target="_blank">here is part of a patch series</a> showing the new logic.
+
 **Admin Area GUI - PVE Nodes:**
 
 <img alt="Admin Area GUI for the Module, showing the Nodes tab that you land on upon opening the Module." src="_images/zClusterNodes.png">

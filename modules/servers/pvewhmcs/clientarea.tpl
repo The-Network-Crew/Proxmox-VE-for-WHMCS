@@ -495,7 +495,7 @@
 		{else}
 		<div class="pve-alert-warning">
 			<i class="fa fa-exclamation-triangle"></i>
-			Stats Error: RRD Unavailable. Ask Support to upgrade guest RRD Data from 2.x to 9.0 format on their Node/s!
+			Stats Error: RRD Unavailable. Ask Support to upgrade/migrate RRD Data using: <code>proxmox-rrd-migration-tool</code>
 		</div>
 		{/if}
 	</div>
