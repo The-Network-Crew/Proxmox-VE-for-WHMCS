@@ -46,7 +46,10 @@ class PVE2_API {
 		}
 		// Check hostname resolves.
 		if (gethostbyname($hostname) == $hostname && !filter_var($hostname, FILTER_VALIDATE_IP)) {
-			throw new PVE2_Exception("PVE2 API: Cannot resolve {$hostname}.", 2);
+			// Fallback: check for IPv6 (AAAA) records if IPv4 lookup failed
+			if (!checkdnsrr($hostname, 'AAAA')) {
+				throw new PVE2_Exception("PVE2 API: Cannot resolve {$hostname}.", 2);
+			}
 		}
 		// Check port is between 1 and 65535.
 		if (!filter_var($port, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]])) {
@@ -81,7 +84,14 @@ class PVE2_API {
 
 		// Perform login request.
 		$prox_ch = curl_init();
-		curl_setopt($prox_ch, CURLOPT_URL, "https://{$this->hostname}:{$this->port}/api2/json/access/ticket");
+		
+		// Handle IPv6 literals in URL
+		$host_url = $this->hostname;
+		if (filter_var($this->hostname, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+			$host_url = '[' . $this->hostname . ']';
+		}
+		
+		curl_setopt($prox_ch, CURLOPT_URL, "https://{$host_url}:{$this->port}/api2/json/access/ticket");
 		curl_setopt($prox_ch, CURLOPT_POST, true);
 		curl_setopt($prox_ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($prox_ch, CURLOPT_POSTFIELDS, $login_postfields_string);
@@ -180,7 +190,14 @@ class PVE2_API {
 
 		// Prepare cURL resource.
 		$prox_ch = curl_init();
-		curl_setopt($prox_ch, CURLOPT_URL, "https://{$this->hostname}:{$this->port}/api2/json{$action_path}");
+
+		// Handle IPv6 literals in URL
+		$host_url = $this->hostname;
+		if (filter_var($this->hostname, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+			$host_url = '[' . $this->hostname . ']';
+		}
+		
+		curl_setopt($prox_ch, CURLOPT_URL, "https://{$host_url}:{$this->port}/api2/json{$action_path}");
 
 		$put_post_http_headers = array();
 		$put_post_http_headers[] = "CSRFPreventionToken: {$this->login_ticket['CSRFPreventionToken']}";
