@@ -227,6 +227,11 @@ function pvewhmcs_CreateAccount($params) {
 						'v6prefix' => $plan->ipv6,
 					]
 				);
+
+				// Update WHMCS Service with Dedicated IP
+				Capsule::table('tblhosting')
+					->where('id', $params['serviceid'])
+					->update(['dedicatedip' => $ip->ipaddress]);
 				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
 				$cloned_tweaks['memory'] = $plan->memory;
 				$cloned_tweaks['ostype'] = $plan->ostype;
@@ -455,6 +460,11 @@ function pvewhmcs_CreateAccount($params) {
 							'v6prefix' => $plan->ipv6,
 						]
 					);
+
+					// Update WHMCS Service with Dedicated IP
+					Capsule::table('tblhosting')
+						->where('id', $params['serviceid'])
+						->update(['dedicatedip' => $ip->ipaddress]);
 					return true;
 				} else {
 					throw new Exception("Proxmox Error: Failed to initiate creation. Response: " . json_encode($response));
