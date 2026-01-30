@@ -240,7 +240,34 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['cpu'] = $plan->cpuemu;
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
+
+				// Cloud-Init IP Configuration for Cloned VMs
+				$cloned_tweaks['nameserver'] = '8.8.8.8 1.1.1.1';
+				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+				if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+					switch ($plan->ipv6) {
+						case 'auto':
+							// Pass in auto, triggering SLAAC
+							$cloned_tweaks['nameserver'] .= '2001:4860:4860::8888 2606:4700:4700::1111';
+							$cloned_tweaks['ipconfig1'] = 'ip6=auto';
+							break;
+						case 'dhcp':
+							// DHCP for IPv6 option
+							$cloned_tweaks['nameserver'] .= '2001:4860:4860::8888 2606:4700:4700::1111';
+							$cloned_tweaks['ipconfig1'] = 'ip6=dhcp';
+							break;
+						case 'prefix':
+							// Future development
+							break;
+						default:
+							break;
+					}
+				}
 				$amendment = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+				
+				// Start the VM
+				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start', array());
+				
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
