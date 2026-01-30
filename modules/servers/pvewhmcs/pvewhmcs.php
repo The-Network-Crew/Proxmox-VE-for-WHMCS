@@ -140,14 +140,30 @@ function pvewhmcs_CreateAccount($params) {
 			if (!empty($params['customfields']['TPL_Node_QEMU'])) {
 				$template_node = $params['customfields']['TPL_Node_QEMU'];
 			} else {
-				$template_node = $nodes[0];
+				// AUTO-DISCOVERY: Find where the template lives
+				$template_node = pvewhmcs_find_node_by_vmid($proxmox, $params['customfields']['KVMTemplate']);
 			}
+
+			// DEBUG: Log Node Selection logic
+			logModuleCall(
+				'pvewhmcs',
+				'Node Selection Debug',
+				array(
+					'TPL_Node_QEMU_Input' => $params['customfields']['TPL_Node_QEMU'],
+					'ALL_Custom_Fields' => $params['customfields'],
+					'ALL_Config_Options' => $params['configoptions'],
+					'Available_Nodes' => $nodes,
+					'Selected_Template_Node' => $template_node
+				),
+				'Checking if custom field is empty or fallback triggered'
+			);
 			unset($nodes);
 			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
 			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
 			$vm_settings['newid'] = $vmid;
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
+			$vm_settings['target'] = $template_node;
 			// QEMU TEMPLATE - Conduct the VM CLONE from Template to Machine
 			$logrequest = '/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
 			$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
@@ -528,6 +544,25 @@ function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 	}
 
 	throw new Exception("Unable to find a free VMID starting at {$start_vmid} after {$max_attempts} attempts");
+}
+
+/**
+ * Find which node a specific VMID resides on using cluster resources.
+ *
+ * @param PVE2_API $proxmox
+ * @param int $vmid
+ * @return string Node name
+ * @throws Exception if VMID not found in cluster
+ */
+function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
+	// targeted search for vm
+	$resources = $proxmox->get('/cluster/resources?type=vm');
+	foreach ($resources as $res) {
+		if (isset($res['vmid']) && (int)$res['vmid'] == (int)$vmid) {
+			return $res['node'];
+		}
+	}
+	throw new Exception("PVEWHMCS Auto-Discovery: Template/VM ID {$vmid} not found in the cluster.");
 }
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
