@@ -326,21 +326,22 @@ function pvewhmcs_CreateAccount($params) {
 			// QEMU: Preparation Work //
 			////////////////////////////
 			$vm_settings['ostype'] = $plan->ostype;
+			$vm_settings['scsihw'] = 'virtio-scsi-single';
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
-			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
+			$vm_settings['nameserver'] = '8.8.8.8 1.1.1.1';
 			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
-						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
+						$vm_settings['nameserver'] .= '2001:4860:4860::8888 2606:4700:4700::1111';
 						$vm_settings['ipconfig1'] = 'ip6=auto';
 						break;
 					case 'dhcp':
 						// DHCP for IPv6 option
-						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
+						$vm_settings['nameserver'] .= '2001:4860:4860::8888 2606:4700:4700::1111';
 						$vm_settings['ipconfig1'] = 'ip6=dhcp';
 						break;
 					case 'prefix':
