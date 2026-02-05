@@ -1,7 +1,13 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.3.2] - 2026-01-10 - _"VNC, Cleaning, etc."_
+## [1.3.3] - 2026-02-05 - _"Tidy Nodes & RRD"_
+
+### 💅 Polish
+- Nodes tab: Improve presentation of data points
+- Client Area, RRD error: Mention migration tool (#188)
+
+## [1.3.2] - 2026-01-10 - _"VNC, Cleaning, etc"_
 
 ### 🚀 Feature
 - Custom Fields: TPL_Node_QEMU/LXC (Template Storage Node)

@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.2";
+	return "1.3.3";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
