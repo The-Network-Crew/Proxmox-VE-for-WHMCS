@@ -145,18 +145,20 @@ function pvewhmcs_CreateAccount($params) {
 			}
 
 			// DEBUG: Log Node Selection logic
-			logModuleCall(
-				'pvewhmcs',
-				'Node Selection Debug',
-				array(
-					'TPL_Node_QEMU_Input' => $params['customfields']['TPL_Node_QEMU'],
-					'ALL_Custom_Fields' => $params['customfields'],
-					'ALL_Config_Options' => $params['configoptions'],
-					'Available_Nodes' => $nodes,
-					'Selected_Template_Node' => $template_node
-				),
-				'Checking if custom field is empty or fallback triggered'
-			);
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					'Node Selection Debug',
+					array(
+						'TPL_Node_QEMU_Input' => $params['customfields']['TPL_Node_QEMU'],
+						'ALL_Custom_Fields' => $params['customfields'],
+						'ALL_Config_Options' => $params['configoptions'],
+						'Available_Nodes' => $nodes,
+						'Selected_Template_Node' => $template_node
+					),
+					'Checking if custom field is empty or fallback triggered'
+				);
+			}
 			unset($nodes);
 			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
 			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
