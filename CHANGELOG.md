@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.3.4] - 2026-02-05 - _"IPv6, autodiscovery & cloud-init"_
+
+### 🚀 Feature
+- Clusters: added IPv6 support to node handling logic
+- Clusters: automatic node autodiscovery from cloud-init templates
+- VMs: Network configuration of cloned VMs via cloud-init
+- VMs: Default nameserver configuration
+- VMs: SCSI controller defaults
+- Admin Area, Client Area: Dedicated IP propagation back to WHMCS
+
 ## [1.3.3] - 2026-02-05 - _"Tidy Nodes & RRD"_
 
 ### 💅 Polish

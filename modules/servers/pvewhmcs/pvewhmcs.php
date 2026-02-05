@@ -123,8 +123,30 @@ function pvewhmcs_CreateAccount($params) {
 	$vm_settings = array();
 
 	// Select an IP Address from Pool
-	$ip = Capsule::select('select ipaddress,mask,gateway from mod_pvewhmcs_ip_addresses i INNER JOIN mod_pvewhmcs_ip_pools p on (i.pool_id=p.id and p.id=' . $params['configoption2'] . ') where  i.ipaddress not in(select ipaddress from mod_pvewhmcs_vms) limit 1')[0];
+	$result = Capsule::select(
+    'SELECT i.ipaddress, i.mask, p.gateway 
+     FROM mod_pvewhmcs_ip_addresses i 
+     INNER JOIN mod_pvewhmcs_ip_pools p ON (i.pool_id = p.id AND p.id = :pool_id) 
+     WHERE i.ipaddress NOT IN (
+        SELECT dedicatedip 
+        FROM tblhosting 
+        WHERE domainstatus IN ("Active", "Suspended", "Completed", "Pending")
+        AND dedicatedip != ""
+     ) 
+     LIMIT 1',
+    ['pool_id' => $params['configoption2']]
+	);
 
+	// Check if we actually found an IP before trying to access index [0]
+	if (!empty($result)) {
+		$ip = $result[0];
+		// Reserve early to avoid concurrent selection during long clones
+		Capsule::table('tblhosting')
+			->where('id', $params['serviceid'])
+			->update(['dedicatedip' => $ip->ipaddress]);
+	} else {
+		throw new Exception("No free IP addresses available in the selected pool.");
+	}
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
 
@@ -140,7 +162,24 @@ function pvewhmcs_CreateAccount($params) {
 			if (!empty($params['customfields']['TPL_Node_QEMU'])) {
 				$template_node = $params['customfields']['TPL_Node_QEMU'];
 			} else {
-				$template_node = $nodes[0];
+				// AUTO-DISCOVERY: Find where the template lives
+				$template_node = pvewhmcs_find_node_by_vmid($proxmox, $params['customfields']['KVMTemplate']);
+			}
+
+			// DEBUG: Log Node Selection logic
+			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+				logModuleCall(
+					'pvewhmcs',
+					'Node Selection Debug',
+					array(
+						'TPL_Node_QEMU_Input' => $params['customfields']['TPL_Node_QEMU'],
+						'ALL_Custom_Fields' => $params['customfields'],
+						'ALL_Config_Options' => $params['configoptions'],
+						'Available_Nodes' => $nodes,
+						'Selected_Template_Node' => $template_node
+					),
+					'Checking if custom field is empty or fallback triggered'
+				);
 			}
 			unset($nodes);
 			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
@@ -148,6 +187,7 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['newid'] = $vmid;
 			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
 			$vm_settings['full'] = true;
+			$vm_settings['target'] = $template_node;
 			// QEMU TEMPLATE - Conduct the VM CLONE from Template to Machine
 			$logrequest = '/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
 			$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
@@ -211,6 +251,12 @@ function pvewhmcs_CreateAccount($params) {
 						'v6prefix' => $plan->ipv6,
 					]
 				);
+
+				// Update WHMCS Service with Dedicated IP
+				Capsule::table('tblhosting')
+					->where('id', $params['serviceid'])
+					->update(['dedicatedip' => $ip->ipaddress]);
+
 				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
 				$cloned_tweaks['memory'] = $plan->memory;
 				$cloned_tweaks['ostype'] = $plan->ostype;
@@ -219,7 +265,53 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['cpu'] = $plan->cpuemu;
 				$cloned_tweaks['kvm'] = $plan->kvm;
 				$cloned_tweaks['onboot'] = $plan->onboot;
-				$amendment = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+
+				// Cloud-Init IP Configuration for Cloned VMs
+				$cloned_tweaks['nameserver'] = '208.67.222.222 64.6.64.6';
+				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+				if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
+					switch ($plan->ipv6) {
+						case 'auto':
+							// Pass in auto, triggering SLAAC
+							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+							$cloned_tweaks['ipconfig1'] = 'ip6=auto';
+							break;
+						case 'dhcp':
+							// DHCP for IPv6 option
+							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+							$cloned_tweaks['ipconfig1'] = 'ip6=dhcp';
+							break;
+						case 'prefix':
+							// Future development
+							break;
+						default:
+							break;
+					}
+				}
+
+				// Optionally set cloud-init password if provided
+				if (!empty($params['password'])) {
+					$cloned_tweaks['cipassword'] = $params['password'];
+				}
+
+				if (!empty($params['customfields']['Password'])) {
+					$cloned_tweaks['cipassword'] = $params['customfields']['Password'];
+				}
+
+				// Apply VM configuration on the node where the VM was cloned
+				$proxmox->post(
+					'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config',
+					$cloned_tweaks
+				);
+
+				// Start the VM only if onboot is enabled
+				if (!empty($plan->onboot)) {
+					$proxmox->post(
+						'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start',
+						array()
+					);
+				}
+
 				return true;
 			} else {
 				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
@@ -241,7 +333,7 @@ function pvewhmcs_CreateAccount($params) {
 			$vm_settings['swap'] = $plan->swap;
 			$vm_settings['rootfs'] = $plan->storage . ':' . $plan->disk;
 			$vm_settings['bwlimit'] = $plan->diskio;
-			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
+			$vm_settings['nameserver'] = '208.67.222.222 64.6.64.6';
 			$vm_settings['net0'] = 'name=eth0,bridge=' . $plan->bridge . $plan->vmbr . ',ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway . ',rate=' . $plan->netrate;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				// Standard prep for the 2nd int.
@@ -249,12 +341,12 @@ function pvewhmcs_CreateAccount($params) {
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
-						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
+						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 						$vm_settings['net1'] .= ',ip6=auto';
 						break;
 					case 'dhcp':
 						// DHCP for IPv6 option
-						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
+						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 						$vm_settings['net1'] .= ',ip6=dhcp';
 						break;
 					case 'prefix':
@@ -278,21 +370,22 @@ function pvewhmcs_CreateAccount($params) {
 			// QEMU: Preparation Work //
 			////////////////////////////
 			$vm_settings['ostype'] = $plan->ostype;
+			$vm_settings['scsihw'] = 'virtio-scsi-single';
 			$vm_settings['sockets'] = $plan->cpus;
 			$vm_settings['cores'] = $plan->cores;
 			$vm_settings['cpu'] = $plan->cpuemu;
-			$vm_settings['nameserver'] = '1.1.1.1 1.0.0.1';
+			$vm_settings['nameserver'] = '208.67.222.222 64.6.64.6';
 			$vm_settings['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 			if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 				switch ($plan->ipv6) {
 					case 'auto':
 						// Pass in auto, triggering SLAAC
-						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
+						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 						$vm_settings['ipconfig1'] = 'ip6=auto';
 						break;
 					case 'dhcp':
 						// DHCP for IPv6 option
-						$vm_settings['nameserver'] .= ' 2606:4700:4700::1111 2606:4700:4700::1001';
+						$vm_settings['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 						$vm_settings['ipconfig1'] = 'ip6=dhcp';
 						break;
 					case 'prefix':
@@ -439,6 +532,11 @@ function pvewhmcs_CreateAccount($params) {
 							'v6prefix' => $plan->ipv6,
 						]
 					);
+
+					// Update WHMCS Service with Dedicated IP
+					Capsule::table('tblhosting')
+						->where('id', $params['serviceid'])
+						->update(['dedicatedip' => $ip->ipaddress]);
 					return true;
 				} else {
 					throw new Exception("Proxmox Error: Failed to initiate creation. Response: " . json_encode($response));
@@ -1401,6 +1499,25 @@ function pvewhmcs_vmStop($params) {
 		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 		return "Error performing action. " . $response_message;
 	}
+}
+
+/**
+ * Find which node a specific VMID resides on using cluster resources.
+ *
+ * @param PVE2_API $proxmox
+ * @param int $vmid
+ * @return string Node name
+ * @throws Exception if VMID not found in cluster
+ */
+function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
+	// targeted search for vm
+	$resources = $proxmox->get('/cluster/resources?type=vm');
+	foreach ($resources as $res) {
+		if (isset($res['vmid']) && (int)$res['vmid'] == (int)$vmid) {
+			return $res['node'];
+		}
+	}
+	throw new Exception("PVEWHMCS Auto-Discovery: Template/VM ID {$vmid} not found in the cluster.");
 }
 
 /**
