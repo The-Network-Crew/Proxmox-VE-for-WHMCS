@@ -298,7 +298,7 @@ function pvewhmcs_CreateAccount($params) {
 				$proxmox->post(
 					'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config',
 					$cloned_tweaks
-				};
+				);
 
 				// Start the VM only if onboot is enabled
 				if (!empty($plan->onboot)) {
