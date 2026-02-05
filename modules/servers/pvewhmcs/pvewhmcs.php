@@ -250,12 +250,12 @@ function pvewhmcs_CreateAccount($params) {
 					switch ($plan->ipv6) {
 						case 'auto':
 							// Pass in auto, triggering SLAAC
-							$cloned_tweaks['nameserver'] .= '2001:4860:4860::8888 2606:4700:4700::1111';
+							$cloned_tweaks['nameserver'] .= ' 2001:4860:4860::8888 2606:4700:4700::1111';
 							$cloned_tweaks['ipconfig1'] = 'ip6=auto';
 							break;
 						case 'dhcp':
 							// DHCP for IPv6 option
-							$cloned_tweaks['nameserver'] .= '2001:4860:4860::8888 2606:4700:4700::1111';
+							$cloned_tweaks['nameserver'] .= ' 2001:4860:4860::8888 2606:4700:4700::1111';
 							$cloned_tweaks['ipconfig1'] = 'ip6=dhcp';
 							break;
 						case 'prefix':
@@ -265,7 +265,9 @@ function pvewhmcs_CreateAccount($params) {
 							break;
 					}
 				}
-				$amendment = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
+				
+				// Set VM configuration
+				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config', $cloned_tweaks);
 				
 				// Start the VM
 				$proxmox->post('/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start', array());
