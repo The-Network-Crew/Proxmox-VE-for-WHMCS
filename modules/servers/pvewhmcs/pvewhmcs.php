@@ -130,7 +130,7 @@ function pvewhmcs_CreateAccount($params) {
      WHERE i.ipaddress NOT IN (
         SELECT dedicatedip 
         FROM tblhosting 
-        WHERE domainstatus IN ("Active", "Suspended", "Completed")
+        WHERE domainstatus IN ("Active", "Suspended", "Completed", "Pending")
         AND dedicatedip != ""
      ) 
      LIMIT 1',
@@ -140,6 +140,10 @@ function pvewhmcs_CreateAccount($params) {
 	// Check if we actually found an IP before trying to access index [0]
 	if (!empty($result)) {
 		$ip = $result[0];
+		// Reserve early to avoid concurrent selection during long clones
+		Capsule::table('tblhosting')
+			->where('id', $params['serviceid'])
+			->update(['dedicatedip' => $ip->ipaddress]);
 	} else {
 		throw new Exception("No free IP addresses available in the selected pool.");
 	}
