@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
-## [1.3.4] - 2026-02-05 - _"IPv6 support, template autodiscovery, cloud-init networking"_
+## [1.3.4] - 2026-02-05 - _"IPv6, autodiscovery & cloud-init"_
 
 ### 🚀 Feature
 - Clusters: added IPv6 support to node handling logic

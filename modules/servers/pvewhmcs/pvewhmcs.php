@@ -263,18 +263,18 @@ function pvewhmcs_CreateAccount($params) {
 				$cloned_tweaks['onboot'] = $plan->onboot;
 
 				// Cloud-Init IP Configuration for Cloned VMs
-				$cloned_tweaks['nameserver'] = '8.8.8.8 1.1.1.1';
+				$cloned_tweaks['nameserver'] = '208.67.222.222 64.6.64.6';
 				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
 				if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
 					switch ($plan->ipv6) {
 						case 'auto':
 							// Pass in auto, triggering SLAAC
-							$cloned_tweaks['nameserver'] .= ' 2001:4860:4860::8888 2606:4700:4700::1111';
+							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 							$cloned_tweaks['ipconfig1'] = 'ip6=auto';
 							break;
 						case 'dhcp':
 							// DHCP for IPv6 option
-							$cloned_tweaks['nameserver'] .= ' 2001:4860:4860::8888 2606:4700:4700::1111';
+							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
 							$cloned_tweaks['ipconfig1'] = 'ip6=dhcp';
 							break;
 						case 'prefix':
@@ -622,25 +622,6 @@ function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 	}
 
 	throw new Exception("Unable to find a free VMID starting at {$start_vmid} after {$max_attempts} attempts");
-}
-
-/**
- * Find which node a specific VMID resides on using cluster resources.
- *
- * @param PVE2_API $proxmox
- * @param int $vmid
- * @return string Node name
- * @throws Exception if VMID not found in cluster
- */
-function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
-	// targeted search for vm
-	$resources = $proxmox->get('/cluster/resources?type=vm');
-	foreach ($resources as $res) {
-		if (isset($res['vmid']) && (int)$res['vmid'] == (int)$vmid) {
-			return $res['node'];
-		}
-	}
-	throw new Exception("PVEWHMCS Auto-Discovery: Template/VM ID {$vmid} not found in the cluster.");
 }
 
 // PVE API FUNCTION, ADMIN: Test Connection with Proxmox node
@@ -1514,6 +1495,25 @@ function pvewhmcs_vmStop($params) {
 		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
 		return "Error performing action. " . $response_message;
 	}
+}
+
+/**
+ * Find which node a specific VMID resides on using cluster resources.
+ *
+ * @param PVE2_API $proxmox
+ * @param int $vmid
+ * @return string Node name
+ * @throws Exception if VMID not found in cluster
+ */
+function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
+	// targeted search for vm
+	$resources = $proxmox->get('/cluster/resources?type=vm');
+	foreach ($resources as $res) {
+		if (isset($res['vmid']) && (int)$res['vmid'] == (int)$vmid) {
+			return $res['node'];
+		}
+	}
+	throw new Exception("PVEWHMCS Auto-Discovery: Template/VM ID {$vmid} not found in the cluster.");
 }
 
 /**
