@@ -1067,8 +1067,61 @@ function pvewhmcs_fetch_rrd_stat($proxmox, $node, $vtype, $vmid, $timeframe, $ds
 
 // OUTPUT: Module output to the Client Area
 function pvewhmcs_ClientArea($params) {
-	// Retrieve virtual machine info from table mod_pvewhmcs_vms
-	$guest=Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get()[0] ;
+	// Retrieve virtual machine info from table mod_pvewhmcs_vms.
+	// NOTE: We use ->get()[0] which is the original pattern that is proven to work.
+	// ->first() was tested but returned null for valid records in some WHMCS environments.
+	$guest = null;
+	try {
+		$guest_results = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->get();
+		if (isset($guest_results[0])) {
+			$guest = $guest_results[0];
+		} elseif (method_exists($guest_results, 'first')) {
+			// Laravel Collection fallback — some WHMCS versions return Collection objects
+			$guest = $guest_results->first();
+		}
+	} catch (\Exception $e) {
+		// Database error — fall through to the error handler below
+		$guest = null;
+	}
+
+	// If no guest record or missing vmid/vtype, return the template with safe placeholders
+	// instead of throwing an Exception (which shows the ugly WHMCS crash page to clients).
+	if ($guest === null || empty($guest->vmid) || empty($guest->vtype)) {
+		$error_msg = ($guest === null)
+			? 'No VM/CT record found for this service. It may not have been provisioned yet.'
+			: 'This service has no VM/CT assignment. It may not have been provisioned correctly.';
+
+		logModuleCall(
+			'pvewhmcs',
+			'pvewhmcs_clientarea_debug',
+			"Service ID: {$params['serviceid']} | Guest null: " . ($guest === null ? 'YES' : 'NO')
+				. " | vmid: " . ($guest ? $guest->vmid : 'N/A')
+				. " | vtype: " . ($guest ? $guest->vtype : 'N/A'),
+			$error_msg
+		);
+
+		return array(
+			'templatefile' => 'clientarea',
+			'vars' => array(
+				'params' => $params,
+				'pve_error' => $error_msg,
+				'pve_vm_config' => array(),
+				'pve_vm_status' => array(
+					'status' => 'unknown',
+					'cpu' => 0, 'cpus' => 1,
+					'mem' => 0, 'maxmem' => 1,
+					'disk' => 0, 'maxdisk' => 1,
+					'swap' => 0, 'maxswap' => 1,
+					'netin' => 0, 'netout' => 0,
+					'uptime' => 0,
+					'cpupercent' => 0, 'mempercent' => 0,
+					'diskpercent' => 0, 'swapusepercent' => 0,
+				),
+				'pve_vm_statistics' => array(),
+				'pve_vm_vncproxy' => null,
+			),
+		);
+	}
 	
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice=Capsule::table('tblhosting')->find($params['serviceid']) ;
@@ -1096,7 +1149,13 @@ function pvewhmcs_ClientArea($params) {
 
 		# Get and set VM variables
 		$vm_config = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/config');
+		if (!is_array($vm_config)) {
+			$vm_config = array();
+		}
 		$cluster_resources = $proxmox->get('/cluster/resources');
+		if (!is_array($cluster_resources)) {
+			$cluster_resources = array();
+		}
 		$vm_status = null;
 		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
 		$cluster_encoded = json_encode($cluster_resources);
@@ -1113,6 +1172,9 @@ function pvewhmcs_ClientArea($params) {
 		# Loop through data, find ID
 		$vm_status = null;
 		foreach ($cluster_resources as $vm) {
+			if (!is_array($vm)) {
+				continue;
+			}
 			// Using vmid directly, from Module Table against API Response (ignoring Service ID now)
 			if ($vm['vmid'] == $guest->vmid && $vm['type'] == $guest->vtype) {
 				$vm_status = $vm;
@@ -1131,53 +1193,75 @@ function pvewhmcs_ClientArea($params) {
 			$vm_status['uptime'] = time2format($vm_status['uptime']);
 			$vm_status['cpu'] = round($vm_status['cpu'] * 100, 2);
 
-			$vm_status['diskusepercent'] = intval($vm_status['disk'] * 100 / $vm_status['maxdisk']);
-			$vm_status['memusepercent'] = intval($vm_status['mem'] * 100 / $vm_status['maxmem']);
+			$vm_status['diskusepercent'] = !empty($vm_status['maxdisk'])
+				? intval($vm_status['disk'] * 100 / $vm_status['maxdisk'])
+				: 0;
+			$vm_status['memusepercent'] = !empty($vm_status['maxmem'])
+				? intval($vm_status['mem'] * 100 / $vm_status['maxmem'])
+				: 0;
 
 			if ($guest->vtype == 'lxc') {
 				// Check on swap before setting graph value
 				$ct_specific = $proxmox->get('/nodes/' . $guest_node . '/lxc/' . $guest->vmid . '/status/current');
-				if ($ct_specific['maxswap'] != 0) {
+				if (is_array($ct_specific) && !empty($ct_specific['maxswap'])) {
 					$vm_status['swapusepercent'] = intval($ct_specific['swap'] * 100 / $ct_specific['maxswap']);
+				} else {
+					$vm_status['swapusepercent'] = 0;
 				}
 			} else {
 				// Fall back to 0% usage to satisfy chart requirement
 				$vm_status['swapusepercent'] = 0;
 			}
 		} else {
-	    		// Handle the VM not found in the cluster resources (Optional)
-			echo "VM/CT not found in Cluster Resources.";
+			// Guest missing from cluster/resources — still render client area with placeholders
+			$vm_status = array(
+				'status' => 'unknown',
+				'uptime' => '—',
+				'cpu' => 0,
+				'memusepercent' => 0,
+				'diskusepercent' => 0,
+				'swapusepercent' => 0,
+			);
 		}
 
 		// ----------------------------------------------------------------
 		// Fetch RRD statistics graphs from Proxmox.
 		// Uses pvewhmcs_fetch_rrd_stat() for graceful error handling.
 		// RRD data may be unavailable for new VMs or during PVE migration.
+		// Only fetch if VM was actually found in cluster resources.
 		// ----------------------------------------------------------------
 
-		// CPU usage statistics (day/week/month/year)
-		$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
-		$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
-		$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
-		$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
+		$vm_statistics = array();
+		$vm_vncproxy = null;
 
-		// Memory usage statistics (day/week/month/year)
-		$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'mem');
-		$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'mem');
-		$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'mem');
-		$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'mem');
+		// Only fetch RRD stats if the VM was actually found in cluster resources.
+		// When vm_status is the placeholder fallback (status=unknown), skip to avoid
+		// 16 pointless API calls that would hit node-level RRD and flood the error log.
+		if ($vm_status['status'] !== 'unknown') {
+			// CPU usage statistics (day/week/month/year)
+			$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
+			$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
+			$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
+			$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
 
-		// Network I/O statistics (day/week/month/year)
-		$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
-		$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
-		$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
-		$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
+			// Memory usage statistics (day/week/month/year)
+			$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'mem');
+			$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'mem');
+			$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'mem');
+			$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'mem');
 
-		// Disk I/O statistics (day/week/month/year)
-		$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
+			// Network I/O statistics (day/week/month/year)
+			$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
+			$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
+			$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
+			$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
+
+			// Disk I/O statistics (day/week/month/year)
+			$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
+			$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
+			$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
+			$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
+		}
 
 		$vm_config['vtype'] = $guest->vtype ;
 		$vm_config['ipv4'] = $guest->ipaddress ;
@@ -1185,20 +1269,37 @@ function pvewhmcs_ClientArea($params) {
 		$vm_config['gateway4'] = $guest->gateway ;
 		$vm_config['created'] = $guest->created ;
 		$vm_config['v6prefix'] = $guest->v6prefix ;
+
+		// Proxmox may return some config values as non-strings; template expects comma-separated strings for explode()
+		$stringish_keys = array('net0', 'net1', 'rootfs', 'ide0', 'scsi0', 'virtio0', 'boot', 'ipconfig0', 'ipconfig1');
+		foreach ($stringish_keys as $sk) {
+			if (!isset($vm_config[$sk])) {
+				continue;
+			}
+			if (is_array($vm_config[$sk])) {
+				$vm_config[$sk] = implode(',', $vm_config[$sk]);
+			} elseif (!is_string($vm_config[$sk]) && (is_scalar($vm_config[$sk]) || $vm_config[$sk] === null)) {
+				$vm_config[$sk] = (string) $vm_config[$sk];
+			}
+		}
+		if (empty($vm_config['net0'])) {
+			$vm_config['net0'] = '';
+		}
 	}
 	else {
 		echo '<center><strong>Error: Unable to gather data from Hypervisor.<br>Please contact Tech Support!</strong></center>';
 		exit;
 	}
 
+	// Use pve_* names so WHMCS/core Smarty vars (e.g. vm_status as a string) cannot clobber module data.
 	return array(
 		'templatefile' => 'clientarea',
 		'vars' => array(
 			'params' => $params,
-			'vm_config' => $vm_config,
-			'vm_status' => $vm_status,
-			'vm_statistics' => $vm_statistics,
-			'vm_vncproxy' => $vm_vncproxy,
+			'pve_vm_config' => $vm_config,
+			'pve_vm_status' => $vm_status,
+			'pve_vm_statistics' => $vm_statistics,
+			'pve_vm_vncproxy' => $vm_vncproxy,
 		),
 	);
 }
