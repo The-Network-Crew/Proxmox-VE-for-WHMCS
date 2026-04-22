@@ -1210,6 +1210,7 @@ function pvewhmcs_vmStat($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
+	global $CONFIG;
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
@@ -1244,7 +1245,7 @@ function pvewhmcs_noVNC($params) {
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
-		// Get WHMCS base URL (including subdirectory
+		// Get WHMCS base URL (including subdirectory)
 		$whmcs_base = $CONFIG['SystemURL'];
 		// Construct the noVNC Router URL with the path already prepared now
 		$url = $whmcs_base . 'modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
