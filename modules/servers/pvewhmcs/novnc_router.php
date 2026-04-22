@@ -73,7 +73,7 @@ setrawcookie('PVEAuthCookie', $pveticket, [
 $hostname      = gethostbyaddr($host);
 $redirect_url  = './novnc/vnc.html?autoconnect=true&encrypt=true'
                . '&host=' . $hostname
-               . '&port=8006'
+               . '&port=' . $port
                . '&password=' . urlencode($vncticket)
                . '&path=' . urlencode($path);
 
