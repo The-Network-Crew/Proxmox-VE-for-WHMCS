@@ -41,7 +41,7 @@ function pvewhmcs_MetaData() {
         'DisplayName' => 'Proxmox VE',
         'APIVersion' => '1.1',
         'RequiresServer' => 'true',
-        'DefaultSSLPort' => '8006',
+        'DefaultSSLPort' => 8006,
 	);
 }
 

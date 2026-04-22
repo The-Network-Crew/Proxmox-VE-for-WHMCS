@@ -48,6 +48,7 @@ $pveticket  = $_GET['pveticket'];
 $vncticket  = $_GET['vncticket'];
 $host       = $_GET['host'];
 $path       = $_GET['path'];
+$port       = $_GET['port'];
 
 // ---------------------------------------
 // Determine main domain for cookie
