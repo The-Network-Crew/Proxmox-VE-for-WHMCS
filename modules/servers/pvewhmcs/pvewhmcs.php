@@ -639,7 +639,7 @@ function pvewhmcs_TestConnection(array $params) {
 		$serverusername = $params["serverusername"];
 		$serverpassword = $params["serverpassword"];
 		$serverport = $params["serverport"];
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 
 		// Set success if login succeeded
 		if ($proxmox->login()) {
