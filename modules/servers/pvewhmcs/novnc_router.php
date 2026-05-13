@@ -48,6 +48,7 @@ $pveticket  = $_GET['pveticket'];
 $vncticket  = $_GET['vncticket'];
 $host       = $_GET['host'];
 $path       = $_GET['path'];
+$port       = $_GET['port'];
 
 // ---------------------------------------
 // Determine main domain for cookie
@@ -73,7 +74,7 @@ setrawcookie('PVEAuthCookie', $pveticket, [
 $hostname      = gethostbyaddr($host);
 $redirect_url  = './novnc/vnc.html?autoconnect=true&encrypt=true'
                . '&host=' . $hostname
-               . '&port=8006'
+               . '&port=' . $port
                . '&password=' . urlencode($vncticket)
                . '&path=' . urlencode($path);
 
