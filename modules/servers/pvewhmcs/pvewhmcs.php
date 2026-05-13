@@ -1307,7 +1307,7 @@ function pvewhmcs_SPICE($params) {
 		// Get WHMCS base URL (including subdirectory)
 		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
 		// Construct the SPICE Router URL with the path already prepared now
-		$url = $whmcs_base . '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		$url = $whmcs_base . '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
 		$vncreply = '<center style="background-color: green;"><strong>Console (SPICE) successfully prepared.<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch SPICE.</strong></center>';
 		return $vncreply;
