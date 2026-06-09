@@ -599,12 +599,19 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=import_guest">
 	<i class="fa fa-upload"></i>&nbsp; Import: Guest
 	</a>
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=link_service">
+	<i class="fa fa-link"></i>&nbsp; Link: Service
+	</a>
 	</div>
 	';
 
 	// Handle actions based on the 'action' GET parameter
 	if ($_GET['action']=='import_guest') {
 		import_guest() ;
+	}
+
+	if ($_GET['action']=='link_service') {
+		link_service() ;
 	}
 	
 	if ($_GET['action']=='add_qemu_plan') {
@@ -1079,6 +1086,139 @@ function import_guest() {
 	echo '</table>';
 	echo '<div class="btn-container"><input type="submit" class="btn btn-primary" value="Import Guest" name="import_existing_guest" id="import_existing_guest"></div>';
 	echo '</form>';
+}
+
+// Link Guest/Service sub-page handler (standalone)
+// This function associates an existing unmapped WHMCS Service with an existing Proxmox Guest VMID.
+function link_service() {
+	$resultMsg = '';
+	if (!empty($_POST['link_existing_service'])) {
+		$serviceid = intval($_POST['link_serviceid']);
+		$vmid = intval($_POST['link_vmid']);
+		$vtype = ($_POST['link_vtype'] === 'lxc') ? 'lxc' : 'qemu';
+		$node = trim($_POST['link_node']);
+		$ipaddress = trim($_POST['link_ipv4']);
+		$subnetmask = trim($_POST['link_subnet']);
+		$gateway = trim($_POST['link_gateway']);
+
+		// Validate Service
+		$service = Capsule::table('tblhosting')->where('id', $serviceid)->first();
+		if (!$service) {
+			$resultMsg = '<div class="errorbox">No WHMCS Service found with ID ' . $serviceid . '</div>';
+		} else {
+			// Check if already mapped
+			$already_mapped = Capsule::table('mod_pvewhmcs_vms')->where('id', $serviceid)->first();
+			if ($already_mapped) {
+				$resultMsg = '<div class="errorbox">Service ' . $serviceid . ' is already mapped to a VM.</div>';
+			} else {
+				// Insert into module VMs table
+				try {
+					Capsule::table('mod_pvewhmcs_vms')->insert([
+						'id' => $serviceid,
+						'vmid' => $vmid,
+						'user_id' => $service->userid,
+						'vtype' => $vtype,
+						'ipaddress' => $ipaddress,
+						'subnetmask' => $subnetmask,
+						'gateway' => $gateway,
+						'created' => date('Y-m-d H:i:s'),
+					]);
+					$resultMsg = '<div class="successbox">Successfully linked Service ID ' . $serviceid . ' (' . htmlspecialchars($service->domain) . ') to Proxmox VMID ' . $vmid . ' on Node ' . htmlspecialchars($node) . '.</div>';
+				} catch (Exception $e) {
+					$resultMsg = '<div class="errorbox">Database error: ' . htmlspecialchars($e->getMessage()) . '</div>';
+				}
+			}
+		}
+	}
+
+	// Always show the form
+	if (!empty($resultMsg)) echo $resultMsg;
+
+	// Query unmapped services
+	$unmapped_services = Capsule::table('tblhosting')
+		->join('tblservers', 'tblhosting.server', '=', 'tblservers.id')
+		->leftJoin('mod_pvewhmcs_vms', 'tblhosting.id', '=', 'mod_pvewhmcs_vms.id')
+		->where('tblservers.type', '=', 'pvewhmcs')
+		->whereNull('mod_pvewhmcs_vms.id')
+		->select('tblhosting.id', 'tblhosting.domain', 'tblhosting.dedicatedip', 'tblhosting.userid', 'tblhosting.packageid')
+		->get();
+
+	if ($unmapped_services->isEmpty()) {
+		echo '<div class="alert alert-success">All WHMCS services using the Proxmox module are successfully mapped to Proxmox VMs! No unmapped services found.</div>';
+		return;
+	}
+
+	echo '<form method="post">';
+	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
+	
+	// Dropdown of unmapped services
+	echo '<tr><td class="fieldlabel">Unmapped WHMCS Service</td><td class="fieldarea"><select name="link_serviceid" id="link_serviceid" required>';
+	foreach ($unmapped_services as $srv) {
+		// Get client info
+		$client = Capsule::table('tblclients')->where('id', $srv->userid)->first();
+		$client_name = $client ? ($client->firstname . ' ' . $client->lastname) : ('Client #' . $srv->userid);
+		
+		// Look up VMID custom field
+		$vmid_val = '';
+		$custom_field_ids = Capsule::table('tblcustomfields')
+			->where('relid', $srv->packageid)
+			->where(function($query) {
+				$query->where('fieldname', 'LIKE', '%vmid%')
+				      ->orWhere('fieldname', 'LIKE', '%vpsid%');
+			})
+			->pluck('id');
+		if ($custom_field_ids->isNotEmpty()) {
+			$vmid_val = Capsule::table('tblcustomfieldsvalues')
+				->whereIn('fieldid', $custom_field_ids)
+				->where('relid', $srv->id)
+				->value('value');
+		}
+
+		$label = $srv->id . ' - ' . $client_name . ' - ' . ($srv->domain ? $srv->domain : '(No Hostname)') . ' (' . $srv->dedicatedip . ')';
+		echo '<option value="' . $srv->id . '" data-ip="' . htmlspecialchars($srv->dedicatedip) . '" data-vmid="' . htmlspecialchars($vmid_val) . '">' . htmlspecialchars($label) . '</option>';
+	}
+	echo '</select></td></tr>';
+
+	echo '<tr><td class="fieldlabel">PVE VMID</td><td class="fieldarea"><input type="text" name="link_vmid" required placeholder="e.g. 124"></td></tr>';
+	echo '<tr><td class="fieldlabel">VM / CT Type</td><td class="fieldarea"><select name="link_vtype" required>';
+	echo '<option value="qemu">(VM) QEMU</option>';
+	echo '<option value="lxc">(CT) LXC</option>';
+	echo '</select></td></tr>';
+	echo '<tr><td class="fieldlabel">Proxmox Node</td><td class="fieldarea"><input type="text" name="link_node" required placeholder="e.g. prox3"></td></tr>';
+	echo '<tr><td class="fieldlabel">IPv4 Address</td><td class="fieldarea"><input type="text" name="link_ipv4" id="link_ipv4" required placeholder="e.g. 66.7.221.217"></td></tr>';
+	echo '<tr><td class="fieldlabel">Subnet Mask</td><td class="fieldarea"><input type="text" name="link_subnet" required value="24" placeholder="e.g. 24"></td></tr>';
+	echo '<tr><td class="fieldlabel">Gateway</td><td class="fieldarea"><input type="text" name="link_gateway" required value="66.7.221.1" placeholder="e.g. 66.7.221.1"></td></tr>';
+	
+	echo '</table>';
+	echo '<div class="btn-container"><input type="submit" class="btn btn-primary" value="Link Service" name="link_existing_service" id="link_existing_service"></div>';
+	echo '</form>';
+	
+	// Add some quick javascript to auto-populate fields based on selected service
+	echo '
+	<script>
+	document.getElementById("link_serviceid").addEventListener("change", function() {
+		var selectedOption = this.options[this.selectedIndex];
+		var ip = selectedOption.getAttribute("data-ip");
+		var vmid = selectedOption.getAttribute("data-vmid");
+		if (ip) {
+			document.getElementById("link_ipv4").value = ip;
+			// Attempt to guess gateway based on IP (e.g. replace last octet with .1)
+			var parts = ip.split(".");
+			if (parts.length === 4) {
+				parts[3] = "1";
+				document.getElementsByName("link_gateway")[0].value = parts.join(".");
+			}
+		}
+		if (vmid) {
+			document.getElementsByName("link_vmid")[0].value = vmid;
+		} else {
+			document.getElementsByName("link_vmid")[0].value = "";
+		}
+	});
+	// Trigger change event on load
+	document.getElementById("link_serviceid").dispatchEvent(new Event("change"));
+	</script>
+	';
 }
 
 // MODULE CONFIG: Commit changes to the database
