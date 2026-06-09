@@ -8,7 +8,7 @@
     If you have proven and public git-logged experience, or similar, please say g'day.
     
     Please note: We are only looking for high-quality applicants with spare time.
-    As it stands, we won't have much spare dev time for this Module in 2025/NY.
+    As it stands, we won't have much spare dev time for this Module in 2026.
 
 - Configure VM/CT plans with custom CPU/RAM/VLAN/On-boot/Bandwidth/etc
 - Automatically Provision VMs & CTs in **Proxmox VE** from **WHMCS** easily
@@ -406,7 +406,7 @@ There are new features deployed into PVE upstream which are exciting and may be 
 | License | Dependency | In-use Ver. | Link to Repository, etc.|
 |---------|------------|-------------|-------------------------|
 | **(MIT)** | PHP Client for PVE2 API | **2022/Dec/05** | https://github.com/CpuID/pve2-api-php-client |
-| **(MPLv2)** | noVNC HTML5 Viewer | **v1.6.0** | https://github.com/novnc/noVNC/ |
+| **(MPLv2)** | noVNC HTML5 Viewer | **v1.7.0** | https://github.com/novnc/noVNC/ |
 | **(MIT)** | IPv4/SN Validation | **August 2012** | https://github.com/tapmodo/php-ipv4/ |
 
 # 📄 DIY: Documentation & Resources

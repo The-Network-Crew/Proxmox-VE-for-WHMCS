@@ -14,6 +14,7 @@ This document seeks to say "cheers", "many thanks" & "love your work" to the peo
 - [@hliasa](https://github.com/hliasa)
 - [@InnocentCivilian](https://github.com/InnocentCivilian)
 - [@jdomenechg](https://github.com/jdomenechg)
+- [@cl0secall](https://github.com/cl0secall)
 
 ## Why not make it even better?
 

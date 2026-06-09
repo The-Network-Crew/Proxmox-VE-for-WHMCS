@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
+
+### 🚀 Feature
+- Server Port: Allow port config in WHMCS (#197)
+
+### 💅 Polish
+- noVNC: Upgraded from v1.6.0 to v1.7.0 (#199)
+
+### 🐛 Bug Fix
+- VNC: Fix link if WHMCS not in webroot (#196)
+- Terminations: Improve dupe handling (#194)
+
 ## [1.3.4] - 2026-02-06 - _"IPv6, Discovery & cloud-init"_
 
 ### 🚀 Feature

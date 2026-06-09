@@ -41,6 +41,7 @@ function pvewhmcs_MetaData() {
         'DisplayName' => 'Proxmox VE',
         'APIVersion' => '1.1',
         'RequiresServer' => 'true',
+        'DefaultSSLPort' => 8006,
 	);
 }
 
@@ -50,12 +51,13 @@ function pvewhmcs_MetaData() {
  */
 function pvewhmcs_AdminLink(array $params) {
     $host = $params['serverhostname'] ?: $params['serverip'];
+    $port = $params['serverport'];
     if (!$host) {
         // Nothing to link to – return the module page as a safe fallback
         return '<a href="addonmodules.php?module=pvewhmcs">Module Config</a>';
     }
 
-    $url  = 'https://' . $host . ':8006';
+    $url  = 'https://' . $host . ':' . $port;
     return '<form action="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" method="get" target="_blank">
                 <input type="submit" value="Log in to PVE" class="btn btn-sm btn-default" />
             </form>';
@@ -118,6 +120,7 @@ function pvewhmcs_CreateAccount($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	$serverport = $params["serverport"];
 
 	// Prepare the service config array
 	$vm_settings = array();
@@ -155,7 +158,7 @@ function pvewhmcs_CreateAccount($params) {
 	////////////////////
 	if (!empty($params['customfields']['KVMTemplate'])) {
 		// QEMU TEMPLATE - CREATION LOGIC
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 		if ($proxmox->login()) {
 			// Get template node: prefer TPL_Node_QEMU custom field, fallback to first node
 			$nodes = $proxmox->get_node_list();
@@ -447,7 +450,7 @@ function pvewhmcs_CreateAccount($params) {
 		// CREATION: Attempt to Create Guest via PVE2 API //
 		////////////////////////////////////////////////////
 		try {
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 
 			if ($proxmox->login()) {
 				// Get template node: prefer TPL_Node_LXC custom field for LXC, fallback to first node
@@ -635,7 +638,8 @@ function pvewhmcs_TestConnection(array $params) {
 		$serverip = $params["serverip"];
 		$serverusername = $params["serverusername"];
 		$serverpassword = $params["serverpassword"];
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+		$serverport = $params["serverport"];
+		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 
 		// Set success if login succeeded
 		if ($proxmox->login()) {
@@ -667,8 +671,9 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	$serverport = $params["serverport"];
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -708,8 +713,9 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	$serverport = $params["serverport"];
 	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
@@ -742,32 +748,64 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 }
 
 // PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
+// Sequence:
+//   1. Connect to PVE and look up the guest record in mod_pvewhmcs_vms.
+//   2. Locate which cluster node the VMID currently lives on.
+//      - If not found on the cluster, the VM was already removed manually:
+//        clean up the DB row and return success.
+//   3. Guard against VMID reuse (Issue #194): if another WHMCS service now
+//      holds the same VMID in mod_pvewhmcs_vms, Proxmox recycled it after a
+//      manual termination left the original row orphaned. Clean up the stale
+//      row and abort — the live VM must not be touched.
+//   4. All checks passed: stop the guest (if running), delete it from PVE,
+//      then remove the DB row.
 function pvewhmcs_TerminateAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
+	$serverport = $params["serverport"];
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()){
-		// Find virtual machine type
+
+		// STEP 1: Look up the guest record for this WHMCS Service ID.
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->first();
 		if ($guest === null) {
 			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
 		}
+
+		// STEP 2: Locate the cluster node the VMID lives on.
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
+			// VM is no longer present on the cluster — already removed manually.
+			// Clean up the orphaned DB row so the VMID cannot match a future reused guest.
+			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+			return "success";
 		}
+
+		// STEP 3: Guard against VMID reuse (Issue #194).
+		// If mod_pvewhmcs_vms contains another row for this VMID, Proxmox recycled it
+		// for a new service after the original was manually terminated without going
+		// through this function. The VM on PVE now belongs to the new service — abort.
+		$vmid_owner = Capsule::table('mod_pvewhmcs_vms')
+			->where('vmid', '=', $guest->vmid)
+			->where('id', '!=', $params['serviceid'])
+			->first();
+		if ($vmid_owner !== null) {
+			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
+			return "Error: VMID {$guest->vmid} is now assigned to Service #{$vmid_owner->id}. Stale record for Service #{$params['serviceid']} cleaned up. VM was NOT deleted.";
+		}
+
+		// STEP 4: Ownership confirmed. Stop the guest (if running) then delete it.
 		$pve_cmdparam = array();
-		// Stop the service if it is not already stopped
 		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
 			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
 			sleep(30);
 		}
-		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid,array('skiplock'=>1));
+		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid, array('skiplock' => 1));
 		if ($delete_response) {
-			// Delete entry from module table once service terminated in PVE
+			// Delete the DB row now that the guest has been removed from PVE.
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
 			return "success";
 		} else {
@@ -1134,8 +1172,9 @@ function pvewhmcs_ClientArea($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
 		// Where node lives ? 
@@ -1317,6 +1356,7 @@ function pvewhmcs_vmStat($params) {
 
 // VNC: Console access to VM/CT via noVNC
 function pvewhmcs_noVNC($params) {
+	global $CONFIG;
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
@@ -1324,7 +1364,8 @@ function pvewhmcs_noVNC($params) {
 	
 	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"]);
+	$serverport = $params["serverport"];
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport);
 	if (!$proxmox_server->login()) {
 		return 'Failed to prepare noVNC. Unable to connect to server.';
 	}
@@ -1342,7 +1383,7 @@ function pvewhmcs_noVNC($params) {
 	// Now use VNC credentials for the actual VNC proxy request (restricted permissions)
 	$vncusername = 'vnc';
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword);
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport);
 	if ($proxmox->login()) {
 		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
@@ -1351,8 +1392,10 @@ function pvewhmcs_noVNC($params) {
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		// Get WHMCS base URL (including subdirectory)
+		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
 		// Construct the noVNC Router URL with the path already prepared now
-		$url = '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
 		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
 		return $vncreply;
@@ -1364,6 +1407,7 @@ function pvewhmcs_noVNC($params) {
 
 // VNC: Console access to VM/CT via SPICE
 function pvewhmcs_SPICE($params) {
+	global $CONFIG;
 	// Check if VNC Secret is configured in Module Config, fail early if not. (#27)
 	if (strlen(Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret'))<15) {
 		throw new Exception("PVEWHMCS Error: VNC Secret in Module Config either not set or not long enough. Recommend 20+ characters for security.");
@@ -1371,7 +1415,7 @@ function pvewhmcs_SPICE($params) {
 	
 	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"]);
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $params["serverport"]);
 	if (!$proxmox_server->login()) {
 		return 'Failed to prepare SPICE. Unable to connect to server.';
 	}
@@ -1389,7 +1433,7 @@ function pvewhmcs_SPICE($params) {
 	// Now use VNC credentials for the actual SPICE proxy request (restricted permissions)
 	$vncusername = 'vnc';
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword);
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $params["serverport"]);
 	if ($proxmox->login()) {
 		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
@@ -1398,8 +1442,10 @@ function pvewhmcs_SPICE($params) {
 		$vncticket = $vm_vncproxy['ticket'];
 		// $path should only contain the actual path without any query parameters
 		$path = 'api2/json/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . urlencode($vncticket);
+		// Get WHMCS base URL (including subdirectory)
+		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
 		// Construct the SPICE Router URL with the path already prepared now
-		$url = '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		$url = $whmcs_base . '/modules/servers/pvewhmcs/spice_router.php?host=' . $serverip . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the SPICE Router hyperlink for access
 		$vncreply = '<center style="background-color: green;"><strong>Console (SPICE) successfully prepared.<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here</u></a> to launch SPICE.</strong></center>';
 		return $vncreply;
@@ -1421,8 +1467,9 @@ function pvewhmcs_vmStart($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1467,8 +1514,9 @@ function pvewhmcs_vmReboot($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1524,8 +1572,9 @@ function pvewhmcs_vmShutdown($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1572,8 +1621,9 @@ function pvewhmcs_vmStop($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$serverport = $pveserver->port;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
 		if ($guest === null) {
@@ -1637,31 +1687,26 @@ function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
  */
 function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
 {
-    // 1) Where guest lives?
+    // Where does the Guest live?
     $cluster_resources = $proxmox->get('/cluster/resources');
 
     if (is_array($cluster_resources)) {
         foreach ($cluster_resources as $res) {
+			// Ensure required keys exist before accessing
             if (!isset($res['type'], $res['vmid'], $res['node'])) {
                 continue;
             }
 
-            // match vmid + type
+            // Match the vmid + Guest type (most reliable)
             if ($res['vmid'] == $guest->vmid && $res['type'] === $guest->vtype) {
                 return $res['node'];
             }
 
-            // Legacy fallback (<1.2.9): vmid == serviceid
+            // Legacy (<1.2.9): vmid == serviceid
             if ($res['vmid'] == $serviceId && $res['type'] === $guest->vtype) {
                 return $res['node'];
             }
         }
-    }
-
-    // 2) Fallback old behavior
-    $nodes = $proxmox->get_node_list();
-    if (is_array($nodes) && !empty($nodes)) {
-        return $nodes[0];
     }
 
     return null;
