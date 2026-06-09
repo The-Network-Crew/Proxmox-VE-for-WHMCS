@@ -120,7 +120,7 @@ function pvewhmcs_CreateAccount($params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
-	$serverport = $params["serverport"];
+	$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
 
 	// Prepare the service config array
 	$vm_settings = array();
@@ -638,7 +638,7 @@ function pvewhmcs_TestConnection(array $params) {
 		$serverip = $params["serverip"];
 		$serverusername = $params["serverusername"];
 		$serverpassword = $params["serverpassword"];
-		$serverport = $params["serverport"];
+		$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
 		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 
 		// Set success if login succeeded
@@ -671,7 +671,7 @@ function pvewhmcs_SuspendAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
-	$serverport = $params["serverport"];
+	$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()) {
@@ -713,7 +713,7 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
-	$serverport = $params["serverport"];
+	$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
 	
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()) {
@@ -763,7 +763,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
 	$serverpassword = $params["serverpassword"];
-	$serverport = $params["serverport"];
+	$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()){
@@ -1172,7 +1172,7 @@ function pvewhmcs_ClientArea($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = $pveserver->port;
+	$serverport = !empty($pveserver->port) ? $pveserver->port : 8006;
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
@@ -1364,7 +1364,7 @@ function pvewhmcs_noVNC($params) {
 	
 	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$serverport = $params["serverport"];
+	$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
 	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport);
 	if (!$proxmox_server->login()) {
 		return 'Failed to prepare noVNC. Unable to connect to server.';
@@ -1415,7 +1415,8 @@ function pvewhmcs_SPICE($params) {
 	
 	// Get server credentials and find guest node (VNC user lacks VM.Audit permission for /cluster/resources)
 	$serverip = $params["serverip"];
-	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $params["serverport"]);
+	$serverport = !empty($params["serverport"]) ? $params["serverport"] : 8006;
+	$proxmox_server = new PVE2_API($serverip, $params["serverusername"], "pam", $params["serverpassword"], $serverport);
 	if (!$proxmox_server->login()) {
 		return 'Failed to prepare SPICE. Unable to connect to server.';
 	}
@@ -1433,7 +1434,7 @@ function pvewhmcs_SPICE($params) {
 	// Now use VNC credentials for the actual SPICE proxy request (restricted permissions)
 	$vncusername = 'vnc';
 	$vncpassword = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('vnc_secret');
-	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $params["serverport"]);
+	$proxmox = new PVE2_API($serverip, $vncusername, "pve", $vncpassword, $serverport);
 	if ($proxmox->login()) {
 		$vm_vncproxy = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/vncproxy', array('websocket' => '1'));
 
@@ -1467,7 +1468,7 @@ function pvewhmcs_vmStart($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = $pveserver->port;
+	$serverport = !empty($pveserver->port) ? $pveserver->port : 8006;
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
@@ -1514,7 +1515,7 @@ function pvewhmcs_vmReboot($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = $pveserver->port;
+	$serverport = !empty($pveserver->port) ? $pveserver->port : 8006;
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
@@ -1572,7 +1573,7 @@ function pvewhmcs_vmShutdown($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = $pveserver->port;
+	$serverport = !empty($pveserver->port) ? $pveserver->port : 8006;
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
@@ -1621,7 +1622,7 @@ function pvewhmcs_vmStop($params) {
 		'password2' => $pveserver->password,
 	);
 	$serverpassword = localAPI('DecryptPassword', $api_data);
-	$serverport = $pveserver->port;
+	$serverport = !empty($pveserver->port) ? $pveserver->port : 8006;
 
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
