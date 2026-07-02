@@ -340,12 +340,14 @@ function pvewhmcs_output($vars) {
 			// Decrypt server password (same approach as ClientArea)
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 			$serverip       = $pve->ipaddress;
 			$serverusername = $pve->username;
 			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
+			$serverport     = !empty($pve->port) ? (int) $pve->port : 8006;
 
 			// Login + get cluster/resources
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport);
 			if (!$proxmox->login()) {
 				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
@@ -495,11 +497,13 @@ function pvewhmcs_output($vars) {
 		foreach ($servers as $pve) {
 			$api_data = array('password2' => $pve->password);
 			$serverpassword = localAPI('DecryptPassword', $api_data);
+			$serverpassword_plain = html_entity_decode($serverpassword['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 			$serverip       = $pve->ipaddress;
 			$serverusername = $pve->username;
 			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
+			$serverport     = !empty($pve->port) ? (int) $pve->port : 8006;
 
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword_plain, $serverport);
 			if (!$proxmox->login()) {
 				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 				continue;
@@ -851,12 +855,13 @@ function pvewhmcs_output($vars) {
 	        }
 
 	        $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
-	        $serverpassword = $dec['password'] ?? '';
+	        $serverpassword = html_entity_decode($dec['password'] ?? '', ENT_QUOTES | ENT_HTML5, 'UTF-8');
 	        if (!$serverpassword) {
 	            throw new Exception('Could not decrypt Proxmox server password.');
 	        }
 
-	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
+	        $serverport = !empty($pve->port) ? (int) $pve->port : 8006;
+	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword, $serverport);
 	        if (!$proxmox->login()) {
 	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials, connectivity & configurations.');
 	        }
