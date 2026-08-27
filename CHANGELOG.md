@@ -6,6 +6,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 🚀 Feature
 - Sync: Add a searchable, filterable service-to-guest reconciliation interface.
 - Sync: Import an orphaned Proxmox guest through a guided WHMCS order and service workflow with client-currency billing choices and a final review.
+- Import Guest: Search clients inside the native WHMCS dropdown and choose product pricing, internal free billing, or a custom price override.
 
 ### 🛡️ Safety
 - Sync: Revalidate server, service, guest, and VMID data before mapping; revalidate hostname and known IP data for auto-match links.
@@ -14,6 +15,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Sync: Protect mapping actions with WHMCS CSRF tokens and retire the legacy browser-supplied mapping form.
 - Import Guest: Use WHMCS order and service APIs, suppress invoices and emails, never run module create, and roll back failed pending imports.
 - Import Guest: Keep paid services pending; accept free orders with module setup disabled and align the service status to the live guest state.
+- Import Guest: Require an audit reason for billing overrides and verify zero-cost order totals, Free Account persistence, and custom service amounts before mapping a guest.
 
 ### 🐛 Bug Fix
 - Client Area: Render the standard error state when a mapped guest cannot be found or the Proxmox login fails.
@@ -22,6 +24,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 ### 📖 Documentation
 - Sync: Document mapping states, recovery workflow, verification, deployment, and rollback.
 - Import Guest: Document the orphaned-guest workflow, billing and status policy, failure recovery, and production verification checklist.
+- Import Guest: Document native client search and the product, internal-free, and custom-price billing treatments.
 
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 

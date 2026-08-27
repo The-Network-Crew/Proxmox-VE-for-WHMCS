@@ -2580,6 +2580,67 @@ function pvewhmcs_import_guest_target_status($guest_status, $is_free) {
 	return 'Pending';
 }
 
+function pvewhmcs_get_import_pricing_policy($cycle, $product_paytype, $pricing_mode, $raw_price_override, $override_reason) {
+	$pricing_mode = trim((string) $pricing_mode);
+	if ($pricing_mode === '') {
+		$pricing_mode = 'product';
+	}
+	if (!in_array($pricing_mode, ['product', 'internal_free', 'custom'], true)) {
+		throw new InvalidArgumentException('Select a supported billing treatment.');
+	}
+
+	if ($pricing_mode === 'product') {
+		return [
+			'mode' => 'product',
+			'label' => 'Product pricing',
+			'price_override' => null,
+			'reason' => '',
+			'is_no_charge' => $cycle['is_free'],
+			'auto_accept' => $cycle['is_free'],
+			'final_billing_cycle' => $cycle['is_free'] ? 'Free Account' : null,
+		];
+	}
+
+	$reason = preg_replace('/\s+/', ' ', trim((string) $override_reason));
+	$reason_length = function_exists('mb_strlen') ? mb_strlen($reason, 'UTF-8') : strlen($reason);
+	if ($reason_length < 3 || $reason_length > 200) {
+		throw new InvalidArgumentException('Enter an override reason between 3 and 200 characters.');
+	}
+
+	if ($pricing_mode === 'internal_free') {
+		return [
+			'mode' => 'internal_free',
+			'label' => 'Internal / Free',
+			'price_override' => 0.0,
+			'reason' => $reason,
+			'is_no_charge' => true,
+			'auto_accept' => true,
+			'final_billing_cycle' => 'Free Account',
+		];
+	}
+
+	$raw_price_override = trim((string) $raw_price_override);
+	if (!preg_match('/^\d{1,9}(?:\.\d{1,2})?$/', $raw_price_override)) {
+		throw new InvalidArgumentException('Enter a custom price between 0.00 and 999999999.99 with no more than two decimal places.');
+	}
+
+	$price_override = round(floatval($raw_price_override), 2);
+	if ($product_paytype === 'free' && $price_override > 0) {
+		throw new InvalidArgumentException('A Free Account product cannot use a positive custom price. Select a billable product or use a zero override.');
+	}
+
+	$is_no_charge = $price_override == 0.0;
+	return [
+		'mode' => 'custom',
+		'label' => 'Custom price ' . number_format($price_override, 2, '.', ''),
+		'price_override' => $price_override,
+		'reason' => $reason,
+		'is_no_charge' => $is_no_charge,
+		'auto_accept' => $is_no_charge,
+		'final_billing_cycle' => $is_no_charge ? 'Free Account' : null,
+	];
+}
+
 function pvewhmcs_require_local_api_success($command, $result) {
 	if (is_array($result) && ($result['result'] ?? '') === 'success') {
 		return $result;
@@ -2622,7 +2683,7 @@ function pvewhmcs_rollback_pending_import_order($order_id, $service_id) {
 	return $rollback_errors;
 }
 
-function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $network, $client_id, $product_id, $billing_cycle, $payment_method) {
+function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $network, $client_id, $product_id, $billing_cycle, $payment_method, $pricing_mode, $price_override, $override_reason) {
 	$client = Capsule::table('tblclients')
 		->where('id', intval($client_id))
 		->where('status', 'Active')
@@ -2646,6 +2707,13 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 	}
 
 	$cycle = pvewhmcs_get_import_cycle_details($product, $client, trim((string) $billing_cycle));
+	$pricing = pvewhmcs_get_import_pricing_policy(
+		$cycle,
+		$product->paytype,
+		$pricing_mode,
+		$price_override,
+		$override_reason
+	);
 	$guest_name = trim((string) ($guest['name'] ?? ''));
 	if ($guest_name === '') {
 		throw new InvalidArgumentException('The selected Proxmox guest has no hostname.');
@@ -2669,7 +2737,7 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 	$service_id = 0;
 	$order_accepted = false;
 	try {
-		$order = pvewhmcs_require_local_api_success('AddOrder', localAPI('AddOrder', [
+		$order_parameters = [
 			'clientid' => intval($client->id),
 			'paymentmethod' => trim((string) $payment_method),
 			'pid' => [intval($product->id)],
@@ -2680,7 +2748,11 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'noinvoice' => true,
 			'noinvoiceemail' => true,
 			'noemail' => true,
-		]));
+		];
+		if ($pricing['price_override'] !== null) {
+			$order_parameters['priceoverride'] = [number_format($pricing['price_override'], 2, '.', '')];
+		}
+		$order = pvewhmcs_require_local_api_success('AddOrder', localAPI('AddOrder', $order_parameters));
 
 		$order_id = intval($order['orderid'] ?? 0);
 		$service_ids = array_values(array_filter(array_map('intval', explode(',', (string) ($order['serviceids'] ?? '')))));
@@ -2688,6 +2760,12 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			throw new RuntimeException('WHMCS did not return exactly one service for the import order.');
 		}
 		$service_id = $service_ids[0];
+		if ($pricing['is_no_charge']) {
+			$order_amount = Capsule::table('tblorders')->where('id', $order_id)->value('amount');
+			if ($order_amount === null || abs(floatval($order_amount)) > 0.0001) {
+				throw new InvalidArgumentException('WHMCS calculated a non-zero order total for this free import. The pending order was rolled back; remove the selected cycle setup fee or use a Free Account product.');
+			}
+		}
 
 		$service = Capsule::table('tblhosting')
 			->where('id', $service_id)
@@ -2698,7 +2776,13 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			throw new RuntimeException('The newly created WHMCS service could not be verified.');
 		}
 
-		pvewhmcs_require_local_api_success('UpdateClientProduct', localAPI('UpdateClientProduct', [
+		$service_notes = 'PVEWHMCS: Imported from Proxmox Guest VMID ' . intval($guest['vmid'])
+			. '. Order #' . $order_id . '. Billing: ' . $pricing['label'] . '.';
+		if ($pricing['reason'] !== '') {
+			$service_notes .= ' Override reason: ' . $pricing['reason'] . '.';
+		}
+
+		$service_parameters = [
 			'serviceid' => $service_id,
 			'serverid' => intval($selected_server_id),
 			'domain' => $guest_name,
@@ -2706,8 +2790,38 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'dedicatedip' => (string) ($network['ip'] ?? ''),
 			'assignedips' => (string) ($network['ip'] ?? ''),
 			'status' => 'Pending',
-			'notes' => 'PVEWHMCS: Imported from Proxmox Guest VMID ' . intval($guest['vmid']) . '. Order #' . $order_id . '.',
-		]));
+			'notes' => $service_notes,
+		];
+		if ($pricing['price_override'] !== null) {
+			$formatted_override = number_format($pricing['price_override'], 2, '.', '');
+			$service_parameters['firstpaymentamount'] = $formatted_override;
+			$service_parameters['recurringamount'] = $formatted_override;
+		}
+		if ($pricing['final_billing_cycle'] !== null) {
+			$service_parameters['billingcycle'] = $pricing['final_billing_cycle'];
+			$service_parameters['firstpaymentamount'] = '0.00';
+			$service_parameters['recurringamount'] = '0.00';
+		}
+		pvewhmcs_require_local_api_success('UpdateClientProduct', localAPI('UpdateClientProduct', $service_parameters));
+
+		$stored_service = Capsule::table('tblhosting')->where('id', $service_id)->first();
+		if (!$stored_service) {
+			throw new RuntimeException('The imported service could not be verified after applying its billing policy.');
+		}
+		if ($pricing['is_no_charge']) {
+			$free_billing_is_valid = $stored_service->billingcycle === 'Free Account'
+				&& abs(floatval($stored_service->firstpaymentamount)) < 0.0001
+				&& abs(floatval($stored_service->amount)) < 0.0001;
+			if (!$free_billing_is_valid) {
+				throw new RuntimeException('WHMCS did not persist the Free Account billing policy for the imported service.');
+			}
+		} elseif ($pricing['price_override'] !== null) {
+			$custom_price_is_valid = abs(floatval($stored_service->firstpaymentamount) - $pricing['price_override']) < 0.0001
+				&& abs(floatval($stored_service->amount) - $pricing['price_override']) < 0.0001;
+			if (!$custom_price_is_valid) {
+				throw new RuntimeException('WHMCS did not persist the custom price for the imported service.');
+			}
+		}
 
 		Capsule::connection()->transaction(function () use ($service_id, $client, $guest, $network) {
 			Capsule::table('mod_pvewhmcs_vms')->insert([
@@ -2722,8 +2836,8 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			]);
 		});
 
-		$target_status = pvewhmcs_import_guest_target_status($guest['status'] ?? '', $cycle['is_free']);
-		if ($cycle['is_free']) {
+		$target_status = pvewhmcs_import_guest_target_status($guest['status'] ?? '', $pricing['auto_accept']);
+		if ($pricing['auto_accept']) {
 			pvewhmcs_require_local_api_success('AcceptOrder', localAPI('AcceptOrder', [
 				'orderid' => $order_id,
 				'serverid' => intval($selected_server_id),
@@ -2767,7 +2881,9 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'PVEWHMCS imported Proxmox VMID ' . intval($guest['vmid'])
 			. ' as WHMCS Service #' . $service_id
 			. ' using Order #' . $order_id
-			. ' with status ' . $target_status . '.',
+			. ' with status ' . $target_status
+			. ' and billing treatment ' . $pricing['label']
+			. ($pricing['reason'] !== '' ? ' (' . $pricing['reason'] . ')' : '') . '.',
 			intval($client->id)
 		);
 
@@ -2775,6 +2891,7 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'client' => $client,
 			'product' => $product,
 			'cycle' => $cycle,
+			'pricing' => $pricing,
 			'order_id' => $order_id,
 			'service_id' => $service_id,
 			'status' => $target_status,
@@ -2836,6 +2953,7 @@ function pvewhmcs_build_import_catalog($products, $clients) {
 				'label' => 'Free Account',
 				'price' => 'Free',
 				'is_free' => true,
+				'setup_fee' => 0.0,
 			]];
 		}
 	}
@@ -2870,6 +2988,7 @@ function pvewhmcs_build_import_catalog($products, $clients) {
 				'label' => $definition['label'],
 				'price' => $price_text,
 				'is_free' => false,
+				'setup_fee' => $setup_fee,
 			];
 		}
 	}
@@ -2882,6 +3001,12 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	$selected_product_id = intval($_POST['import_product_id'] ?? 0);
 	$selected_cycle = trim((string) ($_POST['import_billing_cycle'] ?? ''));
 	$selected_gateway = trim((string) ($_POST['import_payment_method'] ?? ''));
+	$selected_pricing_mode = trim((string) ($_POST['import_pricing_mode'] ?? 'product'));
+	if (!in_array($selected_pricing_mode, ['product', 'internal_free', 'custom'], true)) {
+		$selected_pricing_mode = 'product';
+	}
+	$selected_price_override = trim((string) ($_POST['import_price_override'] ?? ''));
+	$selected_override_reason = trim((string) ($_POST['import_override_reason'] ?? ''));
 	$client_context = [];
 
 	foreach ($clients as $client) {
@@ -2930,13 +3055,9 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 				</div>
 				<div class="pve-import-fields">
 					<div class="form-group">
-						<label for="pve-import-client-search">Find client</label>
-						<input type="search" id="pve-import-client-search" class="form-control" placeholder="Search by client ID, name, or company" autocomplete="off">
-					</div>
-					<div class="form-group">
 						<label for="pve-import-client">Target client</label>
-						<select id="pve-import-client" name="import_client_id" class="form-control" required>
-							<option value="">Select a client</option>';
+						<select id="pve-import-client" name="import_client_id" class="form-control enhanced" data-placeholder="Search by client ID, name, or company" required>
+							<option value="">Select or search for a client</option>';
 	foreach ($clients as $client) {
 		$client_name = trim($client->firstname . ' ' . $client->lastname);
 		$client_label = '#' . intval($client->id) . ' · ' . ($client->companyname ? $client->companyname . ' · ' : '') . $client_name;
@@ -2957,10 +3078,29 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 						<p class="help-block">Only active <code>pvewhmcs</code> products compatible with this server are shown.</p>
 					</div>
 					<div class="form-group">
+						<label for="pve-import-pricing-mode">Billing treatment</label>
+						<select id="pve-import-pricing-mode" name="import_pricing_mode" class="form-control" required>
+							<option value="product"' . ($selected_pricing_mode === 'product' ? ' selected' : '') . '>Use product pricing</option>
+							<option value="internal_free"' . ($selected_pricing_mode === 'internal_free' ? ' selected' : '') . '>Internal / Free</option>
+							<option value="custom"' . ($selected_pricing_mode === 'custom' ? ' selected' : '') . '>Custom price override</option>
+						</select>
+						<p class="help-block">Internal / Free creates a zero-cost Free Account and matches the service status to the live guest.</p>
+					</div>
+					<div class="form-group">
 						<label for="pve-import-cycle">Billing cycle</label>
 						<select id="pve-import-cycle" name="import_billing_cycle" class="form-control" required disabled>
 							<option value="">Select a client and product first</option>
 						</select>
+					</div>
+					<div class="form-group" id="pve-import-price-group" hidden>
+						<label for="pve-import-price">Custom price</label>
+						<input type="number" id="pve-import-price" name="import_price_override" class="form-control" min="0" max="999999999.99" step="0.01" inputmode="decimal" value="' . htmlspecialchars($selected_price_override, ENT_QUOTES, 'UTF-8') . '" disabled>
+						<p class="help-block">Enter <code>0</code> to create and accept a Free Account. A positive value remains Pending for billing review.</p>
+					</div>
+					<div class="form-group" id="pve-import-reason-group" hidden>
+						<label for="pve-import-reason">Override reason</label>
+						<input type="text" id="pve-import-reason" name="import_override_reason" class="form-control" minlength="3" maxlength="200" value="' . htmlspecialchars($selected_override_reason, ENT_QUOTES, 'UTF-8') . '" placeholder="For example: DNS cluster or operations VPS" disabled>
+						<p class="help-block">Required for audit history and saved with the service notes.</p>
 					</div>
 					<div class="form-group">
 						<label for="pve-import-gateway">Payment method</label>
@@ -2980,13 +3120,14 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 						<div><dt>Guest</dt><dd>VMID ' . intval($guest['vmid']) . '</dd></div>
 						<div><dt>Client</dt><dd id="pve-review-client">Not selected</dd></div>
 						<div><dt>Product</dt><dd id="pve-review-product">Not selected</dd></div>
+						<div><dt>Treatment</dt><dd id="pve-review-treatment">Product pricing</dd></div>
 						<div><dt>Billing</dt><dd id="pve-review-cycle">Not selected</dd></div>
 						<div><dt>Initial status</dt><dd id="pve-review-status">Pending</dd></div>
 					</dl>
 					<p id="pve-review-behavior">The order will remain Pending for billing review. No invoice or email will be generated.</p>
 					<label class="pve-import-confirm">
 						<input type="checkbox" name="import_confirmed" value="1" required>
-						<span>I verified the guest, client, product, billing cycle, and payment method.</span>
+						<span>I verified the guest, client, product, billing treatment, price, and payment method.</span>
 					</label>
 					<button type="submit" id="pve-import-submit" class="btn btn-primary" disabled>Create pending service</button>
 				</aside>
@@ -3009,7 +3150,12 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		var guestStatus = ' . $guest_status_json . ';
 		var $client = $("#pve-import-client");
 		var $product = $("#pve-import-product");
+		var $pricingMode = $("#pve-import-pricing-mode");
 		var $cycle = $("#pve-import-cycle");
+		var $priceGroup = $("#pve-import-price-group");
+		var $price = $("#pve-import-price");
+		var $reasonGroup = $("#pve-import-reason-group");
+		var $reason = $("#pve-import-reason");
 		var $gateway = $("#pve-import-gateway");
 		var $confirm = $("#pve-import-form input[name=import_confirmed]");
 		var $submit = $("#pve-import-submit");
@@ -3034,7 +3180,9 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			$cycle.append($("<option>", {value: "", text: options.length ? "Select a billing cycle" : "No pricing for this client currency"}));
 			$.each(options, function(_, option) {
 				var label = option.label + " · " + option.price;
-				$cycle.append($("<option>", {value: option.value, text: label}).attr("data-free", option.is_free ? "1" : "0"));
+				$cycle.append($("<option>", {value: option.value, text: label})
+					.attr("data-free", option.is_free ? "1" : "0")
+					.attr("data-setup-fee", option.setup_fee || 0));
 			});
 			$cycle.prop("disabled", options.length === 0);
 			if (previous && $cycle.find("option[value=\"" + previous + "\"]").length) {
@@ -3043,38 +3191,98 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			preferredCycle = "";
 		}
 
+		function updatePricingFields() {
+			var mode = $pricingMode.val();
+			var usesCustomPrice = mode === "custom";
+			var requiresReason = mode === "internal_free" || usesCustomPrice;
+
+			$priceGroup.prop("hidden", !usesCustomPrice);
+			$price.prop("disabled", !usesCustomPrice).prop("required", usesCustomPrice);
+			$reasonGroup.prop("hidden", !requiresReason);
+			$reason.prop("disabled", !requiresReason).prop("required", requiresReason);
+		}
+
 		function updateReview() {
-			var isFree = $cycle.find("option:selected").attr("data-free") === "1";
+			var product = catalog[$product.val()];
+			var mode = $pricingMode.val();
+			var selectedCycle = $cycle.find("option:selected");
+			var isFree = selectedCycle.attr("data-free") === "1";
+			var setupFee = parseFloat(selectedCycle.attr("data-setup-fee") || "0");
+			var rawPrice = $.trim($price.val());
+			var customPriceIsValid = /^\d{1,9}(?:\.\d{1,2})?$/.test(rawPrice);
+			var customPrice = customPriceIsValid ? parseFloat(rawPrice) : null;
+			var reasonLength = $.trim($reason.val()).replace(/\s+/g, " ").length;
+			var reasonIsValid = reasonLength >= 3 && reasonLength <= 200;
+			var positivePriceOnFreeProduct = mode === "custom" && customPriceIsValid && customPrice > 0 && product && product.paytype === "free";
+			var zeroOverrideHasSetupFee = (mode === "internal_free" || (mode === "custom" && customPriceIsValid && customPrice === 0)) && setupFee > 0;
+			var isNoCharge = mode === "product"
+				? isFree
+				: mode === "internal_free" || (mode === "custom" && customPriceIsValid && customPrice === 0);
 			var targetStatus = "Pending";
-			if (isFree && guestStatus === "running") {
+			if (isNoCharge && guestStatus === "running") {
 				targetStatus = "Active";
-			} else if (isFree && guestStatus === "stopped") {
+			} else if (isNoCharge && guestStatus === "stopped") {
 				targetStatus = "Suspended";
+			}
+			var treatment = "Product pricing";
+			var billing = selectedLabel($cycle, "Not selected");
+			var behavior = "The order and service will remain Pending for billing review. No invoice or email will be generated.";
+			var buttonLabel = "Create pending service";
+			var pricingIsValid = true;
+
+			if (mode === "internal_free") {
+				treatment = "Internal / Free";
+				billing = $cycle.val() ? "Free Account · 0.00" : "Select a billing cycle";
+				behavior = "The zero-cost order will be accepted without running module create. The service status will match the live guest state.";
+				buttonLabel = "Import internal free service";
+			} else if (mode === "custom") {
+				treatment = customPriceIsValid ? "Custom price · " + customPrice.toFixed(2) : "Custom price · enter an amount";
+				if (!customPriceIsValid) {
+					pricingIsValid = false;
+					billing = "Enter a valid custom price";
+					behavior = "Use a value from 0.00 to 999999999.99 with no more than two decimal places.";
+				} else if (positivePriceOnFreeProduct) {
+					pricingIsValid = false;
+					billing = "Free Account cannot use a positive price";
+					behavior = "Select a billable product or change the custom price to 0.00.";
+				} else if (customPrice === 0) {
+					billing = $cycle.val() ? "Free Account · 0.00" : "Select a billing cycle";
+					behavior = "The zero-cost order will be accepted without running module create. The service status will match the live guest state.";
+					buttonLabel = "Import zero-cost service";
+				} else {
+					billing = selectedLabel($cycle, "Not selected") + " · override " + customPrice.toFixed(2);
+					buttonLabel = "Create custom-priced service";
+				}
+			} else if (isFree) {
+				billing = "Free Account · 0.00";
+				behavior = "The free order will be accepted without running module create. The service status will match the live guest state.";
+				buttonLabel = "Import free guest service";
+			}
+
+			if (zeroOverrideHasSetupFee) {
+				pricingIsValid = false;
+				billing = "Cannot create a zero total with this setup fee";
+				behavior = "This billing cycle includes a setup fee. Select a cycle without a setup fee or use a Free Account product.";
 			}
 
 			$("#pve-review-client").text(selectedLabel($client, "Not selected"));
 			$("#pve-review-product").text(selectedLabel($product, "Not selected"));
-			$("#pve-review-cycle").text(selectedLabel($cycle, "Not selected"));
+			$("#pve-review-treatment").text(treatment);
+			$("#pve-review-cycle").text(billing);
 			$("#pve-review-status").text(targetStatus);
-			$("#pve-review-behavior").text(isFree
-				? "The free order will be accepted without running module create. The service status will match the live guest state."
-				: "The order and service will remain Pending for billing review. No invoice or email will be generated.");
-			$submit.text(isFree ? "Import free guest service" : "Create pending service");
+			$("#pve-review-behavior").text(behavior);
+			$submit.text(buttonLabel);
 
-			var ready = Boolean($client.val() && $product.val() && $cycle.val() && $gateway.val() && $confirm.prop("checked"));
+			var overrideIsValid = mode === "product" || (reasonIsValid && (mode !== "custom" || customPriceIsValid));
+			var ready = Boolean($client.val() && $product.val() && $cycle.val() && $gateway.val()
+				&& $confirm.prop("checked") && pricingIsValid && overrideIsValid);
 			$submit.prop("disabled", !ready);
 		}
 
-		$("#pve-import-client-search").on("input", function() {
-			var query = $.trim($(this).val().toLowerCase());
-			$client.find("option").each(function(index) {
-				if (index === 0) {
-					return;
-				}
-				var matches = query === "" || $(this).is(":selected") || $(this).text().toLowerCase().indexOf(query) !== -1;
-				$(this).prop("hidden", !matches).prop("disabled", !matches);
-			});
-		});
+		function invalidateConfirmation() {
+			$confirm.prop("checked", false);
+			updateReview();
+		}
 
 		$client.on("change", function() {
 			var context = clients[$client.val()];
@@ -3082,13 +3290,20 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 				$gateway.val(context.default_gateway);
 			}
 			updateCycleOptions();
-			updateReview();
+			invalidateConfirmation();
 		});
 		$product.on("change", function() {
 			updateCycleOptions();
-			updateReview();
+			invalidateConfirmation();
 		});
-		$cycle.add($gateway).add($confirm).on("change", updateReview);
+		$pricingMode.on("change", function() {
+			updatePricingFields();
+			invalidateConfirmation();
+		});
+		$price.add($reason).on("input", invalidateConfirmation);
+		$cycle.add($gateway).on("change", invalidateConfirmation);
+		$confirm.on("change", updateReview);
+		updatePricingFields();
 		updateCycleOptions();
 		updateReview();
 	});
@@ -3167,7 +3382,7 @@ function pvewhmcs_sync_page() {
 
 		try {
 			if (($_POST['import_confirmed'] ?? '') !== '1') {
-				throw new InvalidArgumentException('Confirm that you reviewed the guest, client, product, billing cycle, and payment method.');
+				throw new InvalidArgumentException('Confirm that you reviewed the guest, client, product, billing treatment, price, and payment method.');
 			}
 
 			if ($vmid < 100 || !isset($pve_guests[$vmid])) {
@@ -3201,7 +3416,10 @@ function pvewhmcs_sync_page() {
 				intval($_POST['import_client_id'] ?? 0),
 				intval($_POST['import_product_id'] ?? 0),
 				trim((string) ($_POST['import_billing_cycle'] ?? '')),
-				trim((string) ($_POST['import_payment_method'] ?? ''))
+				trim((string) ($_POST['import_payment_method'] ?? '')),
+				trim((string) ($_POST['import_pricing_mode'] ?? 'product')),
+				trim((string) ($_POST['import_price_override'] ?? '')),
+				trim((string) ($_POST['import_override_reason'] ?? ''))
 			);
 
 			$focus_service_id = intval($import['service_id']);
@@ -3209,6 +3427,7 @@ function pvewhmcs_sync_page() {
 			$action_result = '<div class="alert alert-success" role="status">Imported VMID '
 				. $vmid . ' as <a href="clientsservices.php?id=' . intval($import['service_id']) . '" target="_blank">Service #'
 				. intval($import['service_id']) . '</a> using Order #' . intval($import['order_id'])
+				. '. Billing: ' . htmlspecialchars($import['pricing']['label'])
 				. '. Service status: ' . htmlspecialchars($import['status']) . '. No module create command was run.</div>';
 		} catch (InvalidArgumentException $e) {
 			$action_result = '<div class="alert alert-warning" role="alert">' . htmlspecialchars($e->getMessage()) . '</div>';
@@ -4161,6 +4380,20 @@ function pvewhmcs_sync_page() {
 		height: 34px;
 		border-color: #b8c2cc;
 		font-size: 12px;
+	}
+	.pve-import-fields .select2-container {
+		width: 100% !important;
+		font-size: 12px;
+	}
+	.pve-import-fields .select2-container .select2-selection--single {
+		height: 34px;
+		border-color: #b8c2cc;
+	}
+	.pve-import-fields .select2-container .select2-selection--single .select2-selection__rendered {
+		line-height: 32px;
+	}
+	.pve-import-fields .select2-container .select2-selection--single .select2-selection__arrow {
+		height: 32px;
 	}
 	.pve-import-fields .form-control:focus,
 	.pve-import-confirm input:focus-visible {
