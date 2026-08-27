@@ -254,8 +254,11 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 
 <img alt="Importing GUI for linking to existing PVE Guest" src="_images/zVMIDimport.png">
 
-> [!CAUTION]  
-> All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set!
+The guided **Sync > Import Guest** workflow stores the verified guest VMID in the
+product's `vmid` or `vpsid` custom field. It also requires one primary IPv4
+address, discovered from static Proxmox configuration, a matching QEMU Guest
+Agent interface, or validated manual entry. Review billing, discounts, NS1/2,
+and any additional assigned addresses before accepting a paid order.
 
 ### Custom Fields: Important Notes (ZFS/CTs)
 

@@ -2336,9 +2336,148 @@ function pvewhmcs_parse_vm_network($network_config) {
 	return $network;
 }
 
-function pvewhmcs_get_vm_network_from_proxmox($proxmox, $node, $vtype, $vmid) {
+function pvewhmcs_empty_vm_network($agent_status = 'not_requested') {
+	return [
+		'ip' => '',
+		'subnet' => '',
+		'gateway' => '',
+		'source' => '',
+		'candidates' => [],
+		'agent_status' => $agent_status,
+	];
+}
+
+function pvewhmcs_is_usable_ipv4($ip) {
+	$ip = trim((string) $ip);
+	if (filter_var(
+		$ip,
+		FILTER_VALIDATE_IP,
+		FILTER_FLAG_IPV4 | FILTER_FLAG_NO_RES_RANGE
+	) === false) {
+		return false;
+	}
+
+	$first_octet = intval(explode('.', $ip, 2)[0]);
+	return $first_octet < 224;
+}
+
+function pvewhmcs_network_source_label($source) {
+	$labels = [
+		'proxmox_config' => 'Proxmox static config',
+		'guest_agent' => 'QEMU Guest Agent',
+		'manual' => 'Manual entry',
+	];
+
+	return $labels[$source] ?? 'Unknown source';
+}
+
+function pvewhmcs_get_config_network_candidates($config, $vtype) {
+	$network_keys = [];
+	$key_pattern = $vtype === 'qemu' ? '/^ipconfig\d+$/' : '/^net\d+$/';
+	foreach ($config as $key => $value) {
+		if (preg_match($key_pattern, (string) $key)) {
+			$network_keys[] = (string) $key;
+		}
+	}
+	natsort($network_keys);
+
+	$candidates = [];
+	foreach ($network_keys as $key) {
+		$network = pvewhmcs_parse_vm_network($config[$key]);
+		if ($network['ip'] === '' || !pvewhmcs_is_usable_ipv4($network['ip'])) {
+			continue;
+		}
+
+		$candidates[$network['ip']] = array_merge($network, [
+			'source' => 'proxmox_config',
+			'interface' => $key,
+		]);
+	}
+
+	return array_values($candidates);
+}
+
+function pvewhmcs_normalize_mac_address($mac_address) {
+	$normalized = strtoupper(str_replace('-', ':', trim((string) $mac_address)));
+	return preg_match('/^[0-9A-F]{2}(?::[0-9A-F]{2}){5}$/', $normalized) ? $normalized : '';
+}
+
+function pvewhmcs_get_qemu_configured_macs($config) {
+	$configured_macs = [];
+	foreach ($config as $key => $value) {
+		if (!preg_match('/^net\d+$/', (string) $key) || !is_string($value)) {
+			continue;
+		}
+
+		if (!preg_match('/^[^=,]+=([0-9A-Fa-f:-]{17})(?:,|$)/', $value, $matches)) {
+			continue;
+		}
+
+		$mac_address = pvewhmcs_normalize_mac_address($matches[1]);
+		if ($mac_address !== '') {
+			$configured_macs[$mac_address] = (string) $key;
+		}
+	}
+
+	return $configured_macs;
+}
+
+function pvewhmcs_get_guest_agent_network_candidates($agent_interfaces, $configured_macs) {
+	if (isset($agent_interfaces['result']) && is_array($agent_interfaces['result'])) {
+		$agent_interfaces = $agent_interfaces['result'];
+	}
+	if (!is_array($agent_interfaces) || empty($configured_macs)) {
+		return [];
+	}
+
+	$candidates = [];
+	foreach ($agent_interfaces as $interface) {
+		if (!is_array($interface)) {
+			continue;
+		}
+
+		$mac_address = pvewhmcs_normalize_mac_address($interface['hardware-address'] ?? '');
+		if ($mac_address === '' || !isset($configured_macs[$mac_address])) {
+			continue;
+		}
+
+		$interface_name = trim((string) ($interface['name'] ?? ''));
+		$interface_label = $interface_name !== ''
+			? $interface_name . ' / ' . $configured_macs[$mac_address]
+			: $configured_macs[$mac_address];
+		foreach (($interface['ip-addresses'] ?? []) as $address) {
+			if (!is_array($address) || strtolower((string) ($address['ip-address-type'] ?? '')) !== 'ipv4') {
+				continue;
+			}
+
+			$ip = trim((string) ($address['ip-address'] ?? ''));
+			if (!pvewhmcs_is_usable_ipv4($ip)) {
+				continue;
+			}
+
+			$prefix = $address['prefix'] ?? '';
+			$subnet = is_numeric($prefix) && intval($prefix) >= 0 && intval($prefix) <= 32
+				? (string) intval($prefix)
+				: '';
+			if (!isset($candidates[$ip])) {
+				$candidates[$ip] = [
+					'ip' => $ip,
+					'subnet' => $subnet,
+					'gateway' => '',
+					'source' => 'guest_agent',
+					'interface' => $interface_label,
+				];
+			}
+		}
+	}
+
+	return array_values($candidates);
+}
+
+function pvewhmcs_get_vm_network_from_proxmox($proxmox, $node, $vtype, $vmid, $include_guest_agent = false) {
 	static $network_cache = [];
-	$cache_key = spl_object_hash($proxmox) . ':' . $node . ':' . $vtype . ':' . intval($vmid);
+	$cache_key = spl_object_hash($proxmox) . ':' . $node . ':' . $vtype . ':' . intval($vmid)
+		. ':' . ($include_guest_agent ? 'agent' : 'config');
 	if (isset($network_cache[$cache_key])) {
 		return $network_cache[$cache_key];
 	}
@@ -2346,20 +2485,102 @@ function pvewhmcs_get_vm_network_from_proxmox($proxmox, $node, $vtype, $vmid) {
 	try {
 		$config = $proxmox->get('/nodes/' . $node . '/' . $vtype . '/' . $vmid . '/config');
 		if (!is_array($config)) {
-			$network_cache[$cache_key] = ['ip' => '', 'subnet' => '', 'gateway' => ''];
+			$network_cache[$cache_key] = pvewhmcs_empty_vm_network(
+				$include_guest_agent ? 'unavailable' : 'not_requested'
+			);
 			return $network_cache[$cache_key];
 		}
 
-		$network_config = ($vtype === 'qemu')
-			? ($config['ipconfig0'] ?? '')
-			: ($config['net0'] ?? '');
+		$network = pvewhmcs_empty_vm_network($include_guest_agent ? 'not_needed' : 'not_requested');
+		if ($include_guest_agent) {
+			$network['candidates'] = pvewhmcs_get_config_network_candidates($config, $vtype);
+		} else {
+			$primary_config_key = $vtype === 'qemu' ? 'ipconfig0' : 'net0';
+			$primary_network = pvewhmcs_parse_vm_network($config[$primary_config_key] ?? '');
+			if ($primary_network['ip'] !== '') {
+				$network['candidates'][] = array_merge($primary_network, [
+					'source' => 'proxmox_config',
+					'interface' => $primary_config_key,
+				]);
+			}
+		}
+		if (empty($network['candidates']) && $include_guest_agent && $vtype === 'qemu') {
+			try {
+				$agent_interfaces = $proxmox->get(
+					'/nodes/' . $node . '/qemu/' . $vmid . '/agent/network-get-interfaces'
+				);
+				$network['candidates'] = pvewhmcs_get_guest_agent_network_candidates(
+					$agent_interfaces,
+					pvewhmcs_get_qemu_configured_macs($config)
+				);
+				$network['agent_status'] = 'available';
+			} catch (Throwable $e) {
+				$network['agent_status'] = 'unavailable';
+			}
+		} elseif ($include_guest_agent && $vtype !== 'qemu') {
+			$network['agent_status'] = 'not_supported';
+		}
 
-		$network_cache[$cache_key] = pvewhmcs_parse_vm_network($network_config);
+		if (count($network['candidates']) === 1) {
+			$selected = $network['candidates'][0];
+			$network['ip'] = $selected['ip'];
+			$network['subnet'] = $selected['subnet'];
+			$network['gateway'] = $selected['gateway'];
+			$network['source'] = $selected['source'];
+		}
+
+		$network_cache[$cache_key] = $network;
 		return $network_cache[$cache_key];
 	} catch (Throwable $e) {
-		$network_cache[$cache_key] = ['ip' => '', 'subnet' => '', 'gateway' => ''];
+		$network_cache[$cache_key] = pvewhmcs_empty_vm_network(
+			$include_guest_agent ? 'unavailable' : 'not_requested'
+		);
 		return $network_cache[$cache_key];
 	}
+}
+
+function pvewhmcs_resolve_import_network($discovered_network, $selected_ip, $manual_ip) {
+	$candidates = is_array($discovered_network['candidates'] ?? null)
+		? $discovered_network['candidates']
+		: [];
+	$selected_ip = trim((string) $selected_ip);
+	$manual_ip = trim((string) $manual_ip);
+
+	if ($selected_ip === '' && count($candidates) === 1) {
+		$selected_ip = (string) ($candidates[0]['ip'] ?? '');
+	}
+
+	if ($selected_ip === 'manual') {
+		if (!pvewhmcs_is_usable_ipv4($manual_ip)) {
+			throw new InvalidArgumentException('Enter a valid usable IPv4 address for the imported service.');
+		}
+
+		return [
+			'ip' => $manual_ip,
+			'subnet' => '',
+			'gateway' => '',
+			'source' => 'manual',
+			'interface' => '',
+		];
+	}
+
+	foreach ($candidates as $candidate) {
+		if (isset($candidate['ip']) && hash_equals((string) $candidate['ip'], $selected_ip)) {
+			return [
+				'ip' => (string) $candidate['ip'],
+				'subnet' => (string) ($candidate['subnet'] ?? ''),
+				'gateway' => (string) ($candidate['gateway'] ?? ''),
+				'source' => (string) ($candidate['source'] ?? ''),
+				'interface' => (string) ($candidate['interface'] ?? ''),
+			];
+		}
+	}
+
+	if (empty($candidates)) {
+		throw new InvalidArgumentException('Proxmox did not report an IPv4 address. Select Manual entry and provide the service address.');
+	}
+
+	throw new InvalidArgumentException('Select one of the verified IPv4 addresses reported for this guest.');
 }
 
 function pvewhmcs_get_vm_ip_from_proxmox($proxmox, $node, $vtype, $vmid) {
@@ -2683,6 +2904,22 @@ function pvewhmcs_rollback_pending_import_order($order_id, $service_id) {
 	return $rollback_errors;
 }
 
+function pvewhmcs_is_vmid_custom_field_name($field_name) {
+	$field_name = strtolower(trim(explode('|', (string) $field_name, 2)[0]));
+	return in_array($field_name, ['vmid', 'vpsid'], true);
+}
+
+function pvewhmcs_get_product_vmid_custom_fields($product_id) {
+	return Capsule::table('tblcustomfields')
+		->where('type', 'product')
+		->where('relid', intval($product_id))
+		->get(['id', 'fieldname'])
+		->filter(function ($field) {
+			return pvewhmcs_is_vmid_custom_field_name($field->fieldname);
+		})
+		->values();
+}
+
 function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $network, $client_id, $product_id, $billing_cycle, $payment_method, $pricing_mode, $price_override, $override_reason) {
 	$client = Capsule::table('tblclients')
 		->where('id', intval($client_id))
@@ -2696,6 +2933,10 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 	$product = $eligible_products->get(intval($product_id));
 	if (!$product) {
 		throw new InvalidArgumentException('Select a Proxmox product that is compatible with this WHMCS server.');
+	}
+	$vmid_custom_fields = pvewhmcs_get_product_vmid_custom_fields($product->id);
+	if ($vmid_custom_fields->isEmpty()) {
+		throw new InvalidArgumentException('The selected product has no VMID or VPSID custom field. Add the field before importing this guest.');
 	}
 
 	$gateway = Capsule::table('tblpaymentgateways')
@@ -2776,7 +3017,9 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			throw new RuntimeException('The newly created WHMCS service could not be verified.');
 		}
 
+		$network_source_label = pvewhmcs_network_source_label($network['source'] ?? '');
 		$service_notes = 'PVEWHMCS: Imported from Proxmox Guest VMID ' . intval($guest['vmid'])
+			. ' with IPv4 ' . (string) $network['ip'] . ' (' . $network_source_label . ')'
 			. '. Order #' . $order_id . '. Billing: ' . $pricing['label'] . '.';
 		if ($pricing['reason'] !== '') {
 			$service_notes .= ' Override reason: ' . $pricing['reason'] . '.';
@@ -2792,6 +3035,11 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'status' => 'Pending',
 			'notes' => $service_notes,
 		];
+		$custom_field_values = [];
+		foreach ($vmid_custom_fields as $vmid_custom_field) {
+			$custom_field_values[intval($vmid_custom_field->id)] = (string) intval($guest['vmid']);
+		}
+		$service_parameters['customfields'] = base64_encode(serialize($custom_field_values));
 		if ($pricing['price_override'] !== null) {
 			$formatted_override = number_format($pricing['price_override'], 2, '.', '');
 			$service_parameters['firstpaymentamount'] = $formatted_override;
@@ -2807,6 +3055,16 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 		$stored_service = Capsule::table('tblhosting')->where('id', $service_id)->first();
 		if (!$stored_service) {
 			throw new RuntimeException('The imported service could not be verified after applying its billing policy.');
+		}
+		$stored_vmid_values = Capsule::table('tblcustomfieldsvalues')
+			->where('relid', $service_id)
+			->whereIn('fieldid', array_keys($custom_field_values))
+			->pluck('value', 'fieldid');
+		foreach ($custom_field_values as $field_id => $expected_vmid) {
+			if (!$stored_vmid_values->has($field_id)
+				|| (string) $stored_vmid_values->get($field_id) !== $expected_vmid) {
+				throw new RuntimeException('WHMCS did not persist the VMID custom field for the imported service.');
+			}
 		}
 		if ($pricing['is_no_charge']) {
 			$free_billing_is_valid = $stored_service->billingcycle === 'Free Account'
@@ -2881,6 +3139,7 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'PVEWHMCS imported Proxmox VMID ' . intval($guest['vmid'])
 			. ' as WHMCS Service #' . $service_id
 			. ' using Order #' . $order_id
+			. ' with IPv4 ' . (string) $network['ip'] . ' from ' . $network_source_label
 			. ' with status ' . $target_status
 			. ' and billing treatment ' . $pricing['label']
 			. ($pricing['reason'] !== '' ? ' (' . $pricing['reason'] . ')' : '') . '.',
@@ -2895,6 +3154,7 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'order_id' => $order_id,
 			'service_id' => $service_id,
 			'status' => $target_status,
+			'network' => $network,
 		];
 	} catch (Throwable $e) {
 		if (!$order_accepted) {
@@ -2924,6 +3184,19 @@ function pvewhmcs_build_import_catalog($products, $clients) {
 	$product_ids = $products->pluck('id')->map(function ($product_id) {
 		return intval($product_id);
 	})->toArray();
+	$vmid_field_counts = [];
+	if (!empty($product_ids)) {
+		$custom_fields = Capsule::table('tblcustomfields')
+			->where('type', 'product')
+			->whereIn('relid', $product_ids)
+			->get(['relid', 'fieldname']);
+		foreach ($custom_fields as $custom_field) {
+			if (pvewhmcs_is_vmid_custom_field_name($custom_field->fieldname)) {
+				$product_id = intval($custom_field->relid);
+				$vmid_field_counts[$product_id] = ($vmid_field_counts[$product_id] ?? 0) + 1;
+			}
+		}
+	}
 	$pricing_rows = empty($product_ids)
 		? []
 		: Capsule::table('tblpricing')
@@ -2937,6 +3210,7 @@ function pvewhmcs_build_import_catalog($products, $clients) {
 		$catalog[intval($product->id)] = [
 			'name' => $product->name,
 			'paytype' => $product->paytype,
+			'has_vmid_field' => !empty($vmid_field_counts[intval($product->id)]),
 			'cycles' => [],
 		];
 	}
@@ -3007,6 +3281,21 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	}
 	$selected_price_override = trim((string) ($_POST['import_price_override'] ?? ''));
 	$selected_override_reason = trim((string) ($_POST['import_override_reason'] ?? ''));
+	$network_candidates = is_array($network['candidates'] ?? null) ? $network['candidates'] : [];
+	$selected_ip_choice = trim((string) ($_POST['import_ip_choice'] ?? ''));
+	$selected_manual_ip = trim((string) ($_POST['import_manual_ip'] ?? ''));
+	$candidate_ips = array_map(function ($candidate) {
+		return (string) ($candidate['ip'] ?? '');
+	}, $network_candidates);
+	if ($selected_ip_choice === '') {
+		if (count($network_candidates) === 1) {
+			$selected_ip_choice = $candidate_ips[0];
+		} elseif (empty($network_candidates)) {
+			$selected_ip_choice = 'manual';
+		}
+	} elseif ($selected_ip_choice !== 'manual' && !in_array($selected_ip_choice, $candidate_ips, true)) {
+		$selected_ip_choice = count($network_candidates) === 1 ? $candidate_ips[0] : '';
+	}
 	$client_context = [];
 
 	foreach ($clients as $client) {
@@ -3020,6 +3309,20 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	$guest_status_class = ($guest['status'] ?? '') === 'running' ? 'status-running' : 'status-stopped';
 	$ram = isset($guest['maxmem']) ? round($guest['maxmem'] / 1024 / 1024) . ' MB' : 'Unknown';
 	$disk = isset($guest['maxdisk']) ? round($guest['maxdisk'] / 1024 / 1024 / 1024) . ' GB' : 'Unknown';
+	$network_summary = 'Not detected';
+	$network_source_summary = 'Manual entry required';
+	$network_help = 'Static Proxmox addresses are preferred. QEMU Guest Agent addresses are limited to interfaces whose MAC address matches this guest.';
+	if (count($network_candidates) === 1) {
+		$network_summary = (string) $network_candidates[0]['ip'];
+		$network_source_summary = pvewhmcs_network_source_label($network_candidates[0]['source'] ?? '');
+	} elseif (count($network_candidates) > 1) {
+		$network_summary = count($network_candidates) . ' addresses detected';
+		$network_source_summary = pvewhmcs_network_source_label($network_candidates[0]['source'] ?? '');
+	} elseif (($network['agent_status'] ?? '') === 'unavailable') {
+		$network_help = 'No verified IPv4 address was returned by static configuration or QEMU Guest Agent. Enter the service address manually.';
+	} elseif (($network['agent_status'] ?? '') === 'not_supported') {
+		$network_help = 'No static IPv4 address was reported for this container. Enter the service address manually.';
+	}
 	$cancel_url = pvewhmcs_BASEURL . '&amp;tab=sync&amp;pve_server_id=' . intval($selected_server_id) . '#pve-orphaned-guests';
 
 	echo '<section id="pve-import-guest" class="pve-import-panel" aria-labelledby="pve-import-title">
@@ -3048,12 +3351,36 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 						<div><dt>Node</dt><dd>' . htmlspecialchars($guest['node']) . '</dd></div>
 						<div><dt>Type</dt><dd>' . htmlspecialchars(strtoupper($guest['type'])) . '</dd></div>
 						<div><dt>Resources</dt><dd>' . intval($guest['maxcpu'] ?? 0) . ' CPU · ' . htmlspecialchars($ram) . ' · ' . htmlspecialchars($disk) . '</dd></div>
-						<div><dt>IPv4</dt><dd>' . htmlspecialchars($network['ip'] ?: 'Not reported by Proxmox') . '</dd></div>
-						<div><dt>Network</dt><dd>' . htmlspecialchars(($network['subnet'] ?: 'Unknown') . ' · ' . ($network['gateway'] ?: 'Unknown')) . '</dd></div>
+						<div><dt>IPv4</dt><dd>' . htmlspecialchars($network_summary) . '</dd></div>
+						<div><dt>Source</dt><dd>' . htmlspecialchars($network_source_summary) . '</dd></div>
 					</dl>
 					<span class="pve-status-badge ' . $guest_status_class . '">' . $guest_status . '</span>
 				</div>
 				<div class="pve-import-fields">
+					<div class="form-group">
+						<label for="pve-import-ip-choice">Primary IPv4</label>
+						<select id="pve-import-ip-choice" name="import_ip_choice" class="form-control" aria-describedby="pve-import-ip-help pve-import-ip-feedback" required>
+							<option value="">Select the service address</option>';
+	foreach ($network_candidates as $candidate) {
+		$candidate_ip = (string) ($candidate['ip'] ?? '');
+		$candidate_label = $candidate_ip . ' · ' . pvewhmcs_network_source_label($candidate['source'] ?? '');
+		if (!empty($candidate['interface'])) {
+			$candidate_label .= ' · ' . $candidate['interface'];
+		}
+		$selected = $candidate_ip === $selected_ip_choice ? ' selected' : '';
+		echo '<option value="' . htmlspecialchars($candidate_ip, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>'
+			. htmlspecialchars($candidate_label, ENT_QUOTES, 'UTF-8') . '</option>';
+	}
+	echo '<option value="manual"' . ($selected_ip_choice === 'manual' ? ' selected' : '') . '>Enter IPv4 manually</option>
+						</select>
+						<p id="pve-import-ip-help" class="help-block">' . htmlspecialchars($network_help) . '</p>
+						<p id="pve-import-ip-feedback" class="pve-import-field-feedback" role="status"></p>
+					</div>
+					<div class="form-group" id="pve-import-manual-ip-group"' . ($selected_ip_choice === 'manual' ? '' : ' hidden') . '>
+						<label for="pve-import-manual-ip">Manual IPv4 address</label>
+						<input type="text" id="pve-import-manual-ip" name="import_manual_ip" class="form-control" inputmode="decimal" maxlength="15" autocomplete="off" value="' . htmlspecialchars($selected_manual_ip, ENT_QUOTES, 'UTF-8') . '" placeholder="10.0.0.10"' . ($selected_ip_choice === 'manual' ? ' required' : ' disabled') . '>
+						<p class="help-block">Private addresses are accepted. Loopback, link-local, multicast, and reserved addresses are rejected.</p>
+					</div>
 					<div class="form-group">
 						<label for="pve-import-client">Target client</label>
 						<select id="pve-import-client" name="import_client_id" class="form-control enhanced" data-placeholder="Search by client ID, email, name, or company" required>
@@ -3079,10 +3406,14 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 							<option value="">Select a compatible product</option>';
 	foreach ($products as $product) {
 		$selected = intval($product->id) === $selected_product_id ? ' selected' : '';
-		echo '<option value="' . intval($product->id) . '"' . $selected . '>#' . intval($product->id) . ' · ' . htmlspecialchars($product->name) . '</option>';
+		$has_vmid_field = !empty($catalog[intval($product->id)]['has_vmid_field']);
+		$disabled = $has_vmid_field ? '' : ' disabled';
+		$product_label = '#' . intval($product->id) . ' · ' . $product->name
+			. ($has_vmid_field ? '' : ' · Missing VMID field');
+		echo '<option value="' . intval($product->id) . '"' . $selected . $disabled . '>' . htmlspecialchars($product_label) . '</option>';
 	}
 	echo '</select>
-						<p class="help-block">Only active <code>pvewhmcs</code> products compatible with this server are shown.</p>
+						<p class="help-block">Only active <code>pvewhmcs</code> products compatible with this server are shown. A product needs a <code>vmid</code> or <code>vpsid</code> custom field before it can be selected.</p>
 					</div>
 					<div class="form-group">
 						<label for="pve-import-pricing-mode">Billing treatment</label>
@@ -3124,7 +3455,10 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 				<aside class="pve-import-review" aria-live="polite">
 					<h4>Review</h4>
 					<dl>
-						<div><dt>Guest</dt><dd>VMID ' . intval($guest['vmid']) . '</dd></div>
+						<div><dt>Guest</dt><dd>' . htmlspecialchars($guest['name']) . '</dd></div>
+						<div><dt>VMID</dt><dd>' . intval($guest['vmid']) . ' · will be stored and verified</dd></div>
+						<div><dt>Primary IPv4</dt><dd id="pve-review-ip">Not selected</dd></div>
+						<div><dt>IP source</dt><dd id="pve-review-ip-source">Not selected</dd></div>
 						<div><dt>Client</dt><dd id="pve-review-client">Not selected</dd></div>
 						<div><dt>Product</dt><dd id="pve-review-product">Not selected</dd></div>
 						<div><dt>Treatment</dt><dd id="pve-review-treatment">Product pricing</dd></div>
@@ -3134,7 +3468,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 					<p id="pve-review-behavior">The order will remain Pending for billing review. No invoice or email will be generated.</p>
 					<label class="pve-import-confirm">
 						<input type="checkbox" name="import_confirmed" value="1" required>
-						<span>I verified the guest, client, product, billing treatment, price, and payment method.</span>
+						<span>I verified the guest, VMID, primary IPv4, client, product, billing treatment, price, and payment method.</span>
 					</label>
 					<button type="submit" id="pve-import-submit" class="btn btn-primary" disabled>Create pending service</button>
 				</aside>
@@ -3147,6 +3481,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	$gateway_values = json_encode($gateways->pluck('gateway')->values()->toArray(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 	$selected_cycle_json = json_encode($selected_cycle, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 	$guest_status_json = json_encode((string) ($guest['status'] ?? ''), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+	$network_candidates_json = json_encode($network_candidates, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
 	echo '<script>
 	jQuery(function($) {
@@ -3155,6 +3490,11 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		var activeGateways = ' . $gateway_values . ';
 		var preferredCycle = ' . $selected_cycle_json . ';
 		var guestStatus = ' . $guest_status_json . ';
+		var networkCandidates = ' . $network_candidates_json . ';
+		var $ipChoice = $("#pve-import-ip-choice");
+		var $manualIpGroup = $("#pve-import-manual-ip-group");
+		var $manualIp = $("#pve-import-manual-ip");
+		var $ipFeedback = $("#pve-import-ip-feedback");
 		var $client = $("#pve-import-client");
 		var $product = $("#pve-import-product");
 		var $pricingMode = $("#pve-import-pricing-mode");
@@ -3170,6 +3510,65 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		function selectedLabel($select, fallback) {
 			var value = $select.val();
 			return value ? $.trim($select.find("option:selected").text()) : fallback;
+		}
+
+		function isUsableIpv4(value) {
+			var parts = $.trim(value).split(".");
+			if (parts.length !== 4) {
+				return false;
+			}
+			for (var index = 0; index < parts.length; index++) {
+				if (!/^\d{1,3}$/.test(parts[index]) || Number(parts[index]) > 255
+					|| String(Number(parts[index])) !== parts[index]) {
+					return false;
+				}
+			}
+			var first = Number(parts[0]);
+			var second = Number(parts[1]);
+			return first !== 0 && first !== 127 && first < 224 && !(first === 169 && second === 254);
+		}
+
+		function getSelectedNetwork() {
+			var choice = $ipChoice.val();
+			if (choice === "manual") {
+				var manualValue = $.trim($manualIp.val());
+				return {
+					valid: isUsableIpv4(manualValue),
+					ip: manualValue || "Not entered",
+					source: "Manual entry"
+				};
+			}
+
+			for (var index = 0; index < networkCandidates.length; index++) {
+				if (networkCandidates[index].ip === choice) {
+					var sourceLabels = {
+						proxmox_config: "Proxmox static config",
+						guest_agent: "QEMU Guest Agent"
+					};
+					return {
+						valid: true,
+						ip: networkCandidates[index].ip,
+						source: sourceLabels[networkCandidates[index].source] || "Verified Proxmox data"
+					};
+				}
+			}
+
+			return {valid: false, ip: "Not selected", source: "Not selected"};
+		}
+
+		function updateNetworkFields() {
+			var usesManualIp = $ipChoice.val() === "manual";
+			$manualIpGroup.prop("hidden", !usesManualIp);
+			$manualIp.prop("disabled", !usesManualIp).prop("required", usesManualIp);
+			var network = getSelectedNetwork();
+			$manualIp.attr("aria-invalid", usesManualIp && !network.valid ? "true" : "false");
+			if (!$ipChoice.val()) {
+				$ipFeedback.text("Select the IPv4 address that WHMCS should store for this service.");
+			} else if (usesManualIp && !network.valid) {
+				$ipFeedback.text("Enter a valid usable IPv4 address before creating the service.");
+			} else {
+				$ipFeedback.text("This address will be saved as the dedicated IP and in the module mapping.");
+			}
 		}
 
 		function updateCycleOptions() {
@@ -3210,6 +3609,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		}
 
 		function updateReview() {
+			var network = getSelectedNetwork();
 			var product = catalog[$product.val()];
 			var mode = $pricingMode.val();
 			var selectedCycle = $cycle.find("option:selected");
@@ -3273,6 +3673,8 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			}
 
 			$("#pve-review-client").text(selectedLabel($client, "Not selected"));
+			$("#pve-review-ip").text(network.ip);
+			$("#pve-review-ip-source").text(network.source);
 			$("#pve-review-product").text(selectedLabel($product, "Not selected"));
 			$("#pve-review-treatment").text(treatment);
 			$("#pve-review-cycle").text(billing);
@@ -3282,7 +3684,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 
 			var overrideIsValid = mode === "product" || (reasonIsValid && (mode !== "custom" || customPriceIsValid));
 			var ready = Boolean($client.val() && $product.val() && $cycle.val() && $gateway.val()
-				&& $confirm.prop("checked") && pricingIsValid && overrideIsValid);
+				&& network.valid && $confirm.prop("checked") && pricingIsValid && overrideIsValid);
 			$submit.prop("disabled", !ready);
 		}
 
@@ -3307,9 +3709,18 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			updatePricingFields();
 			invalidateConfirmation();
 		});
+		$ipChoice.on("change", function() {
+			updateNetworkFields();
+			invalidateConfirmation();
+		});
+		$manualIp.on("input", function() {
+			updateNetworkFields();
+			invalidateConfirmation();
+		});
 		$price.add($reason).on("input", invalidateConfirmation);
 		$cycle.add($gateway).on("change", invalidateConfirmation);
 		$confirm.on("change", updateReview);
+		updateNetworkFields();
 		updatePricingFields();
 		updateCycleOptions();
 		updateReview();
@@ -3389,7 +3800,7 @@ function pvewhmcs_sync_page() {
 
 		try {
 			if (($_POST['import_confirmed'] ?? '') !== '1') {
-				throw new InvalidArgumentException('Confirm that you reviewed the guest, client, product, billing treatment, price, and payment method.');
+				throw new InvalidArgumentException('Confirm that you reviewed the guest, VMID, primary IPv4, client, product, billing treatment, price, and payment method.');
 			}
 
 			if ($vmid < 100 || !isset($pve_guests[$vmid])) {
@@ -3401,7 +3812,13 @@ function pvewhmcs_sync_page() {
 				$proxmox,
 				$guest['node'],
 				$guest['type'],
-				$vmid
+				$vmid,
+				true
+			);
+			$network = pvewhmcs_resolve_import_network(
+				$network,
+				$_POST['import_ip_choice'] ?? '',
+				$_POST['import_manual_ip'] ?? ''
 			);
 
 			$cluster_identity = pvewhmcs_get_cluster_identity($cluster_resources);
@@ -3434,6 +3851,7 @@ function pvewhmcs_sync_page() {
 			$action_result = '<div class="alert alert-success" role="status">Imported VMID '
 				. $vmid . ' as <a href="clientsservices.php?id=' . intval($import['service_id']) . '" target="_blank">Service #'
 				. intval($import['service_id']) . '</a> using Order #' . intval($import['order_id'])
+				. ' with IPv4 ' . htmlspecialchars($import['network']['ip'])
 				. '. Billing: ' . htmlspecialchars($import['pricing']['label'])
 				. '. Service status: ' . htmlspecialchars($import['status']) . '. No module create command was run.</div>';
 		} catch (InvalidArgumentException $e) {
@@ -3835,7 +4253,8 @@ function pvewhmcs_sync_page() {
 					$proxmox,
 					$import_guest['node'],
 					$import_guest['type'],
-					$focus_import_vmid
+					$focus_import_vmid,
+					true
 				);
 				$import_clients = Capsule::table('tblclients')
 					->where('status', 'Active')
@@ -4388,6 +4807,14 @@ function pvewhmcs_sync_page() {
 		height: 34px;
 		border-color: #b8c2cc;
 		font-size: 12px;
+	}
+	.pve-import-fields .form-control[aria-invalid="true"] {
+		border-color: #b42318;
+	}
+	.pve-import-field-feedback {
+		min-height: 18px;
+		margin-top: 4px !important;
+		color: #52606d;
 	}
 	.pve-import-fields .select2-container {
 		width: 100% !important;

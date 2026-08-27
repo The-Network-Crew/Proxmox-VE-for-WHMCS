@@ -16,7 +16,8 @@ suspend, resume, or delete a Proxmox guest.
   service ID, VMID, hostname, and dedicated IP before changing a mapping.
 - To import an orphaned guest as a new service: an active client, a non-retired
   `pvewhmcs` product compatible with the selected server, pricing in the
-  client's currency, and an active payment method.
+  client's currency, an active payment method, and a product custom field named
+  `vmid` or `vpsid`.
 
 ## Open and analyze the Sync page
 
@@ -64,13 +65,19 @@ service already exists, link it instead so the client is not charged twice.
 2. Filter the table to **Orphaned guests** and verify the VMID, guest name, node,
    type, resource limits, state, and available network data.
 3. Click **Create WHMCS service** for the verified guest.
-4. Search for and select the active client inside the client dropdown by client
+4. Select the primary IPv4 address for the service. Static Proxmox guest
+   configuration is preferred. For QEMU guests without a static address, the
+   addon asks QEMU Guest Agent and accepts only IPv4 addresses on interfaces
+   whose MAC address matches the guest configuration. One verified address is
+   selected automatically; multiple addresses require an explicit selection.
+   If none is available, select manual entry and provide a usable IPv4 address.
+5. Search for and select the active client inside the client dropdown by client
    ID, email address, name, or company. Every result keeps all four identity
    fields visible and marks missing database values as `Not provided`. Clients
    missing both a name and company appear at the end of the initial list. Then
    select a compatible Proxmox product. Billing cycles are limited to those
    enabled for the product in the client's currency.
-5. Select the billing treatment:
+6. Select the billing treatment:
    - **Use product pricing** keeps the configured product price and normal
      billing workflow.
    - **Internal / Free** overrides the service price to zero, requires an
@@ -78,16 +85,19 @@ service already exists, link it instead so the client is not charged twice.
    - **Custom price override** requires an amount and audit reason. A zero
      override becomes `Free Account`; a positive override keeps the selected
      cycle and remains pending for billing review.
-6. Select the billing cycle and payment method. Review the effective treatment,
+7. Select the billing cycle and payment method. Review the effective treatment,
    price, and initial service status. A zero-cost import cannot use a cycle with
    a setup fee; select another cycle or a native free product.
-7. Confirm the review checkbox and submit the import.
-8. Open the service link in the success message and verify the client, product,
-   server, hostname, IP address, billing cycle, status, and VMID mapping.
+8. Confirm the review checkbox and submit the import.
+9. Open the service link in the success message and verify the client, product,
+   server, hostname, dedicated and assigned IP, billing cycle, status, VMID
+   custom field, and module mapping.
 
-The import takes its guest identity and network values from the selected live
-Proxmox guest. The browser does not submit editable hostname, guest type, IP,
-subnet, gateway, or node values.
+The import takes its guest identity from the selected live Proxmox guest. On
+submit, the server re-fetches discovered network candidates and accepts a
+selected address only when it still belongs to that verified set. A manual
+address is validated as a usable IPv4 value. The browser does not submit
+editable hostname, guest type, subnet, gateway, or node values.
 
 WHMCS creates the order and service through the local API with invoices and
 emails suppressed. The module create command is never run:
@@ -105,8 +115,10 @@ emails suppressed. The module create command is never run:
 For every zero-cost import, the addon verifies that the order total is zero and
 that WHMCS persisted the service as `Free Account` with zero first and recurring
 amounts before it creates the guest mapping. A positive custom price is also
-verified against the stored service amounts. Failed verification triggers the
-normal pending-order rollback path.
+verified against the stored service amounts. Every import writes the guest VMID
+to each exact `vmid` or `vpsid` product custom field and verifies the stored
+value before creating the guest mapping. Failed verification triggers the normal
+pending-order rollback path.
 
 If the import fails before the order is accepted, the addon removes its mapping
 and attempts to cancel and delete the pending order. If WHMCS cannot complete
@@ -179,6 +191,11 @@ Before deployment:
 - Confirm that native client dropdown search, compatible-product filtering,
   client-currency pricing, billing-treatment fields, and the responsive
   three-column review layout render correctly.
+- Confirm that zero, one, and multiple detected IPv4 states respectively require
+  manual entry, preselect the only verified address, or require an explicit
+  choice. Confirm that changing the address clears the review confirmation.
+- Confirm that loopback, link-local, multicast, malformed, and reserved manual
+  IPv4 values cannot be submitted.
 - Confirm that override reason and custom price are required only for their
   applicable billing treatments, and that a zero override with a setup fee is
   rejected before submission.
@@ -191,8 +208,8 @@ After deployment:
 - Confirm that the server selector, filters, search field, and table render.
 - Search for a known service and confirm that the proposed action is correct.
 - Open an orphaned guest's import review and confirm that its live identity,
-  network data, compatible products, billing cycles, effective treatment,
-  price, and intended status are correct.
+  IPv4 candidates and source, compatible products, billing cycles, effective
+  treatment, price, and intended status are correct.
 - Do not execute a mapping action as part of a display-only smoke test.
 
 ## Deployment and rollback
