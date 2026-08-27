@@ -1,6 +1,19 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [Unreleased]
+
+### 🚀 Feature
+- Sync: Add a searchable, filterable service-to-guest reconciliation interface.
+
+### 🛡️ Safety
+- Sync: Revalidate server, service, guest, VMID, hostname, and known IP data before mapping.
+- Sync: Fetch guest network metadata from Proxmox and wrap mapping writes in database transactions.
+- Sync: Scope duplicate VMID checks to the selected Proxmox server and protect actions with WHMCS CSRF tokens.
+
+### 📖 Documentation
+- Sync: Document mapping states, recovery workflow, verification, deployment, and rollback.
+
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 
 ### 🚀 Feature
