@@ -718,6 +718,9 @@ function pvewhmcs_UnsuspendAccount(array $params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
 	if ($proxmox->login()) {
 		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
+		if ($guest === null) {
+			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
+		}
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
 			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
@@ -803,7 +806,7 @@ function pvewhmcs_TerminateAccount(array $params) {
 			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
 			sleep(30);
 		}
-		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid, array('skiplock' => 1));
+		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '?skiplock=1');
 		if ($delete_response) {
 			// Delete the DB row now that the guest has been removed from PVE.
 			Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $params['serviceid'])->delete();
@@ -1180,8 +1183,23 @@ function pvewhmcs_ClientArea($params) {
 		// Where node lives ? 
 		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
 		if (empty($guest_node)) {
-			throw new Exception(
-			"PVEWHMCS Error: Unable to determine node for VMID {$guest->vmid} (Service #{$params['serviceid']})."
+			return array(
+				'templatefile' => 'clientarea',
+				'vars' => array(
+					'params' => $params,
+					'pve_error' => "This service's guest could not be located on the Proxmox cluster.",
+					'pve_guest_config' => array(),
+					'pve_guest_status' => array(
+						'status' => 'unknown',
+						'uptime' => '—',
+						'cpu' => 0,
+						'memusepercent' => 0,
+						'diskusepercent' => 0,
+						'swapusepercent' => 0,
+					),
+					'pve_guest_statistics' => array(),
+					'pve_guest_vncproxy' => null,
+				),
 			);
 		}
 
@@ -1201,6 +1219,8 @@ function pvewhmcs_ClientArea($params) {
 		}
 		$guest_status = null;
 		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
+		// Encode API arrays before concatenation so debug logging does not emit
+		// "Array to string conversion" warnings and retains the response structure.
 		$cluster_encoded = json_encode($cluster_resources);
 		$vmspecs_encoded = json_encode($guest_config);
 		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
@@ -1332,8 +1352,24 @@ function pvewhmcs_ClientArea($params) {
 		}
 	}
 	else {
-		echo '<center><strong>Error: Unable to gather data from Hypervisor.<br>Please contact Tech Support!</strong></center>';
-		exit;
+		return array(
+			'templatefile' => 'clientarea',
+			'vars' => array(
+				'params' => $params,
+				'pve_error' => 'Unable to gather data from Hypervisor. Please contact Tech Support!',
+				'pve_guest_config' => array(),
+				'pve_guest_status' => array(
+					'status' => 'unknown',
+					'uptime' => '—',
+					'cpu' => 0,
+					'memusepercent' => 0,
+					'diskusepercent' => 0,
+					'swapusepercent' => 0,
+				),
+				'pve_guest_statistics' => array(),
+				'pve_guest_vncproxy' => null,
+			),
+		);
 	}
 
 	// Use pve_guest_* names so WHMCS/core Smarty vars cannot clobber module data.

@@ -43,8 +43,9 @@ very long administration page.
 2. Verify the proposed guest's VMID, hostname, node, type, and IP address.
 3. If the page presents **Link VMID _n_**, verify the evidence and click it.
 4. Confirm the mapping in the browser prompt.
-5. Verify the success message and confirm that the row changes to
-   `Mapped (OK)`.
+5. Verify the success message and review the resulting alignment state. A
+   verified auto-match should become `Mapped (OK)`; an intentional manual link
+   may remain a `Discrepancy` when its hostname differs from the service domain.
 6. Return to the WHMCS service and retry the required module command.
 
 If no auto-match is available, use the manual selector only after independently
@@ -62,7 +63,7 @@ from the browser.
 
 ### Sync from Proxmox
 
-Replaces the stored VMID, node, guest type, and available network metadata with
+Replaces the stored VMID, guest type, and available network metadata with
 the current live guest configuration. Review every discrepancy before using
 this action.
 
@@ -87,9 +88,13 @@ Link and synchronization writes use a database transaction so a failed action
 does not leave a partial mapping. Unexpected errors are logged without exposing
 credentials in the administration page.
 
-VMIDs are treated as unique within a Proxmox cluster, not globally across every
-configured WHMCS server. This allows separate clusters to use the same VMID
-without creating a false conflict.
+Before a link or synchronization write, the addon derives a cluster identity
+from the sorted live Proxmox node set and acquires a database advisory lock for
+that cluster and VMID. It then rechecks VMID ownership across every WHMCS server
+record that may point to the same cluster. Concurrent Sync requests therefore
+cannot both claim the same cluster/VMID pair. Separate clusters can reuse a VMID
+without creating a false conflict. If the addon cannot verify the cluster
+identity of an existing owner, it fails closed and keeps the mapping unchanged.
 
 ## Verification checklist
 

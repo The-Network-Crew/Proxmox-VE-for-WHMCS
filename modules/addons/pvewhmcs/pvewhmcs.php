@@ -600,7 +600,7 @@ function pvewhmcs_output($vars) {
 	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=import_guest">
 	<i class="fa fa-upload"></i>&nbsp; Import: Guest
 	</a>
-	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=vmplans&amp;action=link_service">
+	<a class="btn btn-default" href="'. pvewhmcs_BASEURL .'&amp;tab=sync">
 	<i class="fa fa-link"></i>&nbsp; Link: Service
 	</a>
 	</div>
@@ -957,7 +957,9 @@ function pvewhmcs_output($vars) {
 
 	// SYNC tab in ADMIN GUI
 	echo '<div id="sync" class="tab-pane '.($_GET['tab']=="sync" ? "active" : "").'" >' ;
-	pvewhmcs_sync_page();
+	if (isset($_GET['tab']) && $_GET['tab'] === 'sync') {
+		pvewhmcs_sync_page();
+	}
 	echo '</div></div>'; // closes sync tab and tab-content
 	// End of tabbed content
 
@@ -1095,149 +1097,10 @@ function import_guest() {
 }
 
 // Link Guest/Service sub-page handler (standalone)
-// This function associates an existing unmapped WHMCS Service with an existing Proxmox Guest VMID.
+// Kept as a safe landing page for bookmarks created before the Sync tab replaced this form.
 function link_service() {
-	$resultMsg = '';
-	if (!empty($_POST['link_existing_service'])) {
-		$serviceid = intval($_POST['link_serviceid']);
-		$vmid = intval($_POST['link_vmid']);
-		$vtype = ($_POST['link_vtype'] === 'lxc') ? 'lxc' : 'qemu';
-		$node = trim($_POST['link_node']);
-		$ipaddress = trim($_POST['link_ipv4']);
-		$subnetmask = trim($_POST['link_subnet']);
-		$gateway = trim($_POST['link_gateway']);
-
-		// Validate Service
-		$service = Capsule::table('tblhosting')->where('id', $serviceid)->first();
-		if (!$service) {
-			$resultMsg = '<div class="errorbox">No WHMCS Service found with ID ' . $serviceid . '</div>';
-		} elseif ($vmid < 100) {
-			$resultMsg = '<div class="errorbox">Invalid VMID. Proxmox VMID must be a positive integer greater than or equal to 100.</div>';
-		} else {
-			// Check if already mapped
-			$already_mapped = Capsule::table('mod_pvewhmcs_vms')->where('id', $serviceid)->first();
-			if ($already_mapped) {
-				$resultMsg = '<div class="errorbox">Service ' . $serviceid . ' is already mapped to a VM.</div>';
-			} else {
-				// VMIDs are unique within a Proxmox cluster, not across every WHMCS server.
-				$vmid_in_use = Capsule::table('mod_pvewhmcs_vms as vm')
-					->join('tblhosting as hosting', 'hosting.id', '=', 'vm.id')
-					->where('hosting.server', $service->server)
-					->where('vm.vmid', $vmid)
-					->select('vm.id')
-					->first();
-				if ($vmid_in_use) {
-					$resultMsg = '<div class="errorbox">VMID ' . $vmid . ' is already linked to Service #' . $vmid_in_use->id . '. Cannot create duplicate mapping.</div>';
-				} else {
-					// Insert into module VMs table
-					try {
-						Capsule::table('mod_pvewhmcs_vms')->insert([
-							'id' => $serviceid,
-							'vmid' => $vmid,
-							'user_id' => $service->userid,
-							'vtype' => $vtype,
-							'ipaddress' => $ipaddress,
-							'subnetmask' => $subnetmask,
-							'gateway' => $gateway,
-							'created' => date('Y-m-d H:i:s'),
-						]);
-						$resultMsg = '<div class="successbox">Successfully linked Service ID ' . $serviceid . ' (' . htmlspecialchars($service->domain) . ') to Proxmox VMID ' . $vmid . ' on Node ' . htmlspecialchars($node) . '.</div>';
-					} catch (Exception $e) {
-						$resultMsg = '<div class="errorbox">Database error: ' . htmlspecialchars($e->getMessage()) . '</div>';
-					}
-				}
-			}
-		}
-	}
-
-	// Always show the form
-	if (!empty($resultMsg)) echo $resultMsg;
-
-	// Query unmapped services
-	$unmapped_services = Capsule::table('tblhosting')
-		->join('tblservers', 'tblhosting.server', '=', 'tblservers.id')
-		->leftJoin('mod_pvewhmcs_vms', 'tblhosting.id', '=', 'mod_pvewhmcs_vms.id')
-		->where('tblservers.type', '=', 'pvewhmcs')
-		->whereNull('mod_pvewhmcs_vms.id')
-		->select('tblhosting.id', 'tblhosting.domain', 'tblhosting.dedicatedip', 'tblhosting.userid', 'tblhosting.packageid')
-		->get();
-
-	if ($unmapped_services->isEmpty()) {
-		echo '<div class="alert alert-success">All WHMCS services using the Proxmox module are successfully mapped to Proxmox VMs! No unmapped services found.</div>';
-		return;
-	}
-
-	echo '<form method="post">';
-	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
-
-	// Dropdown of unmapped services
-	echo '<tr><td class="fieldlabel">Unmapped WHMCS Service</td><td class="fieldarea"><select name="link_serviceid" id="link_serviceid" required>';
-	foreach ($unmapped_services as $srv) {
-		// Get client info
-		$client = Capsule::table('tblclients')->where('id', $srv->userid)->first();
-		$client_name = $client ? ($client->firstname . ' ' . $client->lastname) : ('Client #' . $srv->userid);
-
-		// Look up VMID custom field
-		$vmid_val = '';
-		$custom_field_ids = Capsule::table('tblcustomfields')
-			->where('relid', $srv->packageid)
-			->where(function($query) {
-				$query->where('fieldname', 'LIKE', '%vmid%')
-				      ->orWhere('fieldname', 'LIKE', '%vpsid%');
-			})
-			->pluck('id');
-		if ($custom_field_ids->isNotEmpty()) {
-			$vmid_val = Capsule::table('tblcustomfieldsvalues')
-				->whereIn('fieldid', $custom_field_ids)
-				->where('relid', $srv->id)
-				->value('value');
-		}
-
-		$label = $srv->id . ' - ' . $client_name . ' - ' . ($srv->domain ? $srv->domain : '(No Hostname)') . ' (' . $srv->dedicatedip . ')';
-		echo '<option value="' . $srv->id . '" data-ip="' . htmlspecialchars($srv->dedicatedip) . '" data-vmid="' . htmlspecialchars($vmid_val) . '">' . htmlspecialchars($label) . '</option>';
-	}
-	echo '</select></td></tr>';
-
-	echo '<tr><td class="fieldlabel">PVE VMID</td><td class="fieldarea"><input type="text" name="link_vmid" required placeholder="e.g. 124"></td></tr>';
-	echo '<tr><td class="fieldlabel">VM / CT Type</td><td class="fieldarea"><select name="link_vtype" required>';
-	echo '<option value="qemu">(VM) QEMU</option>';
-	echo '<option value="lxc">(CT) LXC</option>';
-	echo '</select></td></tr>';
-	echo '<tr><td class="fieldlabel">Proxmox Node</td><td class="fieldarea"><input type="text" name="link_node" required placeholder="e.g. prox3"></td></tr>';
-	echo '<tr><td class="fieldlabel">IPv4 Address</td><td class="fieldarea"><input type="text" name="link_ipv4" id="link_ipv4" required placeholder="e.g. 66.7.221.217"></td></tr>';
-	echo '<tr><td class="fieldlabel">Subnet Mask</td><td class="fieldarea"><input type="text" name="link_subnet" required value="24" placeholder="e.g. 24"></td></tr>';
-	echo '<tr><td class="fieldlabel">Gateway</td><td class="fieldarea"><input type="text" name="link_gateway" id="link_gateway" required placeholder="e.g. 66.7.221.1"></td></tr>';
-
-	echo '</table>';
-	echo '<div class="btn-container"><input type="submit" class="btn btn-primary" value="Link Service" name="link_existing_service" id="link_existing_service"></div>';
-	echo '</form>';
-
-	// Add some quick javascript to auto-populate fields based on selected service
-	echo '
-	<script>
-	document.getElementById("link_serviceid").addEventListener("change", function() {
-		var selectedOption = this.options[this.selectedIndex];
-		var ip = selectedOption.getAttribute("data-ip");
-		var vmid = selectedOption.getAttribute("data-vmid");
-		if (ip) {
-			document.getElementById("link_ipv4").value = ip;
-			// Attempt to guess gateway based on IP (e.g. replace last octet with .1)
-			var parts = ip.split(".");
-			if (parts.length === 4) {
-				parts[3] = "1";
-				document.getElementById("link_gateway").value = parts.join(".");
-			}
-		}
-		if (vmid) {
-			document.getElementsByName("link_vmid")[0].value = vmid;
-		} else {
-			document.getElementsByName("link_vmid")[0].value = "";
-		}
-	});
-	// Trigger change event on load
-	document.getElementById("link_serviceid").dispatchEvent(new Event("change"));
-	</script>
-	';
+	echo '<div class="alert alert-info">Service mapping has moved to the Sync tab, where the service and live Proxmox guest are validated before any database change.</div>';
+	echo '<div class="btn-container"><a class="btn btn-primary" href="' . pvewhmcs_BASEURL . '&amp;tab=sync">Open Sync</a></div>';
 }
 
 // MODULE CONFIG: Commit changes to the database
@@ -2594,25 +2457,139 @@ function pvewhmcs_parse_vm_network($network_config) {
 }
 
 function pvewhmcs_get_vm_network_from_proxmox($proxmox, $node, $vtype, $vmid) {
+	static $network_cache = [];
+	$cache_key = spl_object_hash($proxmox) . ':' . $node . ':' . $vtype . ':' . intval($vmid);
+	if (isset($network_cache[$cache_key])) {
+		return $network_cache[$cache_key];
+	}
+
 	try {
 		$config = $proxmox->get('/nodes/' . $node . '/' . $vtype . '/' . $vmid . '/config');
 		if (!is_array($config)) {
-			return ['ip' => '', 'subnet' => '', 'gateway' => ''];
+			$network_cache[$cache_key] = ['ip' => '', 'subnet' => '', 'gateway' => ''];
+			return $network_cache[$cache_key];
 		}
 
 		$network_config = ($vtype === 'qemu')
 			? ($config['ipconfig0'] ?? '')
 			: ($config['net0'] ?? '');
 
-		return pvewhmcs_parse_vm_network($network_config);
+		$network_cache[$cache_key] = pvewhmcs_parse_vm_network($network_config);
+		return $network_cache[$cache_key];
 	} catch (Throwable $e) {
-		return ['ip' => '', 'subnet' => '', 'gateway' => ''];
+		$network_cache[$cache_key] = ['ip' => '', 'subnet' => '', 'gateway' => ''];
+		return $network_cache[$cache_key];
 	}
 }
 
 function pvewhmcs_get_vm_ip_from_proxmox($proxmox, $node, $vtype, $vmid) {
 	$network = pvewhmcs_get_vm_network_from_proxmox($proxmox, $node, $vtype, $vmid);
 	return $network['ip'];
+}
+
+// Build a stable identity for the currently visible Proxmox cluster from its node set.
+function pvewhmcs_get_cluster_identity($cluster_resources) {
+	if (!is_array($cluster_resources)) {
+		throw new RuntimeException('Unable to determine the Proxmox cluster identity.');
+	}
+
+	$nodes = [];
+	foreach ($cluster_resources as $resource) {
+		if (($resource['type'] ?? '') !== 'node') {
+			continue;
+		}
+
+		$node = trim((string) ($resource['node'] ?? ''));
+		if ($node !== '') {
+			$nodes[] = strtolower($node);
+		}
+	}
+
+	$nodes = array_values(array_unique($nodes));
+	sort($nodes, SORT_STRING);
+	if (empty($nodes)) {
+		throw new RuntimeException('Unable to determine the Proxmox cluster identity.');
+	}
+
+	return hash('sha256', implode('|', $nodes));
+}
+
+function pvewhmcs_acquire_vmid_lock($cluster_identity, $vmid) {
+	$lock_name = 'pvewhmcs:' . substr($cluster_identity, 0, 40) . ':' . intval($vmid);
+	$rows = Capsule::connection()->select('SELECT GET_LOCK(?, 5) AS acquired', [$lock_name]);
+	$acquired = isset($rows[0]->acquired) ? intval($rows[0]->acquired) : 0;
+	if ($acquired !== 1) {
+		throw new RuntimeException('Another mapping action is already processing this VMID.');
+	}
+
+	return $lock_name;
+}
+
+function pvewhmcs_release_vmid_lock($lock_name) {
+	if ($lock_name === null || $lock_name === '') {
+		return;
+	}
+
+	try {
+		Capsule::connection()->select('SELECT RELEASE_LOCK(?)', [$lock_name]);
+	} catch (Throwable $e) {
+		logModuleCall('pvewhmcs', 'sync_release_lock', ['lock' => $lock_name], $e->getMessage());
+	}
+}
+
+function pvewhmcs_get_server_cluster_identity($server) {
+	$api_data = ['password2' => $server->password];
+	$serverpassword = localAPI('DecryptPassword', $api_data);
+	$serverport = !empty($server->port) ? $server->port : 8006;
+	$proxmox = new PVE2_API(
+		$server->ipaddress,
+		$server->username,
+		'pam',
+		$serverpassword['password'],
+		$serverport
+	);
+
+	if (!$proxmox->login()) {
+		throw new RuntimeException('Unable to verify the cluster identity for an existing VMID mapping.');
+	}
+
+	return pvewhmcs_get_cluster_identity($proxmox->get('/cluster/resources'));
+}
+
+function pvewhmcs_find_vmid_owner_on_cluster($selected_server_id, $serviceid, $vmid, $cluster_identity) {
+	static $server_cluster_identities = [];
+
+	$owners = Capsule::table('mod_pvewhmcs_vms as vm')
+		->join('tblhosting as hosting', 'hosting.id', '=', 'vm.id')
+		->where('vm.vmid', $vmid)
+		->where('vm.id', '!=', $serviceid)
+		->select('vm.id', 'hosting.server')
+		->get();
+
+	foreach ($owners as $owner) {
+		$owner_server_id = intval($owner->server);
+		if ($owner_server_id === intval($selected_server_id)) {
+			return $owner;
+		}
+
+		if (!isset($server_cluster_identities[$owner_server_id])) {
+			$owner_server = Capsule::table('tblservers')
+				->where('id', $owner_server_id)
+				->where('type', 'pvewhmcs')
+				->first();
+			if (!$owner_server) {
+				throw new RuntimeException('Unable to verify the cluster identity for an existing VMID mapping.');
+			}
+
+			$server_cluster_identities[$owner_server_id] = pvewhmcs_get_server_cluster_identity($owner_server);
+		}
+
+		if (hash_equals($cluster_identity, $server_cluster_identities[$owner_server_id])) {
+			return $owner;
+		}
+	}
+
+	return null;
 }
 
 // GUI ACTION: Renders the Proxmox to WHMCS Service Alignment & Sync page.
@@ -2648,21 +2625,27 @@ function pvewhmcs_sync_page() {
 		check_token();
 	}
 
-	$api_data = ['password2' => $pve->password];
-	$serverpassword = localAPI('DecryptPassword', $api_data);
 	$serverip = $pve->ipaddress;
 	$serverusername = $pve->username;
 	$serverport = !empty($pve->port) ? $pve->port : 8006;
 
-	$proxmox = new PVE2_API($serverip, $serverusername, 'pam', $serverpassword['password'], $serverport);
-	if (!$proxmox->login()) {
-		echo '<div class="alert alert-danger">Unable to log in to the selected Proxmox server. Check its credentials and connection.</div>';
-		return;
-	}
+	try {
+		$api_data = ['password2' => $pve->password];
+		$serverpassword = localAPI('DecryptPassword', $api_data);
+		$proxmox = new PVE2_API($serverip, $serverusername, 'pam', $serverpassword['password'], $serverport);
+		if (!$proxmox->login()) {
+			echo '<div class="alert alert-danger">Unable to log in to the selected Proxmox server. Check its credentials and connection.</div>';
+			return;
+		}
 
-	$cluster_resources = $proxmox->get('/cluster/resources');
-	if (!is_array($cluster_resources)) {
-		echo '<div class="alert alert-danger">Failed to retrieve resources from the selected Proxmox server.</div>';
+		$cluster_resources = $proxmox->get('/cluster/resources');
+		if (!is_array($cluster_resources)) {
+			echo '<div class="alert alert-danger">Failed to retrieve resources from the selected Proxmox server.</div>';
+			return;
+		}
+	} catch (Throwable $e) {
+		logModuleCall('pvewhmcs', 'sync_connection', ['server_id' => $selected_server_id], $e->getMessage());
+		echo '<div class="alert alert-danger">Unable to retrieve resources from the selected Proxmox server.</div>';
 		return;
 	}
 
@@ -2679,6 +2662,7 @@ function pvewhmcs_sync_page() {
 		$vmid = intval($_POST['vmid'] ?? 0);
 		$match_mode = ($_POST['match_mode'] ?? '') === 'auto' ? 'auto' : 'manual';
 		$focus_service_id = $serviceid;
+		$mapping_lock_name = null;
 
 		try {
 			if (!in_array($action, ['link', 'sync', 'unlink'], true)) {
@@ -2718,16 +2702,20 @@ function pvewhmcs_sync_page() {
 					$vmid
 				);
 
-				$vmid_owner = Capsule::table('mod_pvewhmcs_vms as vm')
-					->join('tblhosting as hosting', 'hosting.id', '=', 'vm.id')
-					->where('hosting.server', $selected_server_id)
-					->where('vm.vmid', $vmid)
-					->where('vm.id', '!=', $serviceid)
-					->select('vm.id')
+				$cluster_identity = pvewhmcs_get_cluster_identity($cluster_resources);
+				$mapping_lock_name = pvewhmcs_acquire_vmid_lock($cluster_identity, $vmid);
+				$existing_mapping = Capsule::table('mod_pvewhmcs_vms')
+					->where('id', $serviceid)
 					->first();
+				$vmid_owner = pvewhmcs_find_vmid_owner_on_cluster(
+					$selected_server_id,
+					$serviceid,
+					$vmid,
+					$cluster_identity
+				);
 
 				if ($vmid_owner) {
-					throw new InvalidArgumentException('This VMID is already mapped to Service #' . intval($vmid_owner->id) . ' on the selected server.');
+					throw new InvalidArgumentException('This VMID is already mapped to Service #' . intval($vmid_owner->id) . ' on this Proxmox cluster.');
 				}
 
 				if ($action === 'link') {
@@ -2815,6 +2803,8 @@ function pvewhmcs_sync_page() {
 		} catch (Throwable $e) {
 			logModuleCall('pvewhmcs', 'sync_' . $action, ['service_id' => $serviceid, 'vmid' => $vmid], $e->getMessage());
 			$action_result = '<div class="alert alert-danger" role="alert">The mapping action failed. No partial database change was kept.</div>';
+		} finally {
+			pvewhmcs_release_vmid_lock($mapping_lock_name);
 		}
 	}
 
@@ -3001,8 +2991,9 @@ function pvewhmcs_sync_page() {
 			continue;
 		}
 
-		$pve_network = pvewhmcs_get_vm_network_from_proxmox($proxmox, $guest['node'], $guest['type'], $vmid);
-		$guest = array_merge($guest, $pve_network);
+		// Do not issue one configuration request per orphaned guest just to render the list.
+		// A manual link re-fetches and validates the selected guest configuration on submit.
+		$guest = array_merge($guest, ['ip' => '', 'subnet' => '', 'gateway' => '']);
 
 		$aligned_rows[] = [
 			'type' => 'unmapped_vm',
