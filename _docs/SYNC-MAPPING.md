@@ -64,9 +64,10 @@ service already exists, link it instead so the client is not charged twice.
 2. Filter the table to **Orphaned guests** and verify the VMID, guest name, node,
    type, resource limits, state, and available network data.
 3. Click **Create WHMCS service** for the verified guest.
-4. Search for and select the active client inside the client dropdown, then
-   select a compatible Proxmox product. Billing cycles are limited to those
-   enabled for the product in the client's currency.
+4. Search for and select the active client inside the client dropdown by client
+   ID, email address, name, or company. Each result displays those available
+   identifiers together. Then select a compatible Proxmox product. Billing
+   cycles are limited to those enabled for the product in the client's currency.
 5. Select the billing treatment:
    - **Use product pricing** keeps the configured product price and normal
      billing workflow.

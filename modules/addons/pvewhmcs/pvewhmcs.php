@@ -3056,15 +3056,26 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 				<div class="pve-import-fields">
 					<div class="form-group">
 						<label for="pve-import-client">Target client</label>
-						<select id="pve-import-client" name="import_client_id" class="form-control enhanced" data-placeholder="Search by client ID, name, or company" required>
+						<select id="pve-import-client" name="import_client_id" class="form-control enhanced" data-placeholder="Search by client ID, email, name, or company" required>
 							<option value="">Select or search for a client</option>';
 	foreach ($clients as $client) {
 		$client_name = trim($client->firstname . ' ' . $client->lastname);
-		$client_label = '#' . intval($client->id) . ' · ' . ($client->companyname ? $client->companyname . ' · ' : '') . $client_name;
+		$client_label_parts = ['#' . intval($client->id)];
+		if (trim((string) $client->email) !== '') {
+			$client_label_parts[] = trim((string) $client->email);
+		}
+		if (trim((string) $client->companyname) !== '') {
+			$client_label_parts[] = trim((string) $client->companyname);
+		}
+		if ($client_name !== '') {
+			$client_label_parts[] = $client_name;
+		}
+		$client_label = implode(' · ', $client_label_parts);
 		$selected = intval($client->id) === $selected_client_id ? ' selected' : '';
-		echo '<option value="' . intval($client->id) . '"' . $selected . '>' . htmlspecialchars($client_label) . '</option>';
+		echo '<option value="' . intval($client->id) . '"' . $selected . '>' . htmlspecialchars($client_label, ENT_QUOTES, 'UTF-8') . '</option>';
 	}
 	echo '</select>
+						<p class="help-block">Search matches client ID, email address, name, or company.</p>
 					</div>
 					<div class="form-group">
 						<label for="pve-import-product">Proxmox product</label>
@@ -3835,7 +3846,7 @@ function pvewhmcs_sync_page() {
 					->orderBy('companyname')
 					->orderBy('firstname')
 					->orderBy('lastname')
-					->get(['id', 'firstname', 'lastname', 'companyname', 'currency', 'defaultgateway']);
+					->get(['id', 'firstname', 'lastname', 'companyname', 'email', 'currency', 'defaultgateway']);
 				$import_products = pvewhmcs_get_import_products($selected_server_id);
 				$import_gateways = Capsule::table('tblpaymentgateways')
 					->where('setting', 'name')

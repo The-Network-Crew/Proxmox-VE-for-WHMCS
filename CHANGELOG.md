@@ -7,6 +7,7 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Sync: Add a searchable, filterable service-to-guest reconciliation interface.
 - Sync: Import an orphaned Proxmox guest through a guided WHMCS order and service workflow with client-currency billing choices and a final review.
 - Import Guest: Search clients inside the native WHMCS dropdown and choose product pricing, internal free billing, or a custom price override.
+- Import Guest: Display client email addresses and search the client dropdown by ID, email, name, or company.
 
 ### 🛡️ Safety
 - Sync: Revalidate server, service, guest, and VMID data before mapping; revalidate hostname and known IP data for auto-match links.
