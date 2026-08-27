@@ -10,6 +10,9 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Import Guest: Display ID, email, company, and name in every client result, mark missing values, and search across all four fields.
 - Import Guest: Detect usable IPv4 addresses from static guest configuration or matching QEMU Guest Agent interfaces, with explicit selection and validated manual entry fallbacks.
 
+### 💅 Polish
+- Import Guest: Turn the stepper into separate service-details and final-review stages, place network identity last in the editable flow, and preserve values when returning to edit.
+
 ### 🛡️ Safety
 - Sync: Revalidate server, service, guest, and VMID data before mapping; revalidate hostname and known IP data for auto-match links.
 - Sync: Fetch guest network metadata from Proxmox and wrap mapping writes in database transactions.

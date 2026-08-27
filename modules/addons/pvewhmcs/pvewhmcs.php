@@ -3323,6 +3323,9 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	} elseif (($network['agent_status'] ?? '') === 'not_supported') {
 		$network_help = 'No static IPv4 address was reported for this container. Enter the service address manually.';
 	}
+	$initial_import_stage = ($_POST['import_ui_step'] ?? '') === 'review'
+		? 'review'
+		: 'details';
 	$cancel_url = pvewhmcs_BASEURL . '&amp;tab=sync&amp;pve_server_id=' . intval($selected_server_id) . '#pve-orphaned-guests';
 
 	echo '<section id="pve-import-guest" class="pve-import-panel" aria-labelledby="pve-import-title">
@@ -3331,18 +3334,20 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 				<h3 id="pve-import-title">Create a WHMCS service for this guest</h3>
 				<p>The guest will not be started, stopped, cloned, or modified. WHMCS will create one order, one service, and one verified mapping.</p>
 			</div>
-			<a class="btn btn-default btn-sm" href="' . $cancel_url . '">Cancel import</a>
+			<a class="btn btn-default btn-sm" href="' . $cancel_url . '">Change guest</a>
 		</div>
 		<ol class="pve-import-steps" aria-label="Import progress">
-			<li class="is-complete"><span>1</span> Guest selected</li>
-			<li class="is-current"><span>2</span> Service details</li>
-			<li><span>3</span> Review and create</li>
+			<li id="pve-import-step-guest" class="is-complete"><span>1</span> Guest selected</li>
+			<li id="pve-import-step-details" class="is-current" aria-current="step"><span>2</span> Service details</li>
+			<li id="pve-import-step-review"><span>3</span> Review and create</li>
 		</ol>
 		<form method="post" id="pve-import-form">
 			<input type="hidden" name="token" value="' . htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') . '">
 			<input type="hidden" name="pve_server_id" value="' . intval($selected_server_id) . '">
 			<input type="hidden" name="pve_sync_action" value="import_guest">
 			<input type="hidden" name="vmid" value="' . intval($guest['vmid']) . '">
+			<input type="hidden" id="pve-import-ui-step" name="import_ui_step" value="' . htmlspecialchars($initial_import_stage, ENT_QUOTES, 'UTF-8') . '">
+			<div id="pve-import-details-stage" class="pve-import-stage" data-import-stage="details" aria-labelledby="pve-import-details-title">
 			<div class="pve-import-layout">
 				<div class="pve-import-guest-summary">
 					<h4>Live Proxmox guest</h4>
@@ -3357,30 +3362,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 					<span class="pve-status-badge ' . $guest_status_class . '">' . $guest_status . '</span>
 				</div>
 				<div class="pve-import-fields">
-					<div class="form-group">
-						<label for="pve-import-ip-choice">Primary IPv4</label>
-						<select id="pve-import-ip-choice" name="import_ip_choice" class="form-control" aria-describedby="pve-import-ip-help pve-import-ip-feedback" required>
-							<option value="">Select the service address</option>';
-	foreach ($network_candidates as $candidate) {
-		$candidate_ip = (string) ($candidate['ip'] ?? '');
-		$candidate_label = $candidate_ip . ' · ' . pvewhmcs_network_source_label($candidate['source'] ?? '');
-		if (!empty($candidate['interface'])) {
-			$candidate_label .= ' · ' . $candidate['interface'];
-		}
-		$selected = $candidate_ip === $selected_ip_choice ? ' selected' : '';
-		echo '<option value="' . htmlspecialchars($candidate_ip, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>'
-			. htmlspecialchars($candidate_label, ENT_QUOTES, 'UTF-8') . '</option>';
-	}
-	echo '<option value="manual"' . ($selected_ip_choice === 'manual' ? ' selected' : '') . '>Enter IPv4 manually</option>
-						</select>
-						<p id="pve-import-ip-help" class="help-block">' . htmlspecialchars($network_help) . '</p>
-						<p id="pve-import-ip-feedback" class="pve-import-field-feedback" role="status"></p>
-					</div>
-					<div class="form-group" id="pve-import-manual-ip-group"' . ($selected_ip_choice === 'manual' ? '' : ' hidden') . '>
-						<label for="pve-import-manual-ip">Manual IPv4 address</label>
-						<input type="text" id="pve-import-manual-ip" name="import_manual_ip" class="form-control" inputmode="decimal" maxlength="15" autocomplete="off" value="' . htmlspecialchars($selected_manual_ip, ENT_QUOTES, 'UTF-8') . '" placeholder="10.0.0.10"' . ($selected_ip_choice === 'manual' ? ' required' : ' disabled') . '>
-						<p class="help-block">Private addresses are accepted. Loopback, link-local, multicast, and reserved addresses are rejected.</p>
-					</div>
+					<h4 id="pve-import-details-title" tabindex="-1">Service details</h4>
 					<div class="form-group">
 						<label for="pve-import-client">Target client</label>
 						<select id="pve-import-client" name="import_client_id" class="form-control enhanced" data-placeholder="Search by client ID, email, name, or company" required>
@@ -3451,27 +3433,87 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	}
 	echo '</select>
 					</div>
+					<div class="pve-import-section-heading">
+						<h4>Service network</h4>
+						<p>Choose the primary address WHMCS will store for this service.</p>
+					</div>
+					<div class="form-group">
+						<label for="pve-import-ip-choice">Primary IPv4</label>
+						<select id="pve-import-ip-choice" name="import_ip_choice" class="form-control" aria-describedby="pve-import-ip-help pve-import-ip-feedback" required>
+							<option value="">Select the service address</option>';
+	foreach ($network_candidates as $candidate) {
+		$candidate_ip = (string) ($candidate['ip'] ?? '');
+		$candidate_label = $candidate_ip . ' · ' . pvewhmcs_network_source_label($candidate['source'] ?? '');
+		if (!empty($candidate['interface'])) {
+			$candidate_label .= ' · ' . $candidate['interface'];
+		}
+		$selected = $candidate_ip === $selected_ip_choice ? ' selected' : '';
+		echo '<option value="' . htmlspecialchars($candidate_ip, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>'
+			. htmlspecialchars($candidate_label, ENT_QUOTES, 'UTF-8') . '</option>';
+	}
+	echo '<option value="manual"' . ($selected_ip_choice === 'manual' ? ' selected' : '') . '>Enter IPv4 manually</option>
+						</select>
+						<p id="pve-import-ip-help" class="help-block">' . htmlspecialchars($network_help) . '</p>
+						<p id="pve-import-ip-feedback" class="pve-import-field-feedback" role="status"></p>
+					</div>
+					<div class="form-group" id="pve-import-manual-ip-group"' . ($selected_ip_choice === 'manual' ? '' : ' hidden') . '>
+						<label for="pve-import-manual-ip">Manual IPv4 address</label>
+						<input type="text" id="pve-import-manual-ip" name="import_manual_ip" class="form-control" inputmode="decimal" maxlength="15" autocomplete="off" value="' . htmlspecialchars($selected_manual_ip, ENT_QUOTES, 'UTF-8') . '" placeholder="10.0.0.10"' . ($selected_ip_choice === 'manual' ? ' required' : ' disabled') . '>
+						<p class="help-block">Private addresses are accepted. Loopback, link-local, multicast, and reserved addresses are rejected.</p>
+					</div>
 				</div>
-				<aside class="pve-import-review" aria-live="polite">
-					<h4>Review</h4>
-					<dl>
-						<div><dt>Guest</dt><dd>' . htmlspecialchars($guest['name']) . '</dd></div>
-						<div><dt>VMID</dt><dd>' . intval($guest['vmid']) . ' · will be stored and verified</dd></div>
-						<div><dt>Primary IPv4</dt><dd id="pve-review-ip">Not selected</dd></div>
-						<div><dt>IP source</dt><dd id="pve-review-ip-source">Not selected</dd></div>
-						<div><dt>Client</dt><dd id="pve-review-client">Not selected</dd></div>
-						<div><dt>Product</dt><dd id="pve-review-product">Not selected</dd></div>
-						<div><dt>Treatment</dt><dd id="pve-review-treatment">Product pricing</dd></div>
-						<div><dt>Billing</dt><dd id="pve-review-cycle">Not selected</dd></div>
-						<div><dt>Initial status</dt><dd id="pve-review-status">Pending</dd></div>
-					</dl>
-					<p id="pve-review-behavior">The order will remain Pending for billing review. No invoice or email will be generated.</p>
+			</div>
+				<div class="pve-import-stage-actions">
+					<p id="pve-import-details-feedback" role="status">Complete the service details to continue.</p>
+					<button type="button" id="pve-import-review-button" class="btn btn-primary" disabled>Continue to review</button>
+				</div>
+			</div>
+			<div id="pve-import-review-stage" class="pve-import-stage" data-import-stage="review" aria-labelledby="pve-import-review-title" hidden>
+				<div class="pve-import-review" aria-live="polite">
+					<div class="pve-import-review-heading">
+						<h4 id="pve-import-review-title" tabindex="-1">Review and create</h4>
+						<p>Confirm the service identity, billing treatment, and expected status before creating the WHMCS records.</p>
+					</div>
+					<div class="pve-import-review-grid">
+						<section aria-labelledby="pve-review-guest-heading">
+							<h5 id="pve-review-guest-heading">Guest identity</h5>
+							<dl>
+								<div><dt>Guest</dt><dd>' . htmlspecialchars($guest['name']) . '</dd></div>
+								<div><dt>Node</dt><dd>' . htmlspecialchars($guest['node']) . '</dd></div>
+								<div><dt>Type</dt><dd>' . htmlspecialchars(strtoupper($guest['type'])) . '</dd></div>
+								<div><dt>VMID</dt><dd>' . intval($guest['vmid']) . ' · will be stored and verified</dd></div>
+								<div><dt>Primary IPv4</dt><dd id="pve-review-ip">Not selected</dd></div>
+								<div><dt>IP source</dt><dd id="pve-review-ip-source">Not selected</dd></div>
+							</dl>
+						</section>
+						<section aria-labelledby="pve-review-service-heading">
+							<h5 id="pve-review-service-heading">Client and product</h5>
+							<dl>
+								<div><dt>Client</dt><dd id="pve-review-client">Not selected</dd></div>
+								<div><dt>Product</dt><dd id="pve-review-product">Not selected</dd></div>
+								<div><dt>Payment method</dt><dd id="pve-review-gateway">Not selected</dd></div>
+							</dl>
+						</section>
+						<section aria-labelledby="pve-review-billing-heading">
+							<h5 id="pve-review-billing-heading">Billing and status</h5>
+							<dl>
+								<div><dt>Treatment</dt><dd id="pve-review-treatment">Product pricing</dd></div>
+								<div><dt>Billing</dt><dd id="pve-review-cycle">Not selected</dd></div>
+								<div id="pve-review-reason-row" hidden><dt>Reason</dt><dd id="pve-review-reason">Not provided</dd></div>
+								<div><dt>Initial status</dt><dd id="pve-review-status">Pending</dd></div>
+							</dl>
+							<p id="pve-review-behavior">The order will remain Pending for billing review. No invoice or email will be generated.</p>
+						</section>
+					</div>
 					<label class="pve-import-confirm">
 						<input type="checkbox" name="import_confirmed" value="1" required>
 						<span>I verified the guest, VMID, primary IPv4, client, product, billing treatment, price, and payment method.</span>
 					</label>
-					<button type="submit" id="pve-import-submit" class="btn btn-primary" disabled>Create pending service</button>
-				</aside>
+					<div class="pve-import-review-actions">
+						<button type="button" id="pve-import-back-button" class="btn btn-default">Back to service details</button>
+						<button type="submit" id="pve-import-submit" class="btn btn-primary" disabled>Create pending service</button>
+					</div>
+				</div>
 			</div>
 		</form>
 	</section>';
@@ -3495,6 +3537,15 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		var $manualIpGroup = $("#pve-import-manual-ip-group");
 		var $manualIp = $("#pve-import-manual-ip");
 		var $ipFeedback = $("#pve-import-ip-feedback");
+		var $form = $("#pve-import-form");
+		var $detailsStage = $("#pve-import-details-stage");
+		var $reviewStage = $("#pve-import-review-stage");
+		var $detailsStep = $("#pve-import-step-details");
+		var $reviewStep = $("#pve-import-step-review");
+		var $uiStep = $("#pve-import-ui-step");
+		var $reviewButton = $("#pve-import-review-button");
+		var $backButton = $("#pve-import-back-button");
+		var $detailsFeedback = $("#pve-import-details-feedback");
 		var $client = $("#pve-import-client");
 		var $product = $("#pve-import-product");
 		var $pricingMode = $("#pve-import-pricing-mode");
@@ -3506,6 +3557,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		var $gateway = $("#pve-import-gateway");
 		var $confirm = $("#pve-import-form input[name=import_confirmed]");
 		var $submit = $("#pve-import-submit");
+		var detailsReady = false;
 
 		function selectedLabel($select, fallback) {
 			var value = $select.val();
@@ -3568,6 +3620,26 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 				$ipFeedback.text("Enter a valid usable IPv4 address before creating the service.");
 			} else {
 				$ipFeedback.text("This address will be saved as the dedicated IP and in the module mapping.");
+			}
+		}
+
+		function showStage(stage, moveFocus) {
+			var showReview = stage === "review" && detailsReady;
+			$detailsStage.prop("hidden", showReview);
+			$reviewStage.prop("hidden", !showReview);
+			$detailsStep.toggleClass("is-current", !showReview).toggleClass("is-complete", showReview);
+			$reviewStep.toggleClass("is-current", showReview);
+			if (showReview) {
+				$detailsStep.removeAttr("aria-current");
+				$reviewStep.attr("aria-current", "step");
+			} else {
+				$detailsStep.attr("aria-current", "step");
+				$reviewStep.removeAttr("aria-current");
+			}
+			$uiStep.val(showReview ? "review" : "details");
+			$confirm.prop("disabled", !showReview);
+			if (moveFocus) {
+				$(showReview ? "#pve-import-review-title" : "#pve-import-details-title").trigger("focus");
 			}
 		}
 
@@ -3676,16 +3748,40 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			$("#pve-review-ip").text(network.ip);
 			$("#pve-review-ip-source").text(network.source);
 			$("#pve-review-product").text(selectedLabel($product, "Not selected"));
+			$("#pve-review-gateway").text(selectedLabel($gateway, "Not selected"));
 			$("#pve-review-treatment").text(treatment);
 			$("#pve-review-cycle").text(billing);
+			var showReason = mode !== "product";
+			$("#pve-review-reason-row").prop("hidden", !showReason);
+			$("#pve-review-reason").text(showReason && reasonLength ? $.trim($reason.val()).replace(/\s+/g, " ") : "Not provided");
 			$("#pve-review-status").text(targetStatus);
 			$("#pve-review-behavior").text(behavior);
 			$submit.text(buttonLabel);
 
 			var overrideIsValid = mode === "product" || (reasonIsValid && (mode !== "custom" || customPriceIsValid));
-			var ready = Boolean($client.val() && $product.val() && $cycle.val() && $gateway.val()
-				&& network.valid && $confirm.prop("checked") && pricingIsValid && overrideIsValid);
-			$submit.prop("disabled", !ready);
+			detailsReady = Boolean($client.val() && $product.val() && $cycle.val() && $gateway.val()
+				&& network.valid && pricingIsValid && overrideIsValid);
+			var detailsIssue = "Ready to review.";
+			if (!$client.val()) {
+				detailsIssue = "Select the target client to continue.";
+			} else if (!$product.val()) {
+				detailsIssue = "Select a compatible Proxmox product to continue.";
+			} else if (!$cycle.val()) {
+				detailsIssue = "Select an available billing cycle to continue.";
+			} else if (!pricingIsValid) {
+				detailsIssue = behavior;
+			} else if (!overrideIsValid) {
+				detailsIssue = mode === "custom" && !customPriceIsValid
+					? "Enter a valid custom price and audit reason to continue."
+					: "Enter an audit reason between 3 and 200 characters to continue.";
+			} else if (!$gateway.val()) {
+				detailsIssue = "Select the payment method to continue.";
+			} else if (!network.valid) {
+				detailsIssue = "Select or enter a valid primary IPv4 address to continue.";
+			}
+			$detailsFeedback.text(detailsIssue).toggleClass("is-ready", detailsReady);
+			$reviewButton.prop("disabled", !detailsReady);
+			$submit.prop("disabled", !(detailsReady && $confirm.prop("checked")));
 		}
 
 		function invalidateConfirmation() {
@@ -3719,11 +3815,30 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		});
 		$price.add($reason).on("input", invalidateConfirmation);
 		$cycle.add($gateway).on("change", invalidateConfirmation);
+		$reviewButton.on("click", function() {
+			updateReview();
+			if (detailsReady) {
+				showStage("review", true);
+			}
+		});
+		$backButton.on("click", function() {
+			$confirm.prop("checked", false);
+			updateReview();
+			showStage("details", true);
+		});
+		$form.on("submit", function(event) {
+			if ($uiStep.val() !== "review" || !detailsReady) {
+				event.preventDefault();
+				updateReview();
+				showStage(detailsReady ? "review" : "details", true);
+			}
+		});
 		$confirm.on("change", updateReview);
 		updateNetworkFields();
 		updatePricingFields();
 		updateCycleOptions();
 		updateReview();
+		showStage($uiStep.val() === "review" ? "review" : "details", false);
 	});
 	</script>';
 }
@@ -4716,7 +4831,7 @@ function pvewhmcs_sync_page() {
 	}
 	.pve-import-steps {
 		display: flex;
-		gap: 20px;
+		gap: 12px;
 		margin: 0;
 		padding: 10px 18px;
 		border-bottom: 1px solid #e3e7ec;
@@ -4729,6 +4844,8 @@ function pvewhmcs_sync_page() {
 		display: flex;
 		align-items: center;
 		gap: 6px;
+		flex: 1 1 0;
+		min-width: 150px;
 	}
 	.pve-import-steps span {
 		display: inline-flex;
@@ -4747,15 +4864,22 @@ function pvewhmcs_sync_page() {
 		color: #3b254f;
 		font-weight: 600;
 	}
-	.pve-import-steps .is-complete span,
+	.pve-import-steps .is-complete span {
+		border-color: #7c5b96;
+		background: #eee8f3;
+		color: #3b254f;
+	}
 	.pve-import-steps .is-current span {
 		border-color: #4a2f63;
 		background: #4a2f63;
 		color: #fff;
 	}
+	.pve-import-stage[hidden] {
+		display: none !important;
+	}
 	.pve-import-layout {
 		display: grid;
-		grid-template-columns: minmax(220px, 0.8fr) minmax(320px, 1.25fr) minmax(260px, 0.95fr);
+		grid-template-columns: minmax(240px, 0.75fr) minmax(420px, 1.5fr);
 	}
 	.pve-import-layout > * {
 		min-width: 0;
@@ -4786,14 +4910,29 @@ function pvewhmcs_sync_page() {
 		font-weight: 600;
 	}
 	.pve-import-panel dd {
+		min-width: 0;
 		margin: 0;
 		color: #263240;
 		font-size: 11px;
 		font-weight: 600;
+		overflow-wrap: anywhere;
 		text-align: right;
+	}
+	.pve-import-fields > h4 {
+		margin-bottom: 16px;
 	}
 	.pve-import-fields .form-group {
 		margin-bottom: 12px;
+	}
+	.pve-import-section-heading {
+		margin: 20px 0 12px;
+		padding-top: 16px;
+		border-top: 1px solid #d9dee5;
+	}
+	.pve-import-section-heading p {
+		margin: 0;
+		color: #52606d;
+		font-size: 12px;
 	}
 	.pve-import-fields label {
 		display: block;
@@ -4837,8 +4976,65 @@ function pvewhmcs_sync_page() {
 		outline-offset: 2px;
 		box-shadow: none;
 	}
-	.pve-import-review {
+	.pve-import-stage-actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 16px;
+		padding: 14px 18px;
+		border-top: 1px solid #e3e7ec;
 		background: #f7f8fa;
+	}
+	.pve-import-stage-actions p {
+		margin: 0 auto 0 0;
+		color: #66788a;
+		font-size: 12px;
+	}
+	.pve-import-stage-actions p.is-ready {
+		color: #237a44;
+		font-weight: 600;
+	}
+	.pve-import-stage-actions .btn-primary,
+	.pve-import-review .btn-primary {
+		background: #4a2f63;
+		border-color: #4a2f63;
+	}
+	.pve-import-stage-actions .btn-primary:disabled,
+	.pve-import-review .btn-primary:disabled {
+		background: #94a3b8;
+		border-color: #94a3b8;
+		color: #fff;
+	}
+	.pve-import-review {
+		padding: 20px;
+		background: #f7f8fa;
+	}
+	.pve-import-review-heading {
+		margin-bottom: 16px;
+	}
+	.pve-import-review-heading p {
+		max-width: 72ch;
+		margin: 0;
+	}
+	.pve-import-review-grid {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		border: 1px solid #d9dee5;
+		border-radius: 8px;
+		background: #fff;
+	}
+	.pve-import-review-grid section {
+		min-width: 0;
+		padding: 16px;
+	}
+	.pve-import-review-grid section + section {
+		border-left: 1px solid #e3e7ec;
+	}
+	.pve-import-review-grid h5 {
+		margin: 0 0 10px;
+		color: #263240;
+		font-size: 13px;
+		font-weight: 650;
 	}
 	.pve-import-review p {
 		margin: 12px 0;
@@ -4856,15 +5052,16 @@ function pvewhmcs_sync_page() {
 	.pve-import-confirm input {
 		margin-top: 2px;
 	}
-	.pve-import-review .btn-primary {
-		width: 100%;
-		background: #4a2f63;
-		border-color: #4a2f63;
+	.pve-import-review-actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 8px;
 	}
-	.pve-import-review .btn-primary:disabled {
-		background: #94a3b8;
-		border-color: #94a3b8;
-		color: #fff;
+	#pve-import-details-title:focus,
+	#pve-import-review-title:focus {
+		outline: 2px solid #6f4a8e;
+		outline-offset: 3px;
 	}
 	@media (max-width: 980px) {
 		.pve-sync-heading,
@@ -4893,6 +5090,21 @@ function pvewhmcs_sync_page() {
 		.pve-import-steps {
 			gap: 10px;
 			flex-wrap: wrap;
+		}
+		.pve-import-review-grid {
+			grid-template-columns: 1fr;
+		}
+		.pve-import-review-grid section + section {
+			border-top: 1px solid #e3e7ec;
+			border-left: 0;
+		}
+		.pve-import-stage-actions,
+		.pve-import-review-actions {
+			align-items: stretch;
+			flex-direction: column;
+		}
+		.pve-import-stage-actions p {
+			margin: 0;
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {

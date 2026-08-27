@@ -65,19 +65,14 @@ service already exists, link it instead so the client is not charged twice.
 2. Filter the table to **Orphaned guests** and verify the VMID, guest name, node,
    type, resource limits, state, and available network data.
 3. Click **Create WHMCS service** for the verified guest.
-4. Select the primary IPv4 address for the service. Static Proxmox guest
-   configuration is preferred. For QEMU guests without a static address, the
-   addon asks QEMU Guest Agent and accepts only IPv4 addresses on interfaces
-   whose MAC address matches the guest configuration. One verified address is
-   selected automatically; multiple addresses require an explicit selection.
-   If none is available, select manual entry and provide a usable IPv4 address.
-5. Search for and select the active client inside the client dropdown by client
-   ID, email address, name, or company. Every result keeps all four identity
-   fields visible and marks missing database values as `Not provided`. Clients
+4. In **Service details**, search for and select the active client inside the
+   client dropdown by client ID, email address, name, or company. Every result
+   keeps all four identity fields visible and marks missing database values as
+   `Not provided`. Clients
    missing both a name and company appear at the end of the initial list. Then
    select a compatible Proxmox product. Billing cycles are limited to those
    enabled for the product in the client's currency.
-6. Select the billing treatment:
+5. Select the billing treatment:
    - **Use product pricing** keeps the configured product price and normal
      billing workflow.
    - **Internal / Free** overrides the service price to zero, requires an
@@ -85,11 +80,21 @@ service already exists, link it instead so the client is not charged twice.
    - **Custom price override** requires an amount and audit reason. A zero
      override becomes `Free Account`; a positive override keeps the selected
      cycle and remains pending for billing review.
-7. Select the billing cycle and payment method. Review the effective treatment,
-   price, and initial service status. A zero-cost import cannot use a cycle with
-   a setup fee; select another cycle or a native free product.
-8. Confirm the review checkbox and submit the import.
-9. Open the service link in the success message and verify the client, product,
+6. Select the billing cycle and payment method. A zero-cost import cannot use a
+   cycle with a setup fee; select another cycle or a native free product.
+7. At the end of **Service details**, select the primary IPv4 address. Static
+   Proxmox guest configuration is preferred. For QEMU guests without a static
+   address, the addon asks QEMU Guest Agent and accepts only IPv4 addresses on
+   interfaces whose MAC address matches the guest configuration. One verified
+   address is selected automatically; multiple addresses require an explicit
+   selection. If none is available, select manual entry and provide a usable
+   IPv4 address.
+8. Click **Continue to review**. The stepper advances to **Review and create**,
+   where guest identity, VMID, client, product, payment method, billing,
+   primary IPv4 source, and intended status are grouped for final verification.
+9. Use **Back to service details** to amend any value without losing the form,
+   or confirm the review checkbox and submit the import.
+10. Open the service link in the success message and verify the client, product,
    server, hostname, dedicated and assigned IP, billing cycle, status, VMID
    custom field, and module mapping.
 
@@ -189,8 +194,12 @@ Before deployment:
 - Confirm that the import form has no preselected client, product, billing
   cycle, or payment method and cannot submit until the review checkbox is set.
 - Confirm that native client dropdown search, compatible-product filtering,
-  client-currency pricing, billing-treatment fields, and the responsive
-  three-column review layout render correctly.
+  client-currency pricing, and billing-treatment fields render correctly.
+- Confirm that the stepper starts on **Service details**, places the network
+  controls after payment method, advances to the separate **Review and create**
+  stage, and returns to editing without losing values.
+- Confirm that the final review groups guest identity, client and product,
+  billing and status, and cannot submit until the confirmation is selected.
 - Confirm that zero, one, and multiple detected IPv4 states respectively require
   manual entry, preselect the only verified address, or require an explicit
   choice. Confirm that changing the address clears the review confirmation.
