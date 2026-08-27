@@ -106,7 +106,7 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IPv4 Pool
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
 6. " " > Newly-added Service > Tab 3 > **SAVE** (links Module Plan to WHMCS Service type)
-7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Import Guest
+7. (Optional) WHMCS Admin > Addons > Proxmox VE for WHMCS > Sync > Orphaned guests > Create WHMCS service
 
 #### Admin GUI: QEMU Plan :: Creation interface
 
@@ -416,7 +416,7 @@ There are new features deployed into PVE upstream which are exciting and may be 
 | **(PVE)** | https://pve.proxmox.com/pve-docs/api-viewer/ |
 | **(noVNC)** | https://github.com/novnc/noVNC/wiki |
 | **(WHMCS)** | https://developers.whmcs.com & https://classdocs.whmcs.com |
-| **(Module)** | [Service and guest mapping with the Sync tab](_docs/SYNC-MAPPING.md) |
+| **(Module)** | [Service mapping and guest import with the Sync tab](_docs/SYNC-MAPPING.md) |
 | **(psABIs)** | https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |
 
 # 🤬 ABUSE: Zero Tolerance (ZT)
