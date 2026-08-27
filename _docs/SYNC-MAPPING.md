@@ -65,9 +65,11 @@ service already exists, link it instead so the client is not charged twice.
    type, resource limits, state, and available network data.
 3. Click **Create WHMCS service** for the verified guest.
 4. Search for and select the active client inside the client dropdown by client
-   ID, email address, name, or company. Each result displays those available
-   identifiers together. Then select a compatible Proxmox product. Billing
-   cycles are limited to those enabled for the product in the client's currency.
+   ID, email address, name, or company. Every result keeps all four identity
+   fields visible and marks missing database values as `Not provided`. Clients
+   missing both a name and company appear at the end of the initial list. Then
+   select a compatible Proxmox product. Billing cycles are limited to those
+   enabled for the product in the client's currency.
 5. Select the billing treatment:
    - **Use product pricing** keeps the configured product price and normal
      billing workflow.

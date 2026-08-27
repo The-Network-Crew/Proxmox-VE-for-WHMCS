@@ -3060,22 +3060,18 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 							<option value="">Select or search for a client</option>';
 	foreach ($clients as $client) {
 		$client_name = trim($client->firstname . ' ' . $client->lastname);
-		$client_label_parts = ['#' . intval($client->id)];
-		if (trim((string) $client->email) !== '') {
-			$client_label_parts[] = trim((string) $client->email);
-		}
-		if (trim((string) $client->companyname) !== '') {
-			$client_label_parts[] = trim((string) $client->companyname);
-		}
-		if ($client_name !== '') {
-			$client_label_parts[] = $client_name;
-		}
-		$client_label = implode(' · ', $client_label_parts);
+		$client_email = trim((string) $client->email);
+		$client_company = trim((string) $client->companyname);
+		$client_label = '#'
+			. intval($client->id)
+			. ' · Email: ' . ($client_email !== '' ? $client_email : 'Not provided')
+			. ' · Company: ' . ($client_company !== '' ? $client_company : 'Not provided')
+			. ' · Name: ' . ($client_name !== '' ? $client_name : 'Not provided');
 		$selected = intval($client->id) === $selected_client_id ? ' selected' : '';
 		echo '<option value="' . intval($client->id) . '"' . $selected . '>' . htmlspecialchars($client_label, ENT_QUOTES, 'UTF-8') . '</option>';
 	}
 	echo '</select>
-						<p class="help-block">Search matches client ID, email address, name, or company.</p>
+						<p class="help-block">Search matches client ID, email address, name, or company. Missing identity fields are marked as Not provided.</p>
 					</div>
 					<div class="form-group">
 						<label for="pve-import-product">Proxmox product</label>
@@ -3843,6 +3839,7 @@ function pvewhmcs_sync_page() {
 				);
 				$import_clients = Capsule::table('tblclients')
 					->where('status', 'Active')
+					->orderByRaw("CASE WHEN TRIM(COALESCE(firstname, '')) = '' AND TRIM(COALESCE(lastname, '')) = '' AND TRIM(COALESCE(companyname, '')) = '' THEN 1 ELSE 0 END")
 					->orderBy('companyname')
 					->orderBy('firstname')
 					->orderBy('lastname')
