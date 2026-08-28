@@ -1082,7 +1082,7 @@ function pvewhmcs_fetch_rrd_stat($proxmox, $node, $vtype, $vmid, $timeframe, $ds
 	try {
 		// Attempt to fetch RRD graph image from PVE API
 		$vm_rrd = $proxmox->get($rrd_path . $rrd_params);
-		
+
 		// Check if we got a valid response with image data
 		if (isset($vm_rrd['image']) && !empty($vm_rrd['image'])) {
 			// Decode and re-encode the image data for template use
@@ -1343,12 +1343,14 @@ function pvewhmcs_ClientArea($params) {
 			}
 			if (is_array($guest_config[$guest_conf_key])) {
 				$guest_config[$guest_conf_key] = implode(',', $guest_config[$guest_conf_key]);
-			} elseif (!is_string($guest_config[$guest_conf_key]) && (is_scalar($guest_config[$guest_conf_key]) || $guest_config[$guest_conf_key] === null)) {
+			} elseif (!is_string($guest_config[$guest_conf_key]) && is_scalar($guest_config[$guest_conf_key])) {
 				$guest_config[$guest_conf_key] = (string) $guest_config[$guest_conf_key];
 			}
 		}
-		if (empty($guest_config['net0'])) {
-			$guest_config['net0'] = '';
+		foreach (array('net0', 'rootfs', 'boot') as $guest_conf_key) {
+			if (empty($guest_config[$guest_conf_key])) {
+				$guest_config[$guest_conf_key] = '';
+			}
 		}
 	}
 	else {

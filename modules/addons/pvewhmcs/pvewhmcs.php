@@ -45,7 +45,7 @@ function pvewhmcs_config() {
 
 // VERSION: also stored in repo/version (for update-available checker)
 function pvewhmcs_version(){
-	return "1.3.5";
+	return "1.3.6";
 }
 
 // WHMCS MODULE: ACTIVATION of the ADDON MODULE
@@ -3250,6 +3250,23 @@ function pvewhmcs_sync_page() {
 		background: #f1f5f9;
 		color: #475569;
 	}
+	.pve-status-badge.active {
+		background: #dcfce7;
+		color: #15803d;
+	}
+	.pve-status-badge.suspended {
+		background: #fef9c3;
+		color: #713f12;
+	}
+	.pve-status-badge.pending {
+		background: #e0e7ff;
+		color: #3730a3;
+	}
+	.pve-status-badge.terminated,
+	.pve-status-badge.cancelled {
+		background: #fee2e2;
+		color: #991b1b;
+	}
 	.pve-badge-status {
 		padding: 6px 12px;
 		border-radius: 20px;
@@ -3584,8 +3601,6 @@ function pvewhmcs_sync_page() {
 			$cores = $row['pve_vm']['maxcpu'] ?? 0;
 			$ram = isset($row['pve_vm']['maxmem']) ? round($row['pve_vm']['maxmem'] / 1024 / 1024) . ' MB' : '—';
 			$disk = isset($row['pve_vm']['maxdisk']) ? round($row['pve_vm']['maxdisk'] / 1024 / 1024 / 1024) . ' GB' : '—';
-			$pve_specs = "{$cores} Cores / {$ram} / {$disk}";
-
 			// IP highlight check
 			$ip_mismatch_class = '';
 			if ($row['service'] && $row['service']->dedicatedip !== $row['pve_vm']['ip']) {
