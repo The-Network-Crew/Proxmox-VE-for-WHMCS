@@ -282,39 +282,47 @@
 </style>
 
 <div class="pve-client-area">
+	{* Error Banner — shown when VM is not provisioned or data is missing *}
+	{if !empty($pve_error)}
+	<div class="alert alert-warning" style="border-radius: 8px; padding: 20px; margin-bottom: 20px; font-size: 15px;">
+		<strong><i class="fas fa-exclamation-triangle"></i> Service Not Available</strong><br>
+		{$pve_error}<br><br>
+		<small>If you believe this is an error, please <a href="submitticket.php">contact support</a>.</small>
+	</div>
+	{else}
 	{* Header Panel with VM Type, Status, and Gauges *}
 	<div class="pve-header-panel">
 		<div class="pve-status-section">
 			{* VM Type & OS Icons *}
 			<div class="pve-vm-icons">
-				<img src="./modules/servers/pvewhmcs/img/{$vm_config['vtype']}.png" alt="{$vm_config['vtype']}" title="Type: {$vm_config['vtype']}"/>
-				<img src="./modules/servers/pvewhmcs/img/os/{$vm_config['ostype']}.png" alt="{$vm_config['ostype']}" title="OS: {$vm_config['ostype']}"/>
+				<img src="./modules/servers/pvewhmcs/img/{$pve_guest_config['vtype']}.png" alt="{$pve_guest_config['vtype']}" title="Type: {$pve_guest_config['vtype']}"/>
+				<img src="./modules/servers/pvewhmcs/img/os/{$pve_guest_config['ostype']}.png" alt="{$pve_guest_config['ostype']}" title="OS: {$pve_guest_config['ostype']}"/>
 			</div>
 			
 			{* Status Badge *}
 			<div class="pve-status-badge">
-				<img src="./modules/servers/pvewhmcs/img/{$vm_status['status']}.png" alt="{$vm_status['status']}"/>
-				<span class="status-text">{$vm_status['status']}</span>
-				<span class="uptime-text">Up {$vm_status['uptime']}</span>
+				<img src="./modules/servers/pvewhmcs/img/{$pve_guest_status['status']}.png" alt="{$pve_guest_status['status']}"/>
+				<span class="status-text">{$pve_guest_status['status']}</span>
+				<span class="uptime-text">Up {$pve_guest_status['uptime']}</span>
 			</div>
 			
 			{* Resource Gauges *}
 			<div class="pve-gauges">
 				<script src="./modules/servers/pvewhmcs/js/CircularLoader.js"></script>
 				<div class="pve-gauge-item">
-					<div id="c1" class="circle" data-percent="{$vm_status['cpu']}"></div>
+					<div id="c1" class="circle" data-percent="{$pve_guest_status['cpu']}"></div>
 					<strong>CPU</strong>
 				</div>
 				<div class="pve-gauge-item">
-					<div id="c2" class="circle" data-percent="{$vm_status['memusepercent']}"></div>
+					<div id="c2" class="circle" data-percent="{$pve_guest_status['memusepercent']}"></div>
 					<strong>RAM</strong>
 				</div>
 				<div class="pve-gauge-item">
-					<div id="c3" class="circle" data-percent="{$vm_status['diskusepercent']}"></div>
+					<div id="c3" class="circle" data-percent="{$pve_guest_status['diskusepercent']}"></div>
 					<strong>Disk</strong>
 				</div>
 				<div class="pve-gauge-item">
-					<div id="c4" class="circle" data-percent="{$vm_status['swapusepercent']}"></div>
+					<div id="c4" class="circle" data-percent="{$pve_guest_status['swapusepercent']}"></div>
 					<strong>Swap</strong>
 				</div>
 			</div>
@@ -340,38 +348,38 @@
 	<table class="pve-specs-table">
 		<tr>
 			<td><span class="spec-label">Memory</span> <span class="spec-sublabel">(RAM)</span></td>
-			<td><span class="spec-value">{$vm_config['memory']}MB</span></td>
+			<td><span class="spec-value">{$pve_guest_config['memory']}MB</span></td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">Compute</span> <span class="spec-sublabel">(CPU)</span></td>
 			<td>
-				<span class="spec-value">{$vm_config['cores']} core(s)</span>
-				<div class="spec-detail">on {$vm_config['sockets']} socket(s)</div>
+				<span class="spec-value">{$pve_guest_config['cores']} core(s)</span>
+				<div class="spec-detail">on {$pve_guest_config['sockets']} socket(s)</div>
 			</td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">Storage</span> <span class="spec-sublabel">(SSD/HDD)</span></td>
 			<td>
-				{if $vm_config['rootfs']}
-					{assign var="rootfs_parts" value=","|explode:$vm_config['rootfs']}
+				{if $pve_guest_config['rootfs']}
+					{assign var="rootfs_parts" value=","|explode:$pve_guest_config['rootfs']}
 					{foreach from=$rootfs_parts item=rpart}
 						{if $rpart|strpos:"size=" !== false}<span class="spec-value">{$rpart|replace:'size=':''}</span> <span class="spec-detail">(rootfs)</span>{/if}
 					{/foreach}
 				{/if}
-				{if $vm_config['ide0']}
-					{assign var="ide0_parts" value=","|explode:$vm_config['ide0']}
+				{if $pve_guest_config['ide0']}
+					{assign var="ide0_parts" value=","|explode:$pve_guest_config['ide0']}
 					{foreach from=$ide0_parts item=ipart}
 						{if $ipart|strpos:"size=" !== false}<div class="spec-detail"><span class="spec-value">{$ipart|replace:'size=':''}</span> (ide0)</div>{/if}
 					{/foreach}
 				{/if}
-				{if $vm_config['scsi0']}
-					{assign var="scsi0_parts" value=","|explode:$vm_config['scsi0']}
+				{if $pve_guest_config['scsi0']}
+					{assign var="scsi0_parts" value=","|explode:$pve_guest_config['scsi0']}
 					{foreach from=$scsi0_parts item=spart}
 						{if $spart|strpos:"size=" !== false}<div class="spec-detail"><span class="spec-value">{$spart|replace:'size=':''}</span> (scsi0)</div>{/if}
 					{/foreach}
 				{/if}
-				{if $vm_config['virtio0']}
-					{assign var="virtio0_parts" value=","|explode:$vm_config['virtio0']}
+				{if $pve_guest_config['virtio0']}
+					{assign var="virtio0_parts" value=","|explode:$pve_guest_config['virtio0']}
 					{foreach from=$virtio0_parts item=vpart}
 						{if $vpart|strpos:"size=" !== false}<div class="spec-detail"><span class="spec-value">{$vpart|replace:'size=':''}</span> (virtio0)</div>{/if}
 					{/foreach}
@@ -380,26 +388,26 @@
 		</tr>
 		<tr>
 			<td><span class="spec-label">Boot Order</span></td>
-			<td><span class="spec-value">{($vm_config['boot']|replace:'order=':''|replace:';':' → ')}</span></td>
+			<td><span class="spec-value">{($pve_guest_config['boot']|replace:'order=':''|replace:';':' → ')}</span></td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">IPv4</span> <span class="spec-sublabel">(Networking)</span></td>
 			<td>
-				<span class="spec-value">{$vm_config['ipv4']}</span>
-				<div class="spec-detail">Mask: {$vm_config['netmask4']} &bull; Gateway: {$vm_config['gateway4']}</div>
+				<span class="spec-value">{$pve_guest_config['ipv4']}</span>
+				<div class="spec-detail">Mask: {$pve_guest_config['netmask4']} &bull; Gateway: {$pve_guest_config['gateway4']}</div>
 			</td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">IP Config</span> <span class="spec-sublabel">(IPv4/v6)</span></td>
 			<td>
-				{if $vm_config['ipconfig0']}<div class="spec-detail"><strong>NIC #0:</strong> {($vm_config['ipconfig0']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
-				{if $vm_config['ipconfig1']}<div class="spec-detail"><strong>NIC #1:</strong> {($vm_config['ipconfig1']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
+				{if $pve_guest_config['ipconfig0']}<div class="spec-detail"><strong>NIC #0:</strong> {($pve_guest_config['ipconfig0']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
+				{if $pve_guest_config['ipconfig1']}<div class="spec-detail"><strong>NIC #1:</strong> {($pve_guest_config['ipconfig1']|replace:',':' &bull; '|replace:'=':': ')}</div>{/if}
 			</td>
 		</tr>
 		<tr>
 			<td><span class="spec-label">NIC #0</span> <span class="spec-sublabel">(Primary)</span></td>
 			<td>
-				{assign var="net0_parts" value=","|explode:$vm_config['net0']}
+				{assign var="net0_parts" value=","|explode:$pve_guest_config['net0']}
 				{foreach from=$net0_parts item=part name=netloop}
 					{if $part|strpos:"=" !== false}
 						{assign var="kv" value="="|explode:$part}
@@ -412,11 +420,11 @@
 				{/foreach}
 			</td>
 		</tr>
-		{if $vm_config['net1']}
+		{if $pve_guest_config['net1']}
 		<tr>
 			<td><span class="spec-label">NIC #1</span> <span class="spec-sublabel">(Secondary)</span></td>
 			<td>
-				{assign var="net1_parts" value=","|explode:$vm_config['net1']}
+				{assign var="net1_parts" value=","|explode:$pve_guest_config['net1']}
 				{foreach from=$net1_parts item=part name=netloop}
 					{if $part|strpos:"=" !== false}
 						{assign var="kv" value="="|explode:$part}
@@ -432,17 +440,17 @@
 		{/if}
 		<tr>
 			<td><span class="spec-label">Config</span> <span class="spec-sublabel">(Tweaks)</span></td>
-			<td><span class="spec-detail"><strong>On-boot?</strong> {if $vm_config['onboot']}Yes!{else}No (Contact Support){/if}</span></td>
+			<td><span class="spec-detail"><strong>On-boot?</strong> {if $pve_guest_config['onboot']}Yes!{else}No (Contact Support){/if}</span></td>
 		</tr>
-		{if $vm_config['sshkeys']}
+		{if $pve_guest_config['sshkeys']}
 		<tr>
 			<td><span class="spec-label">SSH Keys</span> <span class="spec-sublabel">(Public)</span></td>
-			<td><div class="spec-detail" style="word-break:break-all;">{$vm_config['sshkeys']}</div></td>
+			<td><div class="spec-detail" style="word-break:break-all;">{$pve_guest_config['sshkeys']}</div></td>
 		</tr>
 		{/if}
 		<tr>
 			<td><span class="spec-label">Kernel</span> <span class="spec-sublabel">(OS)</span></td>
-			<td><span class="spec-value">{$vm_config['ostype']}</span></td>
+			<td><span class="spec-value">{$pve_guest_config['ostype']}</span></td>
 		</tr>
 	</table>
 
@@ -451,7 +459,7 @@
 	<div class="pve-stats-section">
 		<h4><i class="fa fa-line-chart"></i> Guest Statistics</h4>
 		
-		{if $vm_statistics['cpu']['day']}
+		{if $pve_guest_statistics['cpu']['day']}
 		<ul class="pve-stats-tabs" role="tablist">
 			<li class="active"><a data-toggle="tab" role="tab" href="#dailystat">Daily</a></li>
 			<li><a data-toggle="tab" role="tab" href="#weeklystat">Weekly</a></li>
@@ -461,34 +469,34 @@
 		<div class="pve-stats-content tab-content">
 			<div id="dailystat" class="tab-pane active">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['day']}" alt="CPU (Daily)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['day']}" alt="Memory (Daily)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['day']}" alt="Network I/O (Daily)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['day']}" alt="Disk I/O (Daily)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['cpu']['day']}" alt="CPU (Daily)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['mem']['day']}" alt="Memory (Daily)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['netinout']['day']}" alt="Network I/O (Daily)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['diskrw']['day']}" alt="Disk I/O (Daily)"/>
 				</div>
 			</div>
 			<div id="weeklystat" class="tab-pane">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['week']}" alt="CPU (Weekly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['week']}" alt="Memory (Weekly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['week']}" alt="Network I/O (Weekly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['week']}" alt="Disk I/O (Weekly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['cpu']['week']}" alt="CPU (Weekly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['mem']['week']}" alt="Memory (Weekly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['netinout']['week']}" alt="Network I/O (Weekly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['diskrw']['week']}" alt="Disk I/O (Weekly)"/>
 				</div>
 			</div>
 			<div id="monthlystat" class="tab-pane">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['month']}" alt="CPU (Monthly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['month']}" alt="Memory (Monthly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['month']}" alt="Network I/O (Monthly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['month']}" alt="Disk I/O (Monthly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['cpu']['month']}" alt="CPU (Monthly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['mem']['month']}" alt="Memory (Monthly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['netinout']['month']}" alt="Network I/O (Monthly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['diskrw']['month']}" alt="Disk I/O (Monthly)"/>
 				</div>
 			</div>
 			<div id="yearlystat" class="tab-pane">
 				<div class="pve-graphs-grid">
-					<img src="data:image/png;base64,{$vm_statistics['cpu']['year']}" alt="CPU (Yearly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['mem']['year']}" alt="Memory (Yearly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['netinout']['year']}" alt="Network I/O (Yearly)"/>
-					<img src="data:image/png;base64,{$vm_statistics['diskrw']['year']}" alt="Disk I/O (Yearly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['cpu']['year']}" alt="CPU (Yearly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['mem']['year']}" alt="Memory (Yearly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['netinout']['year']}" alt="Network I/O (Yearly)"/>
+					<img src="data:image/png;base64,{$pve_guest_statistics['diskrw']['year']}" alt="Disk I/O (Yearly)"/>
 				</div>
 			</div>
 		</div>
@@ -500,4 +508,5 @@
 		{/if}
 	</div>
 	{/if}
+	{/if}{* /pve_error else *}
 </div>
