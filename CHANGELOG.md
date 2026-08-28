@@ -1,6 +1,24 @@
 # Changelog
 All notable changes to Proxmox VE for WHMCS will be documented in this file.
 
+## [Unreleased]
+
+### 🚀 Feature
+- Sync: Add a searchable, filterable service-to-guest reconciliation interface.
+
+### 🛡️ Safety
+- Sync: Revalidate server, service, guest, and VMID data before mapping; revalidate hostname and known IP data for auto-match links.
+- Sync: Fetch guest network metadata from Proxmox and wrap mapping writes in database transactions.
+- Sync: Serialize writes per cluster/VMID and detect duplicate ownership across WHMCS server records for the same live cluster.
+- Sync: Protect mapping actions with WHMCS CSRF tokens and retire the legacy browser-supplied mapping form.
+
+### 🐛 Bug Fix
+- Client Area: Render the standard error state when a mapped guest cannot be found or the Proxmox login fails.
+- Module Commands: Guard Unsuspend against a missing mapping and pass Terminate `skiplock` through the Proxmox request URL.
+
+### 📖 Documentation
+- Sync: Document mapping states, recovery workflow, verification, deployment, and rollback.
+
 ## [1.3.5] - 2026-05-13 - _"Ports and Consoles"_
 
 ### 🚀 Feature

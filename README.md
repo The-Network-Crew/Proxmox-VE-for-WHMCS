@@ -416,6 +416,7 @@ There are new features deployed into PVE upstream which are exciting and may be 
 | **(PVE)** | https://pve.proxmox.com/pve-docs/api-viewer/ |
 | **(noVNC)** | https://github.com/novnc/noVNC/wiki |
 | **(WHMCS)** | https://developers.whmcs.com & https://classdocs.whmcs.com |
+| **(Module)** | [Service and guest mapping with the Sync tab](_docs/SYNC-MAPPING.md) |
 | **(psABIs)** | https://gitlab.com/x86-psABIs/x86-64-ABI/-/jobs/artifacts/master/raw/x86-64-ABI/abi.pdf?job=build |
 
 # 🤬 ABUSE: Zero Tolerance (ZT)
