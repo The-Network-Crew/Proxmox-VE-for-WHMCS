@@ -38,6 +38,7 @@ very long administration page.
 | --- | --- | --- |
 | `Mapped (OK)` | The stored service mapping agrees with the live guest. | Unlink the database mapping. |
 | `Discrepancy` | A mapping exists, but its VMID, name, IP, type, or node differs from current data. | Synchronize from Proxmox or unlink after review. |
+| `Network pending` | The service and guest are mapped, but no primary IPv4 is stored yet. | Complete network details from verified Proxmox data or manual entry. |
 | `Unmapped` | A WHMCS service has no module mapping. | Link the verified auto-match or select a guest manually. |
 | `Orphaned VM` | A live Proxmox guest has no active WHMCS service mapping. | Select and link a service manually, or create a WHMCS service from the guest. |
 
@@ -82,27 +83,48 @@ service already exists, link it instead so the client is not charged twice.
      cycle and remains pending for billing review.
 6. Select the billing cycle and payment method. A zero-cost import cannot use a
    cycle with a setup fee; select another cycle or a native free product.
-7. At the end of **Service details**, select the primary IPv4 address. Static
+7. At the end of **Service details**, review the optional primary IPv4 address. Static
    Proxmox guest configuration is preferred. For QEMU guests without a static
    address, the addon asks QEMU Guest Agent and accepts only IPv4 addresses on
    interfaces whose MAC address matches the guest configuration. One verified
-   address is selected automatically; multiple addresses require an explicit
-   selection. If none is available, select manual entry and provide a usable
-   IPv4 address.
+   address is selected automatically. Choose one of multiple verified addresses,
+   enter a usable IPv4 manually, or select **Complete network details later**.
 8. Click **Continue to review**. The stepper advances to **Review and create**,
    where guest identity, VMID, client, product, payment method, billing,
    primary IPv4 source, and intended status are grouped for final verification.
 9. Use **Back to service details** to amend any value without losing the form,
    or confirm the review checkbox and submit the import.
 10. Open the service link in the success message and verify the client, product,
-   server, hostname, dedicated and assigned IP, billing cycle, status, VMID
-   custom field, and module mapping.
+   server, hostname, billing cycle, status, VMID custom field, and module mapping.
+   If an address was selected, also verify the dedicated and assigned IP fields.
 
 The import takes its guest identity from the selected live Proxmox guest. On
 submit, the server re-fetches discovered network candidates and accepts a
 selected address only when it still belongs to that verified set. A manual
 address is validated as a usable IPv4 value. The browser does not submit
 editable hostname, guest type, subnet, gateway, or node values.
+
+Deferring network details stores an empty address in the service and mapping
+while preserving the verified VMID and guest type. Start, stop, suspend, resume,
+terminate, and console actions continue to identify the guest from that mapping.
+The Sync table marks the service as `Network pending` until an address is saved.
+
+## Complete network details after import
+
+1. Open **Sync**, select the Proxmox server, and analyze it.
+2. Find the mapped service marked **Network pending**.
+3. Click **Complete network details**. The addon retries static configuration
+   and QEMU Guest Agent discovery for that guest.
+4. Select a verified address or choose manual entry and provide a usable IPv4.
+5. Confirm the service, VMID, guest, and address, then click **Save network
+   details**.
+6. Verify that the service dedicated IP, assigned IPs, and module mapping now
+   contain the selected address and that the network-pending state is cleared.
+
+The completion action revalidates the service, mapping, live guest, VMID
+ownership, and address source. It rejects an address already assigned to another
+active service and updates the WHMCS service and module mapping in one database
+transaction. It never changes the guest network configuration in Proxmox.
 
 WHMCS creates the order and service through the local API with invoices and
 emails suppressed. The module create command is never run:
@@ -200,9 +222,11 @@ Before deployment:
   stage, and returns to editing without losing values.
 - Confirm that the final review groups guest identity, client and product,
   billing and status, and cannot submit until the confirmation is selected.
-- Confirm that zero, one, and multiple detected IPv4 states respectively require
-  manual entry, preselect the only verified address, or require an explicit
-  choice. Confirm that changing the address clears the review confirmation.
+- Confirm that zero and multiple detected IPv4 states default to **Complete
+  network details later**, while one verified address is preselected. Confirm
+  that deferred network details do not block review and that choosing manual
+  entry requires a valid address. Confirm that changing the choice clears the
+  review confirmation.
 - Confirm that loopback, link-local, multicast, malformed, and reserved manual
   IPv4 values cannot be submitted.
 - Confirm that override reason and custom price are required only for their
@@ -210,6 +234,9 @@ Before deployment:
   rejected before submission.
 - Exercise validation with an invalid or unavailable VMID and verify that order,
   service, and mapping counts do not change.
+- Render **Complete network details** for zero, one, and multiple detected
+  addresses. Confirm that it requires a verified selection or valid manual IPv4,
+  rejects duplicate ownership, and cannot submit without its confirmation.
 
 After deployment:
 

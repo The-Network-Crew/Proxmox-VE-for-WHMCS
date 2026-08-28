@@ -2366,6 +2366,7 @@ function pvewhmcs_network_source_label($source) {
 		'proxmox_config' => 'Proxmox static config',
 		'guest_agent' => 'QEMU Guest Agent',
 		'manual' => 'Manual entry',
+		'deferred' => 'Network details pending',
 	];
 
 	return $labels[$source] ?? 'Unknown source';
@@ -2539,7 +2540,7 @@ function pvewhmcs_get_vm_network_from_proxmox($proxmox, $node, $vtype, $vmid, $i
 	}
 }
 
-function pvewhmcs_resolve_import_network($discovered_network, $selected_ip, $manual_ip) {
+function pvewhmcs_resolve_import_network($discovered_network, $selected_ip, $manual_ip, $allow_deferred = false) {
 	$candidates = is_array($discovered_network['candidates'] ?? null)
 		? $discovered_network['candidates']
 		: [];
@@ -2548,6 +2549,15 @@ function pvewhmcs_resolve_import_network($discovered_network, $selected_ip, $man
 
 	if ($selected_ip === '' && count($candidates) === 1) {
 		$selected_ip = (string) ($candidates[0]['ip'] ?? '');
+	}
+	if ($allow_deferred && ($selected_ip === '' || $selected_ip === 'deferred')) {
+		return [
+			'ip' => '',
+			'subnet' => '',
+			'gateway' => '',
+			'source' => 'deferred',
+			'interface' => '',
+		];
 	}
 
 	if ($selected_ip === 'manual') {
@@ -2577,10 +2587,30 @@ function pvewhmcs_resolve_import_network($discovered_network, $selected_ip, $man
 	}
 
 	if (empty($candidates)) {
-		throw new InvalidArgumentException('Proxmox did not report an IPv4 address. Select Manual entry and provide the service address.');
+		throw new InvalidArgumentException('Proxmox did not report an IPv4 address. Enter the service address manually.');
 	}
 
 	throw new InvalidArgumentException('Select one of the verified IPv4 addresses reported for this guest.');
+}
+
+function pvewhmcs_merge_assigned_ips($assigned_ips, $old_primary_ip, $new_primary_ip) {
+	$new_primary_ip = trim((string) $new_primary_ip);
+	if ($new_primary_ip === '') {
+		return trim((string) $assigned_ips);
+	}
+
+	$old_primary_ip = trim((string) $old_primary_ip);
+	$existing_ips = preg_split('/\R+/', trim((string) $assigned_ips)) ?: [];
+	$merged_ips = [$new_primary_ip];
+	foreach ($existing_ips as $existing_ip) {
+		$existing_ip = trim((string) $existing_ip);
+		if ($existing_ip === '' || $existing_ip === $new_primary_ip || $existing_ip === $old_primary_ip) {
+			continue;
+		}
+		$merged_ips[] = $existing_ip;
+	}
+
+	return implode("\n", $merged_ips);
 }
 
 function pvewhmcs_get_vm_ip_from_proxmox($proxmox, $node, $vtype, $vmid) {
@@ -3018,9 +3048,11 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 		}
 
 		$network_source_label = pvewhmcs_network_source_label($network['source'] ?? '');
+		$network_note = !empty($network['ip'])
+			? ' with IPv4 ' . (string) $network['ip'] . ' (' . $network_source_label . ')'
+			: ' with network details pending';
 		$service_notes = 'PVEWHMCS: Imported from Proxmox Guest VMID ' . intval($guest['vmid'])
-			. ' with IPv4 ' . (string) $network['ip'] . ' (' . $network_source_label . ')'
-			. '. Order #' . $order_id . '. Billing: ' . $pricing['label'] . '.';
+			. $network_note . '. Order #' . $order_id . '. Billing: ' . $pricing['label'] . '.';
 		if ($pricing['reason'] !== '') {
 			$service_notes .= ' Override reason: ' . $pricing['reason'] . '.';
 		}
@@ -3139,7 +3171,7 @@ function pvewhmcs_create_service_from_guest($selected_server_id, $guest, $networ
 			'PVEWHMCS imported Proxmox VMID ' . intval($guest['vmid'])
 			. ' as WHMCS Service #' . $service_id
 			. ' using Order #' . $order_id
-			. ' with IPv4 ' . (string) $network['ip'] . ' from ' . $network_source_label
+			. $network_note
 			. ' with status ' . $target_status
 			. ' and billing treatment ' . $pricing['label']
 			. ($pricing['reason'] !== '' ? ' (' . $pricing['reason'] . ')' : '') . '.',
@@ -3290,11 +3322,12 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	if ($selected_ip_choice === '') {
 		if (count($network_candidates) === 1) {
 			$selected_ip_choice = $candidate_ips[0];
-		} elseif (empty($network_candidates)) {
-			$selected_ip_choice = 'manual';
+		} else {
+			$selected_ip_choice = 'deferred';
 		}
-	} elseif ($selected_ip_choice !== 'manual' && !in_array($selected_ip_choice, $candidate_ips, true)) {
-		$selected_ip_choice = count($network_candidates) === 1 ? $candidate_ips[0] : '';
+	} elseif (!in_array($selected_ip_choice, ['manual', 'deferred'], true)
+		&& !in_array($selected_ip_choice, $candidate_ips, true)) {
+		$selected_ip_choice = count($network_candidates) === 1 ? $candidate_ips[0] : 'deferred';
 	}
 	$client_context = [];
 
@@ -3310,7 +3343,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	$ram = isset($guest['maxmem']) ? round($guest['maxmem'] / 1024 / 1024) . ' MB' : 'Unknown';
 	$disk = isset($guest['maxdisk']) ? round($guest['maxdisk'] / 1024 / 1024 / 1024) . ' GB' : 'Unknown';
 	$network_summary = 'Not detected';
-	$network_source_summary = 'Manual entry required';
+	$network_source_summary = 'Can be added after import';
 	$network_help = 'Static Proxmox addresses are preferred. QEMU Guest Agent addresses are limited to interfaces whose MAC address matches this guest.';
 	if (count($network_candidates) === 1) {
 		$network_summary = (string) $network_candidates[0]['ip'];
@@ -3319,9 +3352,9 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 		$network_summary = count($network_candidates) . ' addresses detected';
 		$network_source_summary = pvewhmcs_network_source_label($network_candidates[0]['source'] ?? '');
 	} elseif (($network['agent_status'] ?? '') === 'unavailable') {
-		$network_help = 'No verified IPv4 address was returned by static configuration or QEMU Guest Agent. Enter the service address manually.';
+		$network_help = 'No verified IPv4 address was returned. Import now and complete the network details later, or enter the address manually.';
 	} elseif (($network['agent_status'] ?? '') === 'not_supported') {
-		$network_help = 'No static IPv4 address was reported for this container. Enter the service address manually.';
+		$network_help = 'No static IPv4 address was reported for this container. Import now and complete the network details later, or enter it manually.';
 	}
 	$initial_import_stage = ($_POST['import_ui_step'] ?? '') === 'review'
 		? 'review'
@@ -3435,12 +3468,12 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 					</div>
 					<div class="pve-import-section-heading">
 						<h4>Service network</h4>
-						<p>Choose the primary address WHMCS will store for this service.</p>
+						<p>Optional. Save a verified address now, or complete the network details after import.</p>
 					</div>
 					<div class="form-group">
-						<label for="pve-import-ip-choice">Primary IPv4</label>
-						<select id="pve-import-ip-choice" name="import_ip_choice" class="form-control" aria-describedby="pve-import-ip-help pve-import-ip-feedback" required>
-							<option value="">Select the service address</option>';
+						<label for="pve-import-ip-choice">Primary IPv4 <span class="pve-optional-label">Optional</span></label>
+						<select id="pve-import-ip-choice" name="import_ip_choice" class="form-control" aria-describedby="pve-import-ip-help pve-import-ip-feedback">
+							<option value="deferred"' . ($selected_ip_choice === 'deferred' ? ' selected' : '') . '>Complete network details later</option>';
 	foreach ($network_candidates as $candidate) {
 		$candidate_ip = (string) ($candidate['ip'] ?? '');
 		$candidate_label = $candidate_ip . ' · ' . pvewhmcs_network_source_label($candidate['source'] ?? '');
@@ -3482,8 +3515,8 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 								<div><dt>Node</dt><dd>' . htmlspecialchars($guest['node']) . '</dd></div>
 								<div><dt>Type</dt><dd>' . htmlspecialchars(strtoupper($guest['type'])) . '</dd></div>
 								<div><dt>VMID</dt><dd>' . intval($guest['vmid']) . ' · will be stored and verified</dd></div>
-								<div><dt>Primary IPv4</dt><dd id="pve-review-ip">Not selected</dd></div>
-								<div><dt>IP source</dt><dd id="pve-review-ip-source">Not selected</dd></div>
+								<div><dt>Primary IPv4</dt><dd id="pve-review-ip">Not assigned yet</dd></div>
+								<div><dt>Network status</dt><dd id="pve-review-ip-source">Network details pending</dd></div>
 							</dl>
 						</section>
 						<section aria-labelledby="pve-review-service-heading">
@@ -3507,7 +3540,7 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 					</div>
 					<label class="pve-import-confirm">
 						<input type="checkbox" name="import_confirmed" value="1" required>
-						<span>I verified the guest, VMID, primary IPv4, client, product, billing treatment, price, and payment method.</span>
+						<span>I verified the guest, VMID, client, product, billing treatment, price, payment method, and current network status.</span>
 					</label>
 					<div class="pve-import-review-actions">
 						<button type="button" id="pve-import-back-button" class="btn btn-default">Back to service details</button>
@@ -3582,10 +3615,19 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 
 		function getSelectedNetwork() {
 			var choice = $ipChoice.val();
+			if (!choice || choice === "deferred") {
+				return {
+					valid: true,
+					deferred: true,
+					ip: "Not assigned yet",
+					source: "Network details pending"
+				};
+			}
 			if (choice === "manual") {
 				var manualValue = $.trim($manualIp.val());
 				return {
 					valid: isUsableIpv4(manualValue),
+					deferred: false,
 					ip: manualValue || "Not entered",
 					source: "Manual entry"
 				};
@@ -3599,13 +3641,14 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 					};
 					return {
 						valid: true,
+						deferred: false,
 						ip: networkCandidates[index].ip,
 						source: sourceLabels[networkCandidates[index].source] || "Verified Proxmox data"
 					};
 				}
 			}
 
-			return {valid: false, ip: "Not selected", source: "Not selected"};
+			return {valid: false, deferred: false, ip: "Not selected", source: "Not selected"};
 		}
 
 		function updateNetworkFields() {
@@ -3614,8 +3657,8 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			$manualIp.prop("disabled", !usesManualIp).prop("required", usesManualIp);
 			var network = getSelectedNetwork();
 			$manualIp.attr("aria-invalid", usesManualIp && !network.valid ? "true" : "false");
-			if (!$ipChoice.val()) {
-				$ipFeedback.text("Select the IPv4 address that WHMCS should store for this service.");
+			if (network.deferred) {
+				$ipFeedback.text("The service will be imported without an IP address. Complete the network details later from Sync.");
 			} else if (usesManualIp && !network.valid) {
 				$ipFeedback.text("Enter a valid usable IPv4 address before creating the service.");
 			} else {
@@ -3745,8 +3788,8 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 			}
 
 			$("#pve-review-client").text(selectedLabel($client, "Not selected"));
-			$("#pve-review-ip").text(network.ip);
-			$("#pve-review-ip-source").text(network.source);
+			$("#pve-review-ip").text(network.ip).toggleClass("is-pending", network.deferred);
+			$("#pve-review-ip-source").text(network.source).toggleClass("is-pending", network.deferred);
 			$("#pve-review-product").text(selectedLabel($product, "Not selected"));
 			$("#pve-review-gateway").text(selectedLabel($gateway, "Not selected"));
 			$("#pve-review-treatment").text(treatment);
@@ -3843,11 +3886,145 @@ function pvewhmcs_render_import_guest_panel($selected_server_id, $guest, $networ
 	</script>';
 }
 
+function pvewhmcs_render_network_completion_panel($selected_server_id, $service, $mapping, $guest, $network, $csrf_token) {
+	$candidates = is_array($network['candidates'] ?? null) ? $network['candidates'] : [];
+	$candidate_ips = array_map(function ($candidate) {
+		return (string) ($candidate['ip'] ?? '');
+	}, $candidates);
+	$selected_ip = trim((string) ($_POST['network_ip_choice'] ?? ''));
+	$manual_ip = trim((string) ($_POST['network_manual_ip'] ?? ''));
+	if ($selected_ip === '') {
+		$selected_ip = count($candidates) === 1 ? $candidate_ips[0] : (empty($candidates) ? 'manual' : '');
+	} elseif ($selected_ip !== 'manual' && !in_array($selected_ip, $candidate_ips, true)) {
+		$selected_ip = count($candidates) === 1 ? $candidate_ips[0] : (empty($candidates) ? 'manual' : '');
+	}
+	$cancel_url = pvewhmcs_BASEURL . '&amp;tab=sync&amp;pve_server_id=' . intval($selected_server_id)
+		. '#pve-service-' . intval($service->id);
+	$network_help = empty($candidates)
+		? 'No verified address was detected. Enter the primary IPv4 address manually.'
+		: 'Choose the verified address WHMCS should store for this service.';
+
+	echo '<section id="pve-complete-network" class="pve-import-panel" aria-labelledby="pve-complete-network-title">
+		<div class="pve-import-panel-header">
+			<div>
+				<h3 id="pve-complete-network-title">Complete network details</h3>
+				<p>Save the primary address in the WHMCS service and module mapping. The Proxmox guest configuration will not be changed.</p>
+			</div>
+			<a class="btn btn-default btn-sm" href="' . $cancel_url . '">Cancel</a>
+		</div>
+		<form method="post" id="pve-complete-network-form">
+			<input type="hidden" name="token" value="' . htmlspecialchars($csrf_token, ENT_QUOTES, 'UTF-8') . '">
+			<input type="hidden" name="pve_server_id" value="' . intval($selected_server_id) . '">
+			<input type="hidden" name="pve_sync_action" value="complete_network">
+			<input type="hidden" name="service_id" value="' . intval($service->id) . '">
+			<input type="hidden" name="vmid" value="' . intval($mapping->vmid) . '">
+			<div class="pve-network-completion-layout">
+				<div class="pve-import-guest-summary">
+					<h4>Linked service</h4>
+					<strong>Service #' . intval($service->id) . ' · ' . htmlspecialchars((string) $service->domain) . '</strong>
+					<dl>
+						<div><dt>Guest</dt><dd>' . htmlspecialchars((string) $guest['name']) . '</dd></div>
+						<div><dt>VMID</dt><dd>' . intval($mapping->vmid) . '</dd></div>
+						<div><dt>Node</dt><dd>' . htmlspecialchars((string) $guest['node']) . '</dd></div>
+						<div><dt>Type</dt><dd>' . htmlspecialchars(strtoupper((string) $guest['type'])) . '</dd></div>
+						<div><dt>Stored IPv4</dt><dd>' . htmlspecialchars(trim((string) $mapping->ipaddress) ?: 'Not assigned') . '</dd></div>
+					</dl>
+				</div>
+				<div class="pve-import-fields">
+					<h4 tabindex="-1">Network details</h4>
+					<div class="form-group">
+						<label for="pve-complete-ip-choice">Primary IPv4</label>
+						<select id="pve-complete-ip-choice" name="network_ip_choice" class="form-control" aria-describedby="pve-complete-ip-help pve-complete-ip-feedback" required>
+							<option value="">Select a verified address</option>';
+	foreach ($candidates as $candidate) {
+		$candidate_ip = (string) ($candidate['ip'] ?? '');
+		$candidate_label = $candidate_ip . ' · ' . pvewhmcs_network_source_label($candidate['source'] ?? '');
+		if (!empty($candidate['interface'])) {
+			$candidate_label .= ' · ' . $candidate['interface'];
+		}
+		$selected = $candidate_ip === $selected_ip ? ' selected' : '';
+		echo '<option value="' . htmlspecialchars($candidate_ip, ENT_QUOTES, 'UTF-8') . '"' . $selected . '>'
+			. htmlspecialchars($candidate_label, ENT_QUOTES, 'UTF-8') . '</option>';
+	}
+	echo '<option value="manual"' . ($selected_ip === 'manual' ? ' selected' : '') . '>Enter IPv4 manually</option>
+						</select>
+						<p id="pve-complete-ip-help" class="help-block">' . htmlspecialchars($network_help) . '</p>
+						<p id="pve-complete-ip-feedback" class="pve-import-field-feedback" role="status"></p>
+					</div>
+					<div class="form-group" id="pve-complete-manual-ip-group"' . ($selected_ip === 'manual' ? '' : ' hidden') . '>
+						<label for="pve-complete-manual-ip">Manual IPv4 address</label>
+						<input type="text" id="pve-complete-manual-ip" name="network_manual_ip" class="form-control" inputmode="decimal" maxlength="15" autocomplete="off" value="' . htmlspecialchars($manual_ip, ENT_QUOTES, 'UTF-8') . '" placeholder="10.0.0.10"' . ($selected_ip === 'manual' ? ' required' : ' disabled') . '>
+						<p class="help-block">Private addresses are accepted. Loopback, link-local, multicast, and reserved addresses are rejected.</p>
+					</div>
+					<label class="pve-import-confirm">
+						<input type="checkbox" id="pve-complete-network-confirm" name="network_confirmed" value="1" required>
+						<span>I verified the service, VMID, guest, and primary IPv4 address.</span>
+					</label>
+				</div>
+			</div>
+			<div class="pve-import-stage-actions">
+				<p>This updates WHMCS and the module mapping only.</p>
+				<button type="submit" id="pve-complete-network-submit" class="btn btn-primary" disabled>Save network details</button>
+			</div>
+		</form>
+	</section>
+	<script>
+	jQuery(function($) {
+		var $choice = $("#pve-complete-ip-choice");
+		var $manualGroup = $("#pve-complete-manual-ip-group");
+		var $manual = $("#pve-complete-manual-ip");
+		var $confirm = $("#pve-complete-network-confirm");
+		var $submit = $("#pve-complete-network-submit");
+		var $feedback = $("#pve-complete-ip-feedback");
+
+		function isUsableIpv4(value) {
+			var parts = $.trim(value).split(".");
+			if (parts.length !== 4) {
+				return false;
+			}
+			for (var index = 0; index < parts.length; index++) {
+				if (!/^\\d{1,3}$/.test(parts[index]) || Number(parts[index]) > 255
+					|| String(Number(parts[index])) !== parts[index]) {
+					return false;
+				}
+			}
+			var first = Number(parts[0]);
+			var second = Number(parts[1]);
+			return first !== 0 && first !== 127 && first < 224 && !(first === 169 && second === 254);
+		}
+
+		function updateState() {
+			var manual = $choice.val() === "manual";
+			$manualGroup.prop("hidden", !manual);
+			$manual.prop("disabled", !manual).prop("required", manual);
+			var addressValid = manual ? isUsableIpv4($manual.val()) : Boolean($choice.val());
+			$manual.attr("aria-invalid", manual && !addressValid ? "true" : "false");
+			$feedback.text(addressValid
+				? "This address will be stored in the service and module mapping."
+				: "Select or enter a valid primary IPv4 address.");
+			$submit.prop("disabled", !(addressValid && $confirm.prop("checked")));
+		}
+
+		$choice.on("change", function() {
+			$confirm.prop("checked", false);
+			updateState();
+		});
+		$manual.on("input", function() {
+			$confirm.prop("checked", false);
+			updateState();
+		});
+		$confirm.on("change", updateState);
+		updateState();
+	});
+	</script>';
+}
+
 // GUI ACTION: Renders the Proxmox to WHMCS Service Alignment & Sync page.
 function pvewhmcs_sync_page() {
 	$action_result = '';
 	$focus_service_id = 0;
 	$focus_import_vmid = intval($_REQUEST['import_vmid'] ?? 0);
+	$focus_network_service_id = intval($_REQUEST['network_service_id'] ?? 0);
 
 	$servers = Capsule::table('tblservers')
 		->where('type', '=', 'pvewhmcs')
@@ -3915,7 +4092,7 @@ function pvewhmcs_sync_page() {
 
 		try {
 			if (($_POST['import_confirmed'] ?? '') !== '1') {
-				throw new InvalidArgumentException('Confirm that you reviewed the guest, VMID, primary IPv4, client, product, billing treatment, price, and payment method.');
+				throw new InvalidArgumentException('Confirm that you reviewed the guest, VMID, client, product, billing treatment, price, payment method, and current network status.');
 			}
 
 			if ($vmid < 100 || !isset($pve_guests[$vmid])) {
@@ -3933,7 +4110,8 @@ function pvewhmcs_sync_page() {
 			$network = pvewhmcs_resolve_import_network(
 				$network,
 				$_POST['import_ip_choice'] ?? '',
-				$_POST['import_manual_ip'] ?? ''
+				$_POST['import_manual_ip'] ?? '',
+				true
 			);
 
 			$cluster_identity = pvewhmcs_get_cluster_identity($cluster_resources);
@@ -3963,11 +4141,14 @@ function pvewhmcs_sync_page() {
 
 			$focus_service_id = intval($import['service_id']);
 			$focus_import_vmid = 0;
+			$network_result = $import['network']['ip'] !== ''
+				? 'Primary IPv4: ' . htmlspecialchars($import['network']['ip']) . '.'
+				: 'Network details are pending and can be completed from Sync.';
 			$action_result = '<div class="alert alert-success" role="status">Imported VMID '
 				. $vmid . ' as <a href="clientsservices.php?id=' . intval($import['service_id']) . '" target="_blank">Service #'
 				. intval($import['service_id']) . '</a> using Order #' . intval($import['order_id'])
-				. ' with IPv4 ' . htmlspecialchars($import['network']['ip'])
-				. '. Billing: ' . htmlspecialchars($import['pricing']['label'])
+				. '. ' . $network_result
+				. ' Billing: ' . htmlspecialchars($import['pricing']['label'])
 				. '. Service status: ' . htmlspecialchars($import['status']) . '. No module create command was run.</div>';
 		} catch (InvalidArgumentException $e) {
 			$action_result = '<div class="alert alert-warning" role="alert">' . htmlspecialchars($e->getMessage()) . '</div>';
@@ -3986,7 +4167,126 @@ function pvewhmcs_sync_page() {
 		}
 	}
 
-	if (isset($_POST['pve_sync_action']) && $_POST['pve_sync_action'] !== 'import_guest') {
+	if (isset($_POST['pve_sync_action']) && $_POST['pve_sync_action'] === 'complete_network') {
+		$serviceid = intval($_POST['service_id'] ?? 0);
+		$vmid = intval($_POST['vmid'] ?? 0);
+		$focus_service_id = $serviceid;
+		$focus_network_service_id = $serviceid;
+		$mapping_lock_name = null;
+
+		try {
+			if (($_POST['network_confirmed'] ?? '') !== '1') {
+				throw new InvalidArgumentException('Confirm that you reviewed the service, VMID, guest, and primary IPv4 address.');
+			}
+
+			$service = Capsule::table('tblhosting')
+				->where('id', $serviceid)
+				->where('server', $selected_server_id)
+				->first();
+			$mapping = Capsule::table('mod_pvewhmcs_vms')
+				->where('id', $serviceid)
+				->first();
+			if (!$service || !$mapping) {
+				throw new InvalidArgumentException('The selected service does not have a mapping on this Proxmox server.');
+			}
+			if ($vmid < 100 || intval($mapping->vmid) !== $vmid || !isset($pve_guests[$vmid])) {
+				throw new InvalidArgumentException('The linked Proxmox guest is no longer available. Refresh Sync before updating the network.');
+			}
+
+			$guest = $pve_guests[$vmid];
+			$discovered_network = pvewhmcs_get_vm_network_from_proxmox(
+				$proxmox,
+				$guest['node'],
+				$guest['type'],
+				$vmid,
+				true
+			);
+			$network = pvewhmcs_resolve_import_network(
+				$discovered_network,
+				$_POST['network_ip_choice'] ?? '',
+				$_POST['network_manual_ip'] ?? ''
+			);
+			$service_ip_owner = Capsule::table('tblhosting')
+				->where('server', $selected_server_id)
+				->where('id', '!=', $serviceid)
+				->whereNotIn('domainstatus', ['Terminated', 'Cancelled', 'Fraud'])
+				->where('dedicatedip', $network['ip'])
+				->first();
+			if ($service_ip_owner) {
+				throw new InvalidArgumentException('Primary IPv4 is already assigned to Service #'
+					. intval($service_ip_owner->id) . '.');
+			}
+
+			$cluster_identity = pvewhmcs_get_cluster_identity($cluster_resources);
+			$mapping_lock_name = pvewhmcs_acquire_vmid_lock($cluster_identity, $vmid);
+			$vmid_owner = pvewhmcs_find_vmid_owner_on_cluster(
+				$selected_server_id,
+				$serviceid,
+				$vmid,
+				$cluster_identity
+			);
+			if ($vmid_owner) {
+				throw new InvalidArgumentException('This VMID is already mapped to Service #' . intval($vmid_owner->id) . ' on this Proxmox cluster.');
+			}
+
+			$old_primary_ip = trim((string) $mapping->ipaddress);
+			$assigned_ips = pvewhmcs_merge_assigned_ips(
+				$service->assignedips,
+				$old_primary_ip,
+				$network['ip']
+			);
+			Capsule::connection()->transaction(function () use ($serviceid, $guest, $vmid, $network, $assigned_ips) {
+				Capsule::table('mod_pvewhmcs_vms')
+					->where('id', $serviceid)
+					->update([
+						'vmid' => $vmid,
+						'vtype' => $guest['type'],
+						'ipaddress' => $network['ip'],
+						'subnetmask' => $network['subnet'],
+						'gateway' => $network['gateway'],
+					]);
+				Capsule::table('tblhosting')
+					->where('id', $serviceid)
+					->update([
+						'dedicatedip' => $network['ip'],
+						'assignedips' => $assigned_ips,
+					]);
+				$stored_mapping = Capsule::table('mod_pvewhmcs_vms')->where('id', $serviceid)->first();
+				$stored_service = Capsule::table('tblhosting')->where('id', $serviceid)->first();
+				if (!$stored_mapping || !$stored_service
+					|| trim((string) $stored_mapping->ipaddress) !== $network['ip']
+					|| trim((string) $stored_service->dedicatedip) !== $network['ip']
+					|| trim((string) $stored_service->assignedips) !== trim((string) $assigned_ips)) {
+					throw new RuntimeException('WHMCS did not persist the completed network details.');
+				}
+			});
+
+			$source_label = pvewhmcs_network_source_label($network['source'] ?? '');
+			logActivity(
+				'PVEWHMCS completed network details for Service #' . $serviceid
+				. ', VMID ' . $vmid . ', with IPv4 ' . $network['ip']
+				. ' from ' . $source_label . '.',
+				intval($service->userid)
+			);
+			$action_result = '<div class="alert alert-success" role="status">Saved Primary IPv4 '
+				. htmlspecialchars($network['ip']) . ' for Service #' . $serviceid
+				. ' and VMID ' . $vmid . ' from ' . htmlspecialchars($source_label) . '.</div>';
+			$focus_network_service_id = 0;
+		} catch (InvalidArgumentException $e) {
+			$action_result = '<div class="alert alert-warning" role="alert">' . htmlspecialchars($e->getMessage()) . '</div>';
+		} catch (Throwable $e) {
+			logModuleCall('pvewhmcs', 'sync_complete_network', [
+				'server_id' => $selected_server_id,
+				'service_id' => $serviceid,
+				'vmid' => $vmid,
+			], $e->getMessage());
+			$action_result = '<div class="alert alert-danger" role="alert">The network update failed. No partial database change was kept.</div>';
+		} finally {
+			pvewhmcs_release_vmid_lock($mapping_lock_name);
+		}
+	}
+
+	if (isset($_POST['pve_sync_action']) && !in_array($_POST['pve_sync_action'], ['import_guest', 'complete_network'], true)) {
 		$action = trim((string) $_POST['pve_sync_action']);
 		$serviceid = intval($_POST['service_id'] ?? 0);
 		$vmid = intval($_POST['vmid'] ?? 0);
@@ -4029,7 +4329,8 @@ function pvewhmcs_sync_page() {
 					$proxmox,
 					$guest['node'],
 					$guest['type'],
-					$vmid
+					$vmid,
+					true
 				);
 
 				$cluster_identity = pvewhmcs_get_cluster_identity($cluster_resources);
@@ -4079,7 +4380,12 @@ function pvewhmcs_sync_page() {
 					}
 
 					$ipaddress = $network['ip'] ?: trim((string) $service->dedicatedip);
-					Capsule::connection()->transaction(function () use ($serviceid, $service, $guest, $vmid, $network, $ipaddress) {
+					$assigned_ips = pvewhmcs_merge_assigned_ips(
+						$service->assignedips,
+						$service->dedicatedip,
+						$ipaddress
+					);
+					Capsule::connection()->transaction(function () use ($serviceid, $service, $guest, $vmid, $network, $ipaddress, $assigned_ips) {
 						Capsule::table('mod_pvewhmcs_vms')->insert([
 							'id' => $serviceid,
 							'vmid' => $vmid,
@@ -4091,10 +4397,13 @@ function pvewhmcs_sync_page() {
 							'created' => date('Y-m-d H:i:s'),
 						]);
 
-						if ($network['ip'] !== '') {
+						if ($ipaddress !== '') {
 							Capsule::table('tblhosting')
 								->where('id', $serviceid)
-								->update(['dedicatedip' => $network['ip']]);
+								->update([
+									'dedicatedip' => $ipaddress,
+									'assignedips' => $assigned_ips,
+								]);
 						}
 					});
 
@@ -4107,7 +4416,12 @@ function pvewhmcs_sync_page() {
 					$ipaddress = $network['ip'] ?: $existing_mapping->ipaddress;
 					$subnetmask = $network['subnet'] ?: $existing_mapping->subnetmask;
 					$gateway = $network['gateway'] ?: $existing_mapping->gateway;
-					Capsule::connection()->transaction(function () use ($serviceid, $guest, $vmid, $network, $ipaddress, $subnetmask, $gateway) {
+					$assigned_ips = pvewhmcs_merge_assigned_ips(
+						$service->assignedips,
+						$service->dedicatedip,
+						$ipaddress
+					);
+					Capsule::connection()->transaction(function () use ($serviceid, $guest, $vmid, $network, $ipaddress, $subnetmask, $gateway, $assigned_ips) {
 						Capsule::table('mod_pvewhmcs_vms')
 							->where('id', $serviceid)
 							->update([
@@ -4118,10 +4432,13 @@ function pvewhmcs_sync_page() {
 								'gateway' => $gateway,
 							]);
 
-						if ($network['ip'] !== '') {
+						if ($ipaddress !== '') {
 							Capsule::table('tblhosting')
 								->where('id', $serviceid)
-								->update(['dedicatedip' => $network['ip']]);
+								->update([
+									'dedicatedip' => $ipaddress,
+									'assignedips' => $assigned_ips,
+								]);
 						}
 					});
 
@@ -4225,6 +4542,7 @@ function pvewhmcs_sync_page() {
 		$pve_vm = isset($pve_guests[$vmid]) ? $pve_guests[$vmid] : null;
 		$has_discrepancy = false;
 		$discrepancy_reasons = [];
+		$network_pending = trim((string) $srv->dedicatedip) === '' || trim((string) $map->ipaddress) === '';
 		$pve_ip = '';
 		$pve_network = ['ip' => '', 'subnet' => '', 'gateway' => ''];
 
@@ -4236,7 +4554,12 @@ function pvewhmcs_sync_page() {
 			}
 
 			// 1. IP Check
-			if ($srv->dedicatedip !== $pve_ip) {
+			if ($network_pending) {
+				$has_discrepancy = true;
+				$discrepancy_reasons[] = $pve_network['ip'] !== ''
+					? "Network details pending: Proxmox reported '{$pve_network['ip']}'"
+					: 'Network details pending: no primary IPv4 is stored yet';
+			} elseif ($srv->dedicatedip !== $pve_ip) {
 				$has_discrepancy = true;
 				$discrepancy_reasons[] = "IP mismatch: WHMCS has '{$srv->dedicatedip}', Proxmox has '{$pve_ip}'";
 			}
@@ -4282,7 +4605,8 @@ function pvewhmcs_sync_page() {
 				'gateway' => $pve_network['gateway'] ?: $map->gateway,
 			]) : null,
 			'custom_vmid' => isset($service_custom_vmids[$srv_id]) ? $service_custom_vmids[$srv_id] : '',
-			'reasons' => $discrepancy_reasons
+			'reasons' => $discrepancy_reasons,
+			'network_pending' => $network_pending,
 		];
 	}
 
@@ -4314,7 +4638,8 @@ function pvewhmcs_sync_page() {
 			'mapping' => null,
 			'pve_vm' => $pve_vm,
 			'custom_vmid' => $custom_vmid,
-			'reasons' => []
+			'reasons' => [],
+			'network_pending' => false,
 		];
 	}
 
@@ -4334,7 +4659,8 @@ function pvewhmcs_sync_page() {
 			'mapping' => null,
 			'pve_vm' => $guest,
 			'custom_vmid' => '',
-			'reasons' => []
+			'reasons' => [],
+			'network_pending' => false,
 		];
 	}
 
@@ -4355,6 +4681,8 @@ function pvewhmcs_sync_page() {
 	$initial_search = $focus_service_id ? (string) $focus_service_id : '';
 	$import_panel_data = null;
 	$import_panel_warning = '';
+	$network_panel_data = null;
+	$network_panel_warning = '';
 
 	if ($focus_import_vmid > 0) {
 		if (!isset($pve_guests[$focus_import_vmid])) {
@@ -4415,6 +4743,41 @@ function pvewhmcs_sync_page() {
 				$import_panel_warning = in_array($e->getMessage(), $known_form_errors, true)
 					? $e->getMessage()
 					: 'The import review could not be prepared. Review the module log and try again.';
+			}
+		}
+	}
+
+	if ($focus_network_service_id > 0) {
+		$network_service = $whmcs_services->get($focus_network_service_id);
+		$network_mapping = $mappings[$focus_network_service_id] ?? null;
+		$network_vmid = $network_mapping ? intval($network_mapping->vmid) : 0;
+		if (!$network_service || !$network_mapping) {
+			$network_panel_warning = 'The selected service does not have a mapping on this Proxmox server.';
+		} elseif ($network_vmid < 100 || !isset($pve_guests[$network_vmid])) {
+			$network_panel_warning = 'The linked Proxmox guest is no longer available. Review the mapping before completing network details.';
+		} else {
+			try {
+				$network_guest = $pve_guests[$network_vmid];
+				$network_discovery = pvewhmcs_get_vm_network_from_proxmox(
+					$proxmox,
+					$network_guest['node'],
+					$network_guest['type'],
+					$network_vmid,
+					true
+				);
+				$network_panel_data = [
+					'service' => $network_service,
+					'mapping' => $network_mapping,
+					'guest' => $network_guest,
+					'network' => $network_discovery,
+				];
+			} catch (Throwable $e) {
+				logModuleCall('pvewhmcs', 'sync_complete_network_form', [
+					'server_id' => $selected_server_id,
+					'service_id' => $focus_network_service_id,
+					'vmid' => $network_vmid,
+				], $e->getMessage());
+				$network_panel_warning = 'The network details form could not be prepared. Review the module log and try again.';
 			}
 		}
 	}
@@ -4881,11 +5244,17 @@ function pvewhmcs_sync_page() {
 		display: grid;
 		grid-template-columns: minmax(240px, 0.75fr) minmax(420px, 1.5fr);
 	}
-	.pve-import-layout > * {
+	.pve-network-completion-layout {
+		display: grid;
+		grid-template-columns: minmax(240px, 0.85fr) minmax(360px, 1.25fr);
+	}
+	.pve-import-layout > *,
+	.pve-network-completion-layout > * {
 		min-width: 0;
 		padding: 18px;
 	}
-	.pve-import-layout > * + * {
+	.pve-import-layout > * + *,
+	.pve-network-completion-layout > * + * {
 		border-left: 1px solid #e3e7ec;
 	}
 	.pve-import-guest-summary strong {
@@ -4918,6 +5287,9 @@ function pvewhmcs_sync_page() {
 		overflow-wrap: anywhere;
 		text-align: right;
 	}
+	.pve-import-panel dd.is-pending {
+		color: #9a6700;
+	}
 	.pve-import-fields > h4 {
 		margin-bottom: 16px;
 	}
@@ -4940,6 +5312,12 @@ function pvewhmcs_sync_page() {
 		color: #39495a;
 		font-size: 12px;
 		font-weight: 600;
+	}
+	.pve-optional-label {
+		margin-left: 5px;
+		color: #66788a;
+		font-size: 11px;
+		font-weight: 500;
 	}
 	.pve-import-fields .form-control {
 		width: 100%;
@@ -5059,7 +5437,8 @@ function pvewhmcs_sync_page() {
 		gap: 8px;
 	}
 	#pve-import-details-title:focus,
-	#pve-import-review-title:focus {
+	#pve-import-review-title:focus,
+	#pve-complete-network-title:focus {
 		outline: 2px solid #6f4a8e;
 		outline-offset: 3px;
 	}
@@ -5079,7 +5458,11 @@ function pvewhmcs_sync_page() {
 		.pve-import-layout {
 			grid-template-columns: 1fr;
 		}
-		.pve-import-layout > * + * {
+		.pve-network-completion-layout {
+			grid-template-columns: 1fr;
+		}
+		.pve-import-layout > * + *,
+		.pve-network-completion-layout > * + * {
 			border-top: 1px solid #e3e7ec;
 			border-left: 0;
 		}
@@ -5126,6 +5509,19 @@ function pvewhmcs_sync_page() {
 			$import_panel_data['products'],
 			$import_panel_data['gateways'],
 			$import_panel_data['catalog'],
+			$csrf_token
+		);
+	}
+	if ($network_panel_warning !== '') {
+		echo '<div class="alert alert-warning" role="alert">' . htmlspecialchars($network_panel_warning) . '</div>';
+	}
+	if ($network_panel_data !== null) {
+		pvewhmcs_render_network_completion_panel(
+			$selected_server_id,
+			$network_panel_data['service'],
+			$network_panel_data['mapping'],
+			$network_panel_data['guest'],
+			$network_panel_data['network'],
 			$csrf_token
 		);
 	}
@@ -5196,7 +5592,10 @@ function pvewhmcs_sync_page() {
 			</form>';
 		} elseif ($row['type'] === 'discrepancy') {
 			$row_class = 'pve-row-discrepancy';
-			$badge = '<span class="pve-badge-status discrepancy">Discrepancy</span>';
+			$network_only = !empty($row['network_pending']) && count($row['reasons']) === 1;
+			$badge = $network_only
+				? '<span class="pve-badge-status discrepancy">Network pending</span>'
+				: '<span class="pve-badge-status discrepancy">Discrepancy</span>';
 
 			$reasons_str = '';
 			foreach ($row['reasons'] as $reason) {
@@ -5204,7 +5603,12 @@ function pvewhmcs_sync_page() {
 			}
 			$reasons_html = '<div class="pve-reasons-list">' . $reasons_str . '</div>';
 
-			if ($row['pve_vm']) {
+			if ($row['pve_vm'] && !empty($row['network_pending'])) {
+				$complete_network_url = pvewhmcs_BASEURL . '&amp;tab=sync&amp;pve_server_id=' . intval($selected_server_id)
+					. '&amp;network_service_id=' . intval($row['service']->id) . '#pve-complete-network';
+				$actions_html .= '<div style="margin-bottom:5px;"><a class="btn btn-xs btn-warning" href="'
+					. $complete_network_url . '">Complete network details</a></div>';
+			} elseif ($row['pve_vm']) {
 				$actions_html .= '
 				<form method="post" style="margin:0 0 5px;display:inline-block;" onsubmit="return confirm(\'Replace the stored mapping details with the current Proxmox guest configuration?\');">
 					' . $common_form_fields . '
@@ -5311,7 +5715,8 @@ function pvewhmcs_sync_page() {
 			return $part !== null && $part !== '';
 		})));
 
-		echo '<tr class="pve-sync-row ' . $row_class . '" data-type="' . $row['type'] . '" data-search="' . htmlspecialchars($row_search, ENT_QUOTES, 'UTF-8') . '">';
+		$row_id = $row['service'] ? ' id="pve-service-' . intval($row['service']->id) . '"' : '';
+		echo '<tr' . $row_id . ' class="pve-sync-row ' . $row_class . '" data-type="' . $row['type'] . '" data-search="' . htmlspecialchars($row_search, ENT_QUOTES, 'UTF-8') . '">';
 
 		// Proxmox side column
 		echo '<td>';

@@ -9,9 +9,12 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Import Guest: Search clients inside the native WHMCS dropdown and choose product pricing, internal free billing, or a custom price override.
 - Import Guest: Display ID, email, company, and name in every client result, mark missing values, and search across all four fields.
 - Import Guest: Detect usable IPv4 addresses from static guest configuration or matching QEMU Guest Agent interfaces, with explicit selection and validated manual entry fallbacks.
+- Import Guest: Allow services to be imported with network details pending and completed later from Sync without blocking VMID-based module commands.
+- Sync: Add a guided network-completion action that retries static and QEMU Guest Agent discovery or accepts a validated manual IPv4 address.
 
 ### 💅 Polish
 - Import Guest: Turn the stepper into separate service-details and final-review stages, place network identity last in the editable flow, and preserve values when returning to edit.
+- Sync: Surface mapped services without a primary IPv4 as Network pending instead of treating the missing address as an import failure.
 
 ### 🛡️ Safety
 - Sync: Revalidate server, service, guest, and VMID data before mapping; revalidate hostname and known IP data for auto-match links.
@@ -21,7 +24,8 @@ All notable changes to Proxmox VE for WHMCS will be documented in this file.
 - Import Guest: Use WHMCS order and service APIs, suppress invoices and emails, never run module create, and roll back failed pending imports.
 - Import Guest: Keep paid services pending; accept free orders with module setup disabled and align the service status to the live guest state.
 - Import Guest: Require an audit reason for billing overrides and verify zero-cost order totals, Free Account persistence, and custom service amounts before mapping a guest.
-- Import Guest: Persist and verify the guest VMID in the product VMID/VPSID custom field, and verify the selected IPv4 server-side before creating the mapping.
+- Import Guest: Persist and verify the guest VMID in the product VMID/VPSID custom field, and verify any selected IPv4 server-side before creating the mapping.
+- Sync: Reject duplicate primary IPv4 assignments and update the service dedicated IP, assigned IPs, and module mapping together.
 
 ### 🐛 Bug Fix
 - Client Area: Render the standard error state when a mapped guest cannot be found or the Proxmox login fails.
