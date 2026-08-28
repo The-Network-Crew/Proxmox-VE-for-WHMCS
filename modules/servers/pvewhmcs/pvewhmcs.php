@@ -1209,7 +1209,7 @@ function pvewhmcs_ClientArea($params) {
 			// Initialize as an empty array if the API request fails to avoid PHP array access errors
 			$guest_config = array();
 		}
-		
+
 		// Query Proxmox cluster resources to find the status of this specific guest.
 		// If the API call fails or there are permission limitations, this call may return null or false.
 		// We fallback to an empty array to prevent downstream loop/foreach failures.
