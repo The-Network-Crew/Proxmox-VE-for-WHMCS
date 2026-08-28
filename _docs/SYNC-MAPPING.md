@@ -64,22 +64,12 @@ service already exists, link it instead so the client is not charged twice.
 2. Filter the table to **Orphaned guests** and verify the VMID, guest name, node,
    type, resource limits, state, and available network data.
 3. Click **Create WHMCS service** for the verified guest.
-4. Search for and select the active client inside the client dropdown, then
-   select a compatible Proxmox product. Billing cycles are limited to those
-   enabled for the product in the client's currency.
-5. Select the billing treatment:
-   - **Use product pricing** keeps the configured product price and normal
-     billing workflow.
-   - **Internal / Free** overrides the service price to zero, requires an
-     audit reason, and converts the service to `Free Account`.
-   - **Custom price override** requires an amount and audit reason. A zero
-     override becomes `Free Account`; a positive override keeps the selected
-     cycle and remains pending for billing review.
-6. Select the billing cycle and payment method. Review the effective treatment,
-   price, and initial service status. A zero-cost import cannot use a cycle with
-   a setup fee; select another cycle or a native free product.
-7. Confirm the review checkbox and submit the import.
-8. Open the service link in the success message and verify the client, product,
+4. Select the active client and a compatible Proxmox product. Billing cycles are
+   limited to those enabled for the product in the client's currency.
+5. Select the billing cycle and payment method. Review the calculated price and
+   the initial service status.
+6. Confirm the review checkbox and submit the import.
+7. Open the service link in the success message and verify the client, product,
    server, hostname, IP address, billing cycle, status, and VMID mapping.
 
 The import takes its guest identity and network values from the selected live
@@ -89,21 +79,11 @@ subnet, gateway, or node values.
 WHMCS creates the order and service through the local API with invoices and
 emails suppressed. The module create command is never run:
 
-- Product-priced and positive custom-price orders remain `Pending` for an
-  administrator to review and accept through the normal WHMCS order and billing
-  workflow.
-- A native free product, **Internal / Free**, or zero custom override is accepted
-  automatically with module setup disabled. Its service becomes `Active` when
-  the guest is running, `Suspended` when the guest is stopped, and remains
-  `Pending` when the live state is unknown.
-- Override reasons and the effective billing treatment are stored in the service
-  notes and WHMCS activity log.
-
-For every zero-cost import, the addon verifies that the order total is zero and
-that WHMCS persisted the service as `Free Account` with zero first and recurring
-amounts before it creates the guest mapping. A positive custom price is also
-verified against the stored service amounts. Failed verification triggers the
-normal pending-order rollback path.
+- Paid and one-time orders remain `Pending` for an administrator to review and
+  accept through the normal WHMCS order and billing workflow.
+- A `Free Account` order is accepted automatically with module setup disabled.
+  Its service becomes `Active` when the guest is running, `Suspended` when the
+  guest is stopped, and remains `Pending` when the live state is unknown.
 
 If the import fails before the order is accepted, the addon removes its mapping
 and attempts to cancel and delete the pending order. If WHMCS cannot complete
@@ -173,12 +153,8 @@ Before deployment:
   or select element.
 - Confirm that the import form has no preselected client, product, billing
   cycle, or payment method and cannot submit until the review checkbox is set.
-- Confirm that native client dropdown search, compatible-product filtering,
-  client-currency pricing, billing-treatment fields, and the responsive
-  three-column review layout render correctly.
-- Confirm that override reason and custom price are required only for their
-  applicable billing treatments, and that a zero override with a setup fee is
-  rejected before submission.
+- Confirm that the client search, compatible-product filter, client-currency
+  pricing, and responsive three-column review layout render correctly.
 - Exercise validation with an invalid or unavailable VMID and verify that order,
   service, and mapping counts do not change.
 
@@ -188,8 +164,8 @@ After deployment:
 - Confirm that the server selector, filters, search field, and table render.
 - Search for a known service and confirm that the proposed action is correct.
 - Open an orphaned guest's import review and confirm that its live identity,
-  network data, compatible products, billing cycles, effective treatment,
-  price, and intended status are correct.
+  network data, compatible products, billing cycles, prices, and intended
+  status are correct.
 - Do not execute a mapping action as part of a display-only smoke test.
 
 ## Deployment and rollback
