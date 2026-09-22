@@ -1,5 +1,36 @@
 # SQL Statements for Updates (nav to DB first)
 
+## Durable guest suspension (existing installations)
+
+Before deploying the matching server-module code, back up the WHMCS database and
+the two module directories. Apply this idempotent migration to the WHMCS database:
+
+```sql
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_suspensions` (
+  `service_id` int(10) unsigned NOT NULL,
+  `server_id` int(10) unsigned NOT NULL,
+  `server_host` varchar(255) NOT NULL,
+  `vmid` int(10) unsigned NOT NULL,
+  `vtype` varchar(8) NOT NULL,
+  `guest_identity` char(64) NOT NULL,
+  `onboot` tinyint(1) unsigned NOT NULL,
+  `networks` longtext NOT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`service_id`)
+);
+```
+
+The module refuses suspend/unsuspend commands if the table is absent. No version
+bump is assumed, so the addon upgrade callback does not create this table.
+Validate first with a dedicated QEMU/LXC test guest, including retry and restore.
+
+Rollback: stop new suspend/unsuspend commands, restore the previous module files,
+and manually restore any guests represented by rows in this table before removing
+it. A row contains a guest fingerprint, its original `onboot` value and full `netN` strings.
+Do not drop the table while rows exist; it is the only automated restoration
+record. Once all rows are reconciled and verified, the table can be removed with
+`DROP TABLE mod_pvewhmcs_suspensions;` if desired.
+
 ## v1.2.14 & onwards...
 
 > [!NOTE]  

@@ -131,3 +131,15 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `v6prefix` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
+CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_suspensions` (
+  `service_id` int(10) unsigned NOT NULL,
+  `server_id` int(10) unsigned NOT NULL,
+  `server_host` varchar(255) NOT NULL,
+  `vmid` int(10) unsigned NOT NULL,
+  `vtype` varchar(8) NOT NULL,
+  `guest_identity` char(64) NOT NULL,
+  `onboot` tinyint(1) unsigned NOT NULL,
+  `networks` longtext NOT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`service_id`)
+);

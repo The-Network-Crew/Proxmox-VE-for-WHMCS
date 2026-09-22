@@ -257,6 +257,17 @@ You can associate an existing PVE Guest through the WHMCS Module too, like this:
 > [!CAUTION]  
 > All module-imported services need to be checked and amended to ensure configs such as Billing Cycle, Price, Discount, Assigned IPs, NS1/2, etc, are properly set!
 
+### Per-service Start on boot
+
+The admin service page shows a **Start on boot** checkbox and a separate read-only
+**Current Proxmox onboot** value. The plan setting remains the provisioning default.
+For an active service, saving the checkbox updates and verifies that guest's live
+Proxmox setting. For a suspended service, it changes only the saved value to
+restore on the next successful Unsuspend; the guest remains stopped with
+`onboot=0` in the meantime. A legacy suspended service without a suspension
+snapshot is read-only until it has been unsuspended. The field is unavailable
+when the service or guest cannot be safely verified.
+
 ### Custom Fields: Important Notes (ZFS/CTs)
 
 #### ZFS etc: Configure to suit isolated TPLs

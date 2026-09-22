@@ -31,6 +31,9 @@ else
 // Import SQL Connectivity (WHMCS)
 use Illuminate\Database\Capsule\Manager as Capsule;
 
+require_once __DIR__ . '/suspension.php';
+require_once __DIR__ . '/onboot.php';
+
 // Prepare to source Guest type
 global $guest;
 
@@ -668,83 +671,12 @@ function pvewhmcs_TestConnection(array $params) {
 
 // PVE API FUNCTION, ADMIN: Suspend a Service on the hypervisor
 function pvewhmcs_SuspendAccount(array $params) {
-	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$serverport = $params["serverport"];
-	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		if ($guest === null) {
-			return "Error performing action. Unable to find guest linked to Service ID ({$params['serviceid']})";
-		}
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// Log and fire request
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
-	}
-
-	// DEBUG - Log the request parameters before it's fired
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
-	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+	return pvewhmcs_suspension_command($params, false);
 }
 
 // PVE API FUNCTION, ADMIN: Unsuspend a Service on the hypervisor
 function pvewhmcs_UnsuspendAccount(array $params) {
-	$serverip = $params["serverip"];
-	$serverusername = $params["serverusername"];
-	$serverpassword = $params["serverpassword"];
-	$serverport = $params["serverport"];
-	
-	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
-	if ($proxmox->login()) {
-		$guest = Capsule::table('mod_pvewhmcs_vms')->where('id','=',$params['serviceid'])->first();
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
-		if (empty($guest_node)) {
-			return "Error performing action. Unable to determine node for VMID {$guest->vmid}.";
-		}
-		$pve_cmdparam = array();
-		// Log and fire request
-		$logrequest = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/start';
-		$response = $proxmox->post($logrequest, $pve_cmdparam);
-	}
-
-	// DEBUG - Log the request parameters before it's fired
-	if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-		logModuleCall(
-			'pvewhmcs',
-			__FUNCTION__,
-			$logrequest,
-			json_encode($response)
-		);
-	}
-	// Return success only if no errors returned by PVE
-	if (isset($response) && !isset($response['errors'])) {
-		return "success";
-	} else {
-		// Handle the case where there are errors
-		$response_message = isset($response['errors']) ? json_encode($response['errors']) : "Unknown Error, consider using Debug Mode.";
-		return "Error performing action. " . $response_message;
-	}
+	return pvewhmcs_suspension_command($params, true);
 }
 
 // PVE API FUNCTION, ADMIN: Terminate a Service on the hypervisor
@@ -1030,6 +962,23 @@ function pvewhmcs_AdminCustomButtonArray() {
 		"Hard Stop" => "vmStop",
 	);
 	return $buttonarray;
+}
+
+/** Show the desired and actual automatic-start values on the admin service page. */
+function pvewhmcs_AdminServicesTabFields(array $params) {
+	return pvewhmcs_onboot_admin_fields($params);
+}
+
+/** Process the checkbox through the authenticated WHMCS service-save form. */
+function pvewhmcs_AdminServicesTabFieldsSave(array $params) {
+	if (!isset($_POST['modulefields']) || !is_array($_POST['modulefields'])
+		|| !array_key_exists(0, $_POST['modulefields'])) {
+		return;
+	}
+	$result = pvewhmcs_onboot_admin_save($params, $_POST['modulefields'][0]);
+	if ($result !== 'success') {
+		throw new RuntimeException($result);
+	}
 }
 
 // MODULE BUTTONS: Client Interface button regos
