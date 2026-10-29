@@ -127,19 +127,19 @@ function pvewhmcs_upgrade($vars) {
 	// SQL Operations for v1.2.17 version
 	if (version_compare($currentlyInstalledVersion, '1.2.17', 'lt')) {
 	    try {
-	        Capsule::schema()->table('mod_pvewhmcs_plans', function ($table) {
-	            $table->smallInteger('cpus')->unsigned()->nullable()->change();
-	            $table->smallInteger('cores')->unsigned()->nullable()->change();
-	            $table->integer('memory')->unsigned()->default(0)->change();
-	            $table->integer('swap')->unsigned()->nullable()->change();
-	            $table->integer('disk')->unsigned()->nullable()->change();
-	            $table->tinyInteger('vmbr')->unsigned()->nullable()->change();
-	            $table->integer('netrate')->default(0)->change();
-	            $table->integer('bw')->unsigned()->default(0)->change();
-	            $table->integer('vlanid')->nullable()->change();
-	            $table->integer('balloon')->default(0)->change();
-	            $table->tinyInteger('unpriv')->unsigned()->default(0)->change();
-	        });
+	        // Plain SQL (matches db.sql): Laravel's ->change() would need doctrine/dbal
+	        Capsule::statement('ALTER TABLE `mod_pvewhmcs_plans`
+	            MODIFY `cpus` smallint(4) unsigned DEFAULT NULL,
+	            MODIFY `cores` smallint(4) unsigned DEFAULT NULL,
+	            MODIFY `memory` int(10) unsigned NOT NULL DEFAULT 0,
+	            MODIFY `swap` int(10) unsigned DEFAULT NULL,
+	            MODIFY `disk` int(10) unsigned DEFAULT NULL,
+	            MODIFY `vmbr` tinyint(3) unsigned DEFAULT NULL,
+	            MODIFY `netrate` int(10) DEFAULT 0,
+	            MODIFY `bw` int(10) unsigned DEFAULT 0,
+	            MODIFY `vlanid` int(10) DEFAULT NULL,
+	            MODIFY `balloon` int(10) DEFAULT 0,
+	            MODIFY `unpriv` tinyint(1) unsigned DEFAULT 0');
 	    } catch (\Throwable $e) {
 	        // Debug logging (same style as ClientArea)
 			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
