@@ -86,6 +86,11 @@ while (true) {
 		// New browser connection
 		if ($sock === $server) {
 			$client = @stream_socket_accept($server, 5);
+			// Cap connections that have not authenticated yet
+			if ($client && count($pending) >= 50) {
+				fclose($client);
+				$client = false;
+			}
 			if ($client) {
 				stream_set_blocking($client, false);
 				$pending[(int) $client] = array('sock' => $client, 'buf' => '', 'since' => time());
@@ -194,7 +199,10 @@ function vncproxy_open($client, $request) {
 
 	// One-time token: read and delete
 	$row = vncproxy_take_token($token);
-	if (!$row) {
+	if ($row) {
+		$row['pveticket'] = vncproxy_decrypt($row['pveticket']);
+	}
+	if (!$row || $row['pveticket'] === false) {
 		vncproxy_reject($client, '403 Forbidden');
 		vncproxy_log('Rejected unknown/expired token');
 		return false;
@@ -262,12 +270,27 @@ function vncproxy_take_token($token) {
 		$stmt = $pdo->prepare('SELECT * FROM mod_pvewhmcs_vnc_tokens WHERE token = ? AND expires > NOW()');
 		$stmt->execute(array($token));
 		$row = $stmt->fetch(PDO::FETCH_ASSOC);
-		$pdo->prepare('DELETE FROM mod_pvewhmcs_vnc_tokens WHERE token = ?')->execute(array($token));
+		$pdo->prepare('DELETE FROM mod_pvewhmcs_vnc_tokens WHERE token = ? OR expires < NOW()')->execute(array($token));
 		return $row ?: null;
 	} catch (Exception $e) {
 		vncproxy_log('DB error: ' . $e->getMessage());
 		return null;
 	}
+}
+
+/**
+ * Decrypt a PVE ticket written by pvewhmcs_vnc_encrypt() (same key derivation).
+ *
+ * @return string|false
+ */
+function vncproxy_decrypt($stored) {
+	global $cc_encryption_hash;
+	$raw = base64_decode((string) $stored, true);
+	if ($raw === false || strlen($raw) < 29) {
+		return false;
+	}
+	$key = hash('sha256', 'pvewhmcs-vnc|' . $cc_encryption_hash, true);
+	return openssl_decrypt(substr($raw, 28), 'aes-256-gcm', $key, OPENSSL_RAW_DATA, substr($raw, 0, 12), substr($raw, 12, 16));
 }
 
 // Write everything, waiting while the (non-blocking) socket is full

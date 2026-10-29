@@ -116,6 +116,15 @@ function pvewhmcs_CreateAccount($params) {
 	// Retrieve Plan from table
 	$plan = Capsule::table('mod_pvewhmcs_plans')->where('id', '=', $params['configoption1'])->get()[0];
 
+	// Custom Fields come from the client's order form: only accept values the admin listed
+	try {
+		foreach (array('KVMTemplate', 'Template', 'ISO', 'TPL_Node_QEMU', 'TPL_Node_LXC') as $fieldname) {
+			pvewhmcs_check_customfield($params, $fieldname);
+		}
+	} catch (Exception $e) {
+		return $e->getMessage();
+	}
+
 	// PVE Host - Connection Info
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
@@ -397,13 +406,52 @@ function pvewhmcs_CreateAccount($params) {
 					'pvewhmcs',
 					__FUNCTION__,
 					$params,
-					$e->getMessage() . $e->getTraceAsString()
+					$e->getMessage() . $e->getTraceAsString(),
+					'',
+					array($params['serverpassword'], $params['password'], $params['customfields']['Password'] ?? '')
 				);
 			}
 			return $e->getMessage();
 		}
 		unset($vm_settings);
 	}
+}
+
+/**
+ * Make sure a client-supplied Custom Field holds a value the admin allowed.
+ *
+ * Accepted when the field is Admin Only, or is a dropdown and the value is one
+ * of its options ("value|Display Name" or "value"). A free-text field the client
+ * can fill in is refused, as it could point at any VM, volume or node in PVE.
+ *
+ * @throws Exception when the value is not allowed
+ */
+function pvewhmcs_check_customfield(array $params, $fieldname) {
+	$value = trim((string) ($params['customfields'][$fieldname] ?? ''));
+	if ($value === '') {
+		return;
+	}
+	$fields = Capsule::table('tblcustomfields')
+		->where('type', 'product')
+		->where('relid', $params['pid'])
+		->get();
+	foreach ($fields as $field) {
+		if (explode('|', $field->fieldname)[0] !== $fieldname) {
+			continue;
+		}
+		if ($field->adminonly === 'on') {
+			return;
+		}
+		if ($field->fieldtype === 'dropdown') {
+			foreach (explode(',', $field->fieldoptions) as $option) {
+				if (trim(explode('|', $option)[0]) === $value) {
+					return;
+				}
+			}
+		}
+		break;
+	}
+	throw new Exception("PVEWHMCS Error: Custom Field {$fieldname} value is not allowed. Make it a dropdown or Admin Only field.");
 }
 
 /**
@@ -510,6 +558,12 @@ function pvewhmcs_create_from_template(array $params, $plan, $ip, $start_vmid, $
 		$node = pvewhmcs_find_node_by_vmid($proxmox, $template_vmid);
 	}
 
+	// Only clone PVE Templates, never a regular (e.g. another client's) VM
+	$template_config = $proxmox->get('/nodes/' . $node . '/qemu/' . $template_vmid . '/config');
+	if (empty($template_config['template'])) {
+		throw new Exception("PVEWHMCS Error: VMID {$template_vmid} is not a PVE Template.");
+	}
+
 	// Guest name = Cloud-Init hostname. Use the service hostname if it is a valid DNS name.
 	$hostname = strtolower(trim((string) ($params['domain'] ?? '')));
 	if (!preg_match('/^(?=.{1,63}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/', $hostname)) {
@@ -601,6 +655,9 @@ function pvewhmcs_create_from_template(array $params, $plan, $ip, $start_vmid, $
 	$ciuser = trim((string) ($params['customfields']['Username'] ?? ''));
 	if ($ciuser === '') {
 		$ciuser = !empty($vm_config['ciuser']) ? $vm_config['ciuser'] : 'root';
+	}
+	if (!preg_match('/^[a-z_][a-z0-9_-]{0,31}$/', $ciuser)) {
+		throw new Exception("PVEWHMCS Error: Invalid username '{$ciuser}' (use a-z, 0-9, _ or -).");
 	}
 	$tweaks['ciuser'] = $ciuser;
 	$cipassword = !empty($params['customfields']['Password']) ? $params['customfields']['Password'] : $params['password'];
@@ -749,7 +806,8 @@ function pvewhmcs_TestConnection(array $params) {
 			__FUNCTION__,
 			$params,
 			$e->getMessage(),
-			$e->getTraceAsString()
+			$e->getTraceAsString(),
+			array($params['serverpassword'], $params['password'])
 		);
 		// Set the error message as a failure
 		$success = false;
@@ -1362,17 +1420,20 @@ function pvewhmcs_noVNC($params) {
  * @throws Exception
  */
 function pvewhmcs_vnc_prepare($serviceid) {
+	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceid)->first();
+	if ($guest === null) {
+		throw new Exception("Unable to find guest linked to Service ID ({$serviceid})");
+	}
 	$pveservice = Capsule::table('tblhosting')->find($serviceid);
-	$pveserver = Capsule::table('tblservers')->where('id', '=', $pveservice->server)->first();
+	$pveserver = Capsule::table('tblservers')->where('id', '=', $pveservice->server)->where('type', '=', 'pvewhmcs')->first();
+	if ($pveserver === null) {
+		throw new Exception('Failed to prepare noVNC. Service is not on a Proxmox VE server.');
+	}
 	$serverpassword = localAPI('DecryptPassword', array('password2' => $pveserver->password));
 
 	$proxmox = new PVE2_API($pveserver->ipaddress, $pveserver->username, "pam", $serverpassword['password'], $pveserver->port);
 	if (!$proxmox->login()) {
 		throw new Exception('Failed to prepare noVNC. Unable to connect to server.');
-	}
-	$guest = Capsule::table('mod_pvewhmcs_vms')->where('id', '=', $serviceid)->first();
-	if ($guest === null) {
-		throw new Exception("Unable to find guest linked to Service ID ({$serviceid})");
 	}
 	$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $serviceid);
 	if (empty($guest_node)) {
@@ -1403,12 +1464,25 @@ function pvewhmcs_vnc_prepare($serviceid) {
 			'pve_host' => $pveserver->ipaddress,
 			'pve_port' => $pveserver->port ?: 8006,
 			'path' => '/api2/json' . $guest_path . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . rawurlencode($vm_vncproxy['ticket']),
-			'pveticket' => $proxmox->getTicket(),
+			'pveticket' => pvewhmcs_vnc_encrypt($proxmox->getTicket()),
 			'expires' => date('Y-m-d H:i:s', time() + 30),
 		]
 	);
 
 	return array('token' => $token, 'password' => $vm_vncproxy['ticket']);
+}
+
+/**
+ * Encrypt the PVE ticket stored with a noVNC token, so a database leak alone
+ * does not expose a root session. vncproxy.php derives the same key from
+ * $cc_encryption_hash in WHMCS configuration.php.
+ */
+function pvewhmcs_vnc_encrypt($plaintext) {
+	include ROOTDIR . '/configuration.php';
+	$key = hash('sha256', 'pvewhmcs-vnc|' . $cc_encryption_hash, true);
+	$iv = random_bytes(12);
+	$ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+	return base64_encode($iv . $tag . $ciphertext);
 }
 
 // PVE API FUNCTION, CLIENT/ADMIN: Start the VM/CT

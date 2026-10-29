@@ -619,6 +619,7 @@ function pvewhmcs_output($vars) {
 	}
 
 	if($_GET['action']=='removeplan') {
+		check_token('WHMCS.admin.default');
 		remove_plan($_GET['id']) ;
 	}
 
@@ -659,7 +660,7 @@ function pvewhmcs_output($vars) {
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
 			echo '<td>' . $vm->id . '</td>';
-			echo '<td>' . $vm->title . '</td>';
+			echo '<td>' . htmlspecialchars($vm->title) . '</td>';
 			echo '<td>' . $vm->vmtype . '</td>';
 			echo '<td>' . $vm->ostype . '</td>';
 			echo '<td>' . $vm->cpus . '</td>';
@@ -681,7 +682,7 @@ function pvewhmcs_output($vars) {
 			echo '<td>' . $vm->unpriv . '</td>';
 			echo '<td>
 			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . $vm->id . '&amp;vmtype=' . $vm->vmtype . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
-			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=removeplan&amp;id=' . $vm->id . '" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
+			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=removeplan&amp;id=' . $vm->id . generate_token('link') . '" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
 			</td>';
 			echo '</tr>';
 		}
@@ -716,12 +717,14 @@ function pvewhmcs_output($vars) {
 		save_ip_pool() ;
 	}
 	if ($_GET['action']=='removeippool') {
+		check_token('WHMCS.admin.default');
 		removeIpPool($_GET['id']) ;
 	}
 	if ($_GET['action']=='list_ips') {
 		list_ips();
 	}
 	if ($_GET['action']=='removeip') {
+		check_token('WHMCS.admin.default');
 		removeip($_GET['id'],$_GET['pool_id']);
 	}
 	echo'
@@ -1033,7 +1036,7 @@ function import_guest() {
 							'gateway' => $gateway,
 							'created' => date('Y-m-d H:i:s'),
 						]);
-						$resultMsg = '<div class="successbox">Successfully imported PVE VMID ' . $vmid . ' (' . $vtype . ') as Service ' . $serviceID . ' (' . $product->name . ') for ' . $client->firstname . ' ' . $client->lastname . '. ' . $client->company . '</div>';
+						$resultMsg = '<div class="successbox">Successfully imported PVE VMID ' . $vmid . ' (' . $vtype . ') as Service ' . $serviceID . ' (' . htmlspecialchars($product->name) . ') for ' . htmlspecialchars($client->firstname . ' ' . $client->lastname . '. ' . $client->companyname) . '</div>';
 					} catch (Exception $e) {
 						$resultMsg = '<div class="errorbox">Database error: ' . htmlspecialchars($e->getMessage()) . '</div>';
 					}
@@ -1435,7 +1438,7 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Plan Name</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="title" id="title" required value="' . $plan->title . '">
+	<input type="text" size="35" name="title" id="title" required value="' . htmlspecialchars($plan->title) . '">
 	</td>
 	</tr>
 	<tr>
@@ -1893,7 +1896,7 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
 	<td class="fieldarea">
-	<input type="text" size="35" name="title" id="title" required value="' . $plan->title . '">
+	<input type="text" size="35" name="title" id="title" required value="' . htmlspecialchars($plan->title) . '">
 	</td>
 	</tr>
 	<tr>
@@ -2195,11 +2198,11 @@ function list_ip_pools() {
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
 		echo '<tr>';
 		echo '<td>' . $pool->id . '</td>';
-		echo '<td>' . $pool->title . '</td>';
+		echo '<td>' . htmlspecialchars($pool->title) . '</td>';
 		echo '<td>' . $pool->gateway . '</td>';
 		echo '<td>
 		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=list_ips&amp;id=' . $pool->id . '"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
-		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeippool&amp;id=' . $pool->id . '" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
+		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeippool&amp;id=' . $pool->id . generate_token('link') . '" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
 		</td>';
 		echo '</tr>';
 	}
@@ -2271,7 +2274,7 @@ function add_ip_2_pool() {
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="pool_id">';
 	foreach (Capsule::table('mod_pvewhmcs_ip_pools')->get() as $pool) {
-		echo '<option value="' . $pool->id . '">' . $pool->title . '</option>';
+		echo '<option value="' . (int) $pool->id . '">' . htmlspecialchars($pool->title) . '</option>';
 		$gateways[] = $pool->gateway;
 	}
 	echo '</select>
@@ -2344,8 +2347,8 @@ function list_ips() {
             ->first();
 
         echo '<tr>
-                <td>' . $ip->ipaddress . '</td>
-                <td>' . $ip->mask . '</td>
+                <td>' . htmlspecialchars($ip->ipaddress) . '</td>
+                <td>' . htmlspecialchars($ip->mask) . '</td>
                 <td>';
 
         if ($service) {
@@ -2354,7 +2357,7 @@ function list_ips() {
             echo 'In use: <a href="' . $serviceLink . '" target="_blank">Service #' . $service->id . '</a>';
         } else {
             // IP is free (not in tblhosting OR status is Terminated/Cancelled/Fraud/Pending)
-            echo '<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeip&amp;pool_id=' . $ip->pool_id . '&amp;id=' . $ip->id . '" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')">
+            echo '<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeip&amp;pool_id=' . (int) $ip->pool_id . '&amp;id=' . (int) $ip->id . generate_token('link') . '" onclick="return confirm(\'IPv4 Address will be deleted from the pool, continue?\')">
                     <img height="16" width="16" border="0" alt="Edit" src="images/delete.gif">
                   </a>';
         }
