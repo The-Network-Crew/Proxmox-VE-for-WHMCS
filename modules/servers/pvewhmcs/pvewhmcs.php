@@ -1489,6 +1489,10 @@ function pvewhmcs_vnc_encrypt($plaintext) {
 function pvewhmcs_vmStart($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	// Clients may not power on a Suspended/Terminated service (admins may)
+	if (!defined('ADMINAREA') && $pveservice->domainstatus !== 'Active') {
+		return "Error performing action. Service is not Active.";
+	}
 	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
@@ -1536,6 +1540,10 @@ function pvewhmcs_vmStart($params) {
 function pvewhmcs_vmReboot($params) {
 	// Gather access credentials for PVE, as these are no longer passed for Client Area
 	$pveservice = Capsule::table('tblhosting')->find($params['serviceid']) ;
+	// Clients may not power on a Suspended/Terminated service (admins may)
+	if (!defined('ADMINAREA') && $pveservice->domainstatus !== 'Active') {
+		return "Error performing action. Service is not Active.";
+	}
 	$pveserver = Capsule::table('tblservers')->where('id','=',$pveservice->server)->get()[0] ;
 	$serverip = $pveserver->ipaddress;
 	$serverusername = $pveserver->username;
