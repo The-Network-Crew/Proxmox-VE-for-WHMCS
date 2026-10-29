@@ -156,171 +156,14 @@ function pvewhmcs_CreateAccount($params) {
 	////////////////////
 	// CREATE IF QEMU //
 	////////////////////
-	if (!empty($params['customfields']['KVMTemplate'])) {
-		// QEMU TEMPLATE - CREATION LOGIC
-		$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword, $serverport);
-		if ($proxmox->login()) {
-			// Get template node: prefer TPL_Node_QEMU custom field, fallback to first node
-			$nodes = $proxmox->get_node_list();
-			if (!empty($params['customfields']['TPL_Node_QEMU'])) {
-				$template_node = $params['customfields']['TPL_Node_QEMU'];
-			} else {
-				// AUTO-DISCOVERY: Find where the template lives
-				$template_node = pvewhmcs_find_node_by_vmid($proxmox, $params['customfields']['KVMTemplate']);
-			}
-
-			// DEBUG: Log Node Selection logic
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					'Node Selection Debug',
-					array(
-						'TPL_Node_QEMU_Input' => $params['customfields']['TPL_Node_QEMU'],
-						'ALL_Custom_Fields' => $params['customfields'],
-						'ALL_Config_Options' => $params['configoptions'],
-						'Available_Nodes' => $nodes,
-						'Selected_Template_Node' => $template_node
-					),
-					'Checking if custom field is empty or fallback triggered'
-				);
-			}
-			unset($nodes);
-			// Find the next available VMID by checking if the VMID exists either for QEMU or LXC
-			$vmid = pvewhmcs_find_next_available_vmid($proxmox, $template_node, $vmid);
-			$vm_settings['newid'] = $vmid;
-			$vm_settings['name'] = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
-			$vm_settings['full'] = true;
-			$vm_settings['target'] = $template_node;
-			// QEMU TEMPLATE - Conduct the VM CLONE from Template to Machine
-			$logrequest = '/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone' . $vm_settings;
-			$response = $proxmox->post('/nodes/' . $template_node . '/qemu/' . $params['customfields']['KVMTemplate'] . '/clone', $vm_settings);
-
-			// DEBUG - Log the request parameters before it's fired
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					__FUNCTION__,
-					$logrequest,
-					json_decode($response)
-				);
-			}
-
-			// Extract UPID from the response (Proxmox returns colon-delimited string)
-			if (strpos($response, 'UPID:') === 0) {
-				$upid = trim($response); // Extract the entire UPID including "UPID:"
-
-				// Poll for task completion
-				$max_retries = 10;  // Total retries (avoid infinite loop)
-				$retry_interval = 15;  // Delay in seconds between retries
-				$completed = false;  // Starting - not complete until done
-
-				for ($i = 0; $i < $max_retries; $i++) {
-					// Check task status
-					$task_status = $proxmox->get('/nodes/' . $template_node . '/tasks/' . $upid . '/status');
-
-					if (isset($task_status['status']) && $task_status['status'] === 'stopped') {
-						// Task is completed, now check exit status
-						if (isset($task_status['exitstatus']) && $task_status['exitstatus'] === 'OK') {
-							$completed = true;
-							break;
-						} else {
-							// Task stopped, but failed with an exit status
-							throw new Exception("Proxmox Error: Task failed with exit status: " . $task_status['exitstatus']);
-						}
-					} elseif ($task_status['status'] === 'running') {
-						// Task is still running, wait and retry
-						sleep($retry_interval);
-					} else {
-						// Unexpected task status
-						throw new Exception("Proxmox Error: Unexpected task status: " . json_encode($task_status));
-					}
-				}
-
-				if (!$completed) {
-					throw new Exception("Proxmox Error: Task did not complete in time. Adjust ~/modules/servers/pvewhmcs/pvewhmcs.php >> max_retries option (2 locations).");
-				}
-
-				// Task is completed, now update the database with VM details.
-				Capsule::table('mod_pvewhmcs_vms')->insert(
-					[
-						'id' => $params['serviceid'],
-						'vmid' => $vmid,
-						'user_id' => $params['clientsdetails']['userid'],
-						'vtype' => 'qemu',
-						'ipaddress' => $ip->ipaddress,
-						'subnetmask' => $ip->mask,
-						'gateway' => $ip->gateway,
-						'created' => date("Y-m-d H:i:s"),
-						'v6prefix' => $plan->ipv6,
-					]
-				);
-
-				// Update WHMCS Service with Dedicated IP
-				Capsule::table('tblhosting')
-					->where('id', $params['serviceid'])
-					->update(['dedicatedip' => $ip->ipaddress]);
-
-				// ISSUE #32 relates - amend post-clone to ensure excludes-disk amendments are all done, too.
-				$cloned_tweaks['memory'] = $plan->memory;
-				$cloned_tweaks['ostype'] = $plan->ostype;
-				$cloned_tweaks['sockets'] = $plan->cpus;
-				$cloned_tweaks['cores'] = $plan->cores;
-				$cloned_tweaks['cpu'] = $plan->cpuemu;
-				$cloned_tweaks['kvm'] = $plan->kvm;
-				$cloned_tweaks['onboot'] = $plan->onboot;
-
-				// Cloud-Init IP Configuration for Cloned VMs
-				$cloned_tweaks['nameserver'] = '208.67.222.222 64.6.64.6';
-				$cloned_tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
-				if (!empty($plan->ipv6) && $plan->ipv6 != '0') {
-					switch ($plan->ipv6) {
-						case 'auto':
-							// Pass in auto, triggering SLAAC
-							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-							$cloned_tweaks['ipconfig1'] = 'ip6=auto';
-							break;
-						case 'dhcp':
-							// DHCP for IPv6 option
-							$cloned_tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
-							$cloned_tweaks['ipconfig1'] = 'ip6=dhcp';
-							break;
-						case 'prefix':
-							// Future development
-							break;
-						default:
-							break;
-					}
-				}
-
-				// Optionally set cloud-init password if provided
-				if (!empty($params['password'])) {
-					$cloned_tweaks['cipassword'] = $params['password'];
-				}
-
-				if (!empty($params['customfields']['Password'])) {
-					$cloned_tweaks['cipassword'] = $params['customfields']['Password'];
-				}
-
-				// Apply VM configuration on the node where the VM was cloned
-				$proxmox->post(
-					'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/config',
-					$cloned_tweaks
-				);
-
-				// Start the VM only if onboot is enabled
-				if (!empty($plan->onboot)) {
-					$proxmox->post(
-						'/nodes/' . $template_node . '/qemu/' . $vm_settings['newid'] . '/status/start',
-						array()
-					);
-				}
-
-				return true;
-			} else {
-				throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($response));
-			}
-		} else {
-			throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
+	// OS Template: Custom Field or Configurable Option "KVMTemplate" (value = PVE VMID)
+	$template_vmid = pvewhmcs_get_template_vmid($params);
+	if (!empty($template_vmid)) {
+		try {
+			return pvewhmcs_create_from_template($params, $plan, $ip, $vmid, $template_vmid);
+		} catch (Exception $e) {
+			logModuleCall('pvewhmcs', __FUNCTION__, 'Template clone (VMID ' . $template_vmid . ')', $e->getMessage());
+			return $e->getMessage();
 		}
 		/////////////////////////////////////////////////
 		// PREPARE SETTINGS FOR QEMU/LXC EVENTUALITIES //
@@ -561,6 +404,259 @@ function pvewhmcs_CreateAccount($params) {
 		}
 		unset($vm_settings);
 	}
+}
+
+/**
+ * Read the OS Template VMID chosen for this service.
+ *
+ * Source (first match wins): Custom Field "KVMTemplate", then Configurable
+ * Option "KVMTemplate". Use "VMID|Display Name" as the option value in WHMCS,
+ * e.g. "9000|Ubuntu 24.04", so clients see the name and the module gets 9000.
+ *
+ * @param array $params WHMCS module params
+ * @return int|null Template VMID, or null if not set
+ */
+function pvewhmcs_get_template_vmid(array $params) {
+	foreach (array($params['customfields']['KVMTemplate'] ?? '', $params['configoptions']['KVMTemplate'] ?? '') as $value) {
+		// Tolerate "9000|Name" leaking through, keep only the VMID part
+		$value = trim(explode('|', (string) $value)[0]);
+		if (ctype_digit($value) && (int) $value > 0) {
+			return (int) $value;
+		}
+	}
+	return null;
+}
+
+/**
+ * Wait for a PVE task (UPID) to finish.
+ *
+ * @throws Exception if the task fails or does not finish within $timeout seconds
+ */
+function pvewhmcs_wait_for_task($proxmox, $node, $upid, $timeout = 280, $interval = 5) {
+	$deadline = time() + $timeout;
+	do {
+		$task_status = $proxmox->get('/nodes/' . $node . '/tasks/' . $upid . '/status');
+		if (isset($task_status['status']) && $task_status['status'] === 'stopped') {
+			if (isset($task_status['exitstatus']) && $task_status['exitstatus'] === 'OK') {
+				return true;
+			}
+			throw new Exception("Proxmox Error: Task failed with exit status: " . ($task_status['exitstatus'] ?? 'unknown'));
+		}
+		sleep($interval);
+	} while (time() < $deadline);
+	throw new Exception("Proxmox Error: Task did not complete within {$timeout}s ({$upid}). Check the task log in PVE.");
+}
+
+/**
+ * Convert a PVE disk size string (e.g. "32G", "2252M") to GiB.
+ */
+function pvewhmcs_size_to_gb($size) {
+	if (!preg_match('/^([\d.]+)([KMGT]?)$/i', trim($size), $m)) {
+		return 0;
+	}
+	$factor = array('' => 1 / 1073741824, 'K' => 1 / 1048576, 'M' => 1 / 1024, 'G' => 1, 'T' => 1024);
+	return (float) $m[1] * $factor[strtoupper($m[2])];
+}
+
+/**
+ * Find the boot disk key (e.g. "scsi0") of a QEMU guest config.
+ */
+function pvewhmcs_find_boot_disk(array $vm_config) {
+	$candidates = array();
+	if (!empty($vm_config['boot']) && preg_match('/order=([^,]+)/', $vm_config['boot'], $m)) {
+		$candidates = explode(';', $m[1]);
+	}
+	if (!empty($vm_config['bootdisk'])) {
+		$candidates[] = $vm_config['bootdisk'];
+	}
+	$candidates = array_merge($candidates, array('scsi0', 'virtio0', 'sata0', 'ide0'));
+	foreach ($candidates as $key) {
+		$value = $vm_config[$key] ?? '';
+		if ($value !== '' && strpos($value, 'media=cdrom') === false && strpos($value, 'cloudinit') === false) {
+			return $key;
+		}
+	}
+	return null;
+}
+
+/**
+ * Create a QEMU guest by cloning a PVE Template that has Cloud-Init and
+ * qemu-guest-agent installed, then apply the WHMCS Plan to it.
+ *
+ * Steps: clone (full) -> record in DB -> set CPU/RAM/network/Cloud-Init/agent
+ * -> grow the boot disk to the Plan size -> start the VM.
+ *
+ * Optional Custom Fields on the Product:
+ *   TPL_Node_QEMU  node holding the template (auto-detected if empty)
+ *   Username       Cloud-Init user (default: template's ciuser, else "root")
+ *   Password       Cloud-Init password (default: WHMCS service password)
+ *   SSHKey         Public SSH key(s) for the Cloud-Init user
+ *
+ * @return string "success"
+ * @throws Exception on any failure
+ */
+function pvewhmcs_create_from_template(array $params, $plan, $ip, $start_vmid, $template_vmid) {
+	$debug = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1;
+
+	$proxmox = new PVE2_API($params["serverip"], $params["serverusername"], "pam", $params["serverpassword"], $params["serverport"]);
+	if (!$proxmox->login()) {
+		throw new Exception("Proxmox Error: PVE API login failed. Please check your credentials.");
+	}
+
+	// Template node: TPL_Node_QEMU custom field, else auto-discover in the cluster
+	if (!empty($params['customfields']['TPL_Node_QEMU'])) {
+		$node = $params['customfields']['TPL_Node_QEMU'];
+	} else {
+		$node = pvewhmcs_find_node_by_vmid($proxmox, $template_vmid);
+	}
+
+	// Guest name = Cloud-Init hostname. Use the service hostname if it is a valid DNS name.
+	$hostname = strtolower(trim((string) ($params['domain'] ?? '')));
+	if (!preg_match('/^(?=.{1,63}$)[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/', $hostname)) {
+		$hostname = "vps" . $params["serviceid"] . "-cus" . $params['clientsdetails']['userid'];
+	}
+
+	// CLONE: full clone of the template on its own node
+	$vmid = pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid);
+	$clone_settings = array(
+		'newid' => $vmid,
+		'name' => $hostname,
+		'full' => 1,
+		'target' => $node,
+	);
+	$clone_path = '/nodes/' . $node . '/qemu/' . $template_vmid . '/clone';
+	$upid = $proxmox->post($clone_path, $clone_settings);
+	if ($debug) {
+		logModuleCall('pvewhmcs', __FUNCTION__, $clone_path . ' ' . json_encode($clone_settings), $upid);
+	}
+	if (!is_string($upid) || strpos($upid, 'UPID:') !== 0) {
+		throw new Exception("Proxmox Error: Failed to initiate clone. Response: " . json_encode($upid));
+	}
+	pvewhmcs_wait_for_task($proxmox, $node, trim($upid));
+
+	// Record the guest now, so Terminate can clean up even if a later step fails
+	Capsule::table('mod_pvewhmcs_vms')->insert(
+		[
+			'id' => $params['serviceid'],
+			'vmid' => $vmid,
+			'user_id' => $params['clientsdetails']['userid'],
+			'vtype' => 'qemu',
+			'ipaddress' => $ip->ipaddress,
+			'subnetmask' => $ip->mask,
+			'gateway' => $ip->gateway,
+			'created' => date("Y-m-d H:i:s"),
+			'v6prefix' => $plan->ipv6,
+		]
+	);
+
+	$vm_path = '/nodes/' . $node . '/qemu/' . $vmid;
+	$vm_config = $proxmox->get($vm_path . '/config');
+
+	// HARDWARE: Plan resources + QEMU Guest Agent
+	$tweaks = array(
+		'memory' => $plan->memory,
+		'balloon' => $plan->balloon,
+		'sockets' => $plan->cpus,
+		'cores' => $plan->cores,
+		'cpu' => $plan->cpuemu,
+		'cpulimit' => $plan->cpulimit,
+		'cpuunits' => empty($plan->cpuunits) ? null : $plan->cpuunits,
+		'ostype' => $plan->ostype,
+		'kvm' => $plan->kvm,
+		'onboot' => $plan->onboot,
+		'agent' => 'enabled=1',
+	);
+
+	// NETWORK: apply Plan bridge/VLAN/rate, keeping the MAC that PVE generated on clone
+	$ipconfig1 = null;
+	if (in_array($plan->ipv6, array('auto', 'dhcp'))) {
+		$ipconfig1 = 'ip6=' . $plan->ipv6;
+	}
+	if ($plan->netmode == 'bridge') {
+		foreach (array('net0' => true, 'net1' => ($ipconfig1 !== null)) as $nic => $wanted) {
+			if (!$wanted) {
+				continue;
+			}
+			$model = $plan->netmodel ?: 'virtio';
+			if (!empty($vm_config[$nic]) && preg_match('/^(\w+)=([0-9A-Fa-f:]{17})/', $vm_config[$nic], $m)) {
+				$model = ($plan->netmodel ?: $m[1]) . '=' . $m[2];
+			}
+			$tweaks[$nic] = $model . ',bridge=' . $plan->bridge . $plan->vmbr . ',firewall=' . (int) $plan->firewall;
+			if (!empty($plan->netrate)) {
+				$tweaks[$nic] .= ',rate=' . $plan->netrate;
+			}
+			if (!empty($plan->vlanid)) {
+				$tweaks[$nic] .= ',tag=' . $plan->vlanid;
+			}
+		}
+	}
+
+	// CLOUD-INIT: IP, DNS, user, password, SSH key
+	$tweaks['ipconfig0'] = 'ip=' . $ip->ipaddress . '/' . mask2cidr($ip->mask) . ',gw=' . $ip->gateway;
+	$tweaks['nameserver'] = '208.67.222.222 64.6.64.6';
+	if ($ipconfig1 !== null) {
+		$tweaks['ipconfig1'] = $ipconfig1;
+		$tweaks['nameserver'] .= ' 2620:119:35::35 2620:74:1b::1:1';
+	}
+	$ciuser = trim((string) ($params['customfields']['Username'] ?? ''));
+	if ($ciuser === '') {
+		$ciuser = !empty($vm_config['ciuser']) ? $vm_config['ciuser'] : 'root';
+	}
+	$tweaks['ciuser'] = $ciuser;
+	$cipassword = !empty($params['customfields']['Password']) ? $params['customfields']['Password'] : $params['password'];
+	if (!empty($cipassword)) {
+		$tweaks['cipassword'] = $cipassword;
+	}
+	if (!empty($params['customfields']['SSHKey'])) {
+		// PVE expects the key list URL-encoded (on top of the form encoding)
+		$tweaks['sshkeys'] = rawurlencode(trim($params['customfields']['SSHKey']));
+	}
+
+	// CLOUD-INIT DRIVE: add one if the template does not have it yet
+	$boot_disk = pvewhmcs_find_boot_disk($vm_config);
+	$has_cloudinit = false;
+	foreach ($vm_config as $value) {
+		if (is_string($value) && strpos($value, 'cloudinit') !== false) {
+			$has_cloudinit = true;
+			break;
+		}
+	}
+	if (!$has_cloudinit && $boot_disk !== null) {
+		$ci_storage = explode(':', $vm_config[$boot_disk])[0];
+		foreach (array('ide2', 'ide0', 'ide1', 'ide3', 'sata5') as $slot) {
+			if (empty($vm_config[$slot])) {
+				$tweaks[$slot] = $ci_storage . ':cloudinit';
+				break;
+			}
+		}
+	}
+
+	// Drop unset values so the template's own settings are kept
+	$tweaks = array_filter($tweaks, function ($v) { return $v !== null && $v !== ''; });
+	// PUT = synchronous config update (POST would be async and race the start below)
+	$proxmox->put($vm_path . '/config', $tweaks);
+	if ($debug) {
+		$logged = $tweaks;
+		unset($logged['cipassword']);
+		logModuleCall('pvewhmcs', __FUNCTION__, $vm_path . '/config', json_encode($logged));
+	}
+
+	// DISK: grow the boot disk to the Plan size (never shrink)
+	if ($boot_disk !== null && !empty($plan->disk) && preg_match('/size=([\d.]+[KMGT]?)/i', $vm_config[$boot_disk], $m)) {
+		if ((float) $plan->disk > pvewhmcs_size_to_gb($m[1])) {
+			$proxmox->put($vm_path . '/resize', array('disk' => $boot_disk, 'size' => (int) $plan->disk . 'G'));
+		}
+	}
+
+	// Show the login details to the client in WHMCS
+	Capsule::table('tblhosting')
+		->where('id', $params['serviceid'])
+		->update(['dedicatedip' => $ip->ipaddress, 'username' => $ciuser]);
+
+	// START: Cloud-Init applies on first boot
+	$proxmox->post($vm_path . '/status/start', array());
+
+	return "success";
 }
 
 /**

@@ -221,14 +221,21 @@ This needs configuring for each `WHMCS Admin > Products & Services` entry.
 
 ### VM Option 1: QEMU, PVE Template VM Clone
 
-Firstly, create the Template VM in PVE. You need its unique PVE ID.
+Firstly, create the Template VM in PVE (Cloud-Init image + `qemu-guest-agent` installed). You need its unique PVE ID.
 
-Secondly, use that ID in the Custom Field `KVMTemplate`, as in `ID|Name`.
+Secondly, add a dropdown named `KVMTemplate` with options as `ID|Name` (e.g. `9000|Ubuntu 24.04`). It can be a Custom Field or a Configurable Option.
 
 > **Note**: `ID` is the Unique ID that your Template VM has in PVE.<br>
 > **Note**: `Name` is what will be displayed to your Clients in WHMCS.
 
-Thirdly, add another Custom Field `TPL_Node_QEMU` with the node short name.
+That's all that is required. On Create, the module will:
+
+- Full-clone the template on the node where it lives (auto-detected)
+- Apply the Plan's CPU/RAM, bridge/VLAN/rate, and enable the QEMU Guest Agent
+- Set Cloud-Init IP/gateway/DNS, user, password (WHMCS service password) and SSH key
+- Add a Cloud-Init drive if the template has none, grow the boot disk to the Plan size, then start the VM
+
+Optional Custom Fields: `TPL_Node_QEMU` (template node), `Username` (Cloud-Init user, default: template's `ciuser` or `root`), `Password`, `SSHKey`. The service Hostname is used as the VM name/hostname when it is a valid DNS name.
 
 ### VM Option 2: QEMU, WHMCS Plan + PVE ISO
 
