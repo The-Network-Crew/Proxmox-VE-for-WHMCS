@@ -51,10 +51,33 @@ $path       = $_GET['path'];
 $port       = $_GET['port'];
 
 // ---------------------------------------
-// Determine main domain for cookie
+// Resolve the PVE hostname (the browser must reach PVE by name, with a valid TLS cert)
 // ---------------------------------------
-$hostParts  = explode('.', $_SERVER['HTTP_HOST']);
-$mainDomain = implode('.', array_slice($hostParts, -2)); // example.com
+$hostname = filter_var($host, FILTER_VALIDATE_IP) ? gethostbyaddr($host) : $host;
+if (!preg_match('/^[A-Za-z0-9.-]+$/', $hostname) || !ctype_digit((string) $port)) {
+    echo 'Error: Invalid PVE host or port.';
+    exit;
+}
+
+// ---------------------------------------
+// Cookie domain = shared parent domain of WHMCS and PVE
+// e.g. billing.example.co.id + pve1.example.co.id => .example.co.id
+// (works for 2-part TLDs like .co.id / .co.uk)
+// ---------------------------------------
+$whmcsParts = array_reverse(explode('.', strtolower(explode(':', $_SERVER['HTTP_HOST'])[0])));
+$pveParts   = array_reverse(explode('.', strtolower($hostname)));
+$common     = array();
+foreach ($whmcsParts as $i => $label) {
+    if (!isset($pveParts[$i]) || $pveParts[$i] !== $label) {
+        break;
+    }
+    $common[] = $label;
+}
+if (count($common) < 2) {
+    echo 'Error: WHMCS (' . htmlspecialchars($_SERVER['HTTP_HOST']) . ') and PVE (' . htmlspecialchars($hostname) . ') must be subdomains of the same domain for noVNC.';
+    exit;
+}
+$mainDomain = implode('.', array_reverse($common));
 
 // ---------------------------------------
 // Set the PVEAuthCookie for Proxmox
@@ -71,7 +94,6 @@ setrawcookie('PVEAuthCookie', $pveticket, [
 // ---------------------------------------
 // Build final noVNC URL
 // ---------------------------------------
-$hostname      = gethostbyaddr($host);
 $redirect_url  = './novnc/vnc.html?autoconnect=true&encrypt=true'
                . '&host=' . $hostname
                . '&port=' . $port

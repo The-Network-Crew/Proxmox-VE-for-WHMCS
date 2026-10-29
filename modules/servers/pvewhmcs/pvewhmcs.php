@@ -1384,7 +1384,9 @@ function pvewhmcs_noVNC($params) {
 		// Get WHMCS base URL (including subdirectory)
 		$whmcs_base = rtrim($CONFIG['SystemURL'], '/');
 		// Construct the noVNC Router URL with the path already prepared now
-		$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc_router.php?host=' . $serverip . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
+		// Browser connects to PVE by name: use WHMCS Server "Hostname", else PTR of the IP
+		$vnc_host = !empty($params['serverhostname']) ? $params['serverhostname'] : $serverip;
+		$url = $whmcs_base . '/modules/servers/pvewhmcs/novnc_router.php?host=' . urlencode($vnc_host) . '&port=' . $serverport . '&pveticket=' . urlencode($pveticket) . '&path=' . urlencode($path) . '&vncticket=' . urlencode($vncticket);
 		// Build and deliver the noVNC Router hyperlink for access
 		$vncreply = '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) successfully prepared!<br><a href="' . $url . '" target="_blanK" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
 		return $vncreply;

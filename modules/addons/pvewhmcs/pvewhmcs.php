@@ -1111,11 +1111,50 @@ function qemu_plan_add() {
 	<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
-	<td class="fieldlabel">Plan Title</td>
+	<td class="fieldlabel">Plan Name</td>
 	<td class="fieldarea">
 	<input type="text" size="35" name="title" id="title" required>
 	</td>
 	</tr>
+	<tr>
+	<td class="fieldlabel">CPU Cores</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="cores" id="cores" value="1" required>
+	Number of vCPU cores.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">RAM (MB)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="memory" id="memory" value="2048" required>
+	1024 = 1 GB
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Disk (GB)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="disk" id="disk" value="10" required>
+	Boot disk size in GB, e.g. 20. The template disk is grown to this size.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Port Speed (Mbit/s)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="netrate" id="netrate" value="0">
+	0 = unlimited
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Bandwidth (GB/month)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="bw" id="bw">
+	Blank = unlimited
+	</td>
+	</tr>
+	</table>
+	<details style="margin-top:10px;">
+	<summary style="cursor:pointer;font-weight:bold;">Advanced settings (optional, defaults are fine)</summary>
+	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">OS - Type</td>
 	<td class="fieldarea">
@@ -1225,13 +1264,6 @@ function qemu_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">CPU - Cores</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="cores" id="cores" value="1" required>
-	The number of CPU Cores per Socket (1-N). Guest Compute = allocated Sockets * Cores.
-	</td>
-	</tr>
-	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpulimit" id="cpulimit" value="0" required>
@@ -1246,24 +1278,10 @@ function qemu_plan_add() {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">RAM - Memory</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" value="2048" required>
-	RAM capacity in Megabytes eg. 1024 = 1GB (default is 2GB)
-	</td>
-	</tr>
-	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" value="0" required>
 	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Disk - Capacity</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" value="10240" required>
-	HDD/SSD storage in Gigabytes eg. 1024 = 1TB (default is 10GB)
 	</td>
 	</tr>
 	<tr>
@@ -1326,20 +1344,6 @@ function qemu_plan_add() {
 	<option value="vmxnet3">VMware vmxnet3</option>
 	</select>
 	Recommend VirtIO, unless you need others.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Network - Rate</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value="0">
-	Network Rate Limit in Megabits/Second. Zero for unlimited.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Network - Cap</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw">
-	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
 	<tr>
@@ -1407,6 +1411,7 @@ function qemu_plan_add() {
 	</td>
 	</tr>
 	</table>
+	</details>
 
 	<div class="btn-container">
 	<input type="submit" class="btn btn-primary" value="Save Changes" name="plan_save_qemu" id="plan_save_qemu">
@@ -1427,11 +1432,50 @@ function qemu_plan_edit($id) {
 	<form method="post">
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
-	<td class="fieldlabel">Plan Title</td>
+	<td class="fieldlabel">Plan Name</td>
 	<td class="fieldarea">
 	<input type="text" size="35" name="title" id="title" required value="' . $plan->title . '">
 	</td>
 	</tr>
+	<tr>
+	<td class="fieldlabel">CPU Cores</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="cores" id="cores" value="' . $plan->cores . '" required>
+	Number of vCPU cores.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">RAM (MB)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="memory" id="memory" required value="' . $plan->memory . '">
+	1024 = 1 GB
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Disk (GB)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="disk" id="disk" required value="' . $plan->disk . '">
+	Boot disk size in GB, e.g. 20. The template disk is grown to this size.
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Port Speed (Mbit/s)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
+	0 = unlimited
+	</td>
+	</tr>
+	<tr>
+	<td class="fieldlabel">Bandwidth (GB/month)</td>
+	<td class="fieldarea">
+	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
+	Blank = unlimited
+	</td>
+	</tr>
+	</table>
+	<details style="margin-top:10px;">
+	<summary style="cursor:pointer;font-weight:bold;">Advanced settings (optional, defaults are fine)</summary>
+	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">OS - Type</td>
 	<td class="fieldarea">
@@ -1533,19 +1577,11 @@ function qemu_plan_edit($id) {
 	Host is best. Read the <a href="https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_qemu_vcpu_list" target="_blank" style="color:#5c3d7a;"><u>Docs</u></a>.
 	</td>
 	</tr>
-
 	<tr>
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="cpus" id="cpus" value="' . $plan->cpus . '" required>
 	The number of CPU Sockets (typically 1-4). Governed by your physical Server.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">CPU - Cores</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="cores" id="cores" value="' . $plan->cores . '" required>
-	The number of CPU Cores per Socket (1-N). Guest Compute = allocated Sockets * Cores.
 	</td>
 	</tr>
 	<tr>
@@ -1563,24 +1599,10 @@ function qemu_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">RAM - Memory</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value="' . $plan->memory . '">
-	RAM capacity in Megabytes eg. 1024 = 1GB
-	</td>
-	</tr>
-	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
 	<input type="text" size="8" name="balloon" id="balloon" required value="' . $plan->balloon . '">
 	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Disk - Capacity</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" required value="' . $plan->disk . '">
-	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
@@ -1646,20 +1668,6 @@ function qemu_plan_edit($id) {
 	</td>
 	</tr>
 	<tr>
-	<td class="fieldlabel">Network - Rate</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
-	Network Rate Limit in Megabits/Second. Zero for unlimited.
-	</td>
-	</tr>
-	<tr>
-	<td class="fieldlabel">Network - Cap</td>
-	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
-	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
-	</td>
-	</tr>
-	<tr>
 	<td class="fieldlabel">Network - IPv6</td>
 	<td class="fieldarea">
 	<select class="form-control select-inline" name="ipv6">
@@ -1699,7 +1707,7 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="' . $plan->vlanid . '">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
@@ -1724,6 +1732,7 @@ function qemu_plan_edit($id) {
 	</td>
 	</tr>
 	</table>
+	</details>
 
 	<div class="btn-container">
 	<input type="submit" class="btn btn-primary" value="Save Changes" name="plan_update_qemu" id="plan_update_qemu">
