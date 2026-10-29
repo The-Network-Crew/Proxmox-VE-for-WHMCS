@@ -794,11 +794,11 @@ function pvewhmcs_output($vars) {
 	<table style="width:100%;border-collapse:collapse;">
 	<tr>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;width:150px;vertical-align:top;">
-			<label style="font-weight:600;color:#333;">VNC Secret</label>
+			<label style="font-weight:600;color:#333;">noVNC Proxy URL</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_secret" id="vnc_secret" value="' . $config->vnc_secret . '">
-			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Password for <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vnc@pve</code> user. Required for VNC proxying. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="vnc_proxy_url" id="vnc_proxy_url" placeholder="wss://(WHMCS host)/pvewhmcs-vnc" value="' . htmlspecialchars((string) $config->config) . '">
+			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">Where browsers reach <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">vncproxy.php</code> on the WHMCS server. Blank = <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">wss://(WHMCS host)/pvewhmcs-vnc</code>. Clients never connect to PVE. <a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/" target="_blank" style="color:#5c3d7a;"><u>View README</u></a></p>
 		</td>
 	</tr>
 	<tr>
@@ -1090,7 +1090,8 @@ function save_config() {
 				/** @var \Illuminate\Database\Connection $connectionManager */
 				$connectionManager->table('mod_pvewhmcs')->update(
 					[
-						'vnc_secret' => $_POST['vnc_secret'],
+						// 'config' column holds the noVNC Proxy URL
+						'config' => trim($_POST['vnc_proxy_url']),
 						'start_vmid' => $_POST['start_vmid'],
 						'debug_mode' => $_POST['debug_mode'],
 					]

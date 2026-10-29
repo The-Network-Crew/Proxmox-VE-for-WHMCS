@@ -22,88 +22,61 @@
 */
 
 // ---------------------------------------
-// Clear any existing PVEAuthCookie first
+// Boot WHMCS (session + database)
 // ---------------------------------------
-setcookie('PVEAuthCookie', '', [
-    'expires'  => time() - 3600,
-    'path'     => '/',
-    'domain'   => '',
-    'secure'   => true,
-    'httponly' => false,
-    'samesite' => 'None',
-]);
+require_once __DIR__ . '/../../../init.php';
+require_once __DIR__ . '/pvewhmcs.php';
+
+use WHMCS\Database\Capsule;
 
 // ---------------------------------------
-// Check required GET parameters
+// Only the owning client (or a WHMCS admin) may open the console
 // ---------------------------------------
-if (!isset($_GET['pveticket'], $_GET['host'], $_GET['path'], $_GET['vncticket'])) {
-    echo 'Error: Missing required info to route your request. Please try again.';
+$serviceid = isset($_GET['serviceid']) ? (int) $_GET['serviceid'] : 0;
+$service   = Capsule::table('tblhosting')->where('id', $serviceid)->first();
+$clientid  = (int) WHMCS\Session::get('uid');
+$adminid   = (int) WHMCS\Session::get('adminid');
+if (!$service || (!$adminid && (!$clientid || (int) $service->userid !== $clientid))) {
+    http_response_code(403);
+    echo 'Error: Please log in to WHMCS to open the console.';
+    exit;
+}
+if (!$adminid && $service->domainstatus !== 'Active') {
+    http_response_code(403);
+    echo 'Error: Console is only available for Active services.';
     exit;
 }
 
 // ---------------------------------------
-// Assign GET parameters
+// Open the VNC session on PVE, get a one-time token for vncproxy.php
 // ---------------------------------------
-$pveticket  = $_GET['pveticket'];
-$vncticket  = $_GET['vncticket'];
-$host       = $_GET['host'];
-$path       = $_GET['path'];
-$port       = $_GET['port'];
-
-// ---------------------------------------
-// Resolve the PVE hostname (the browser must reach PVE by name, with a valid TLS cert)
-// ---------------------------------------
-$hostname = filter_var($host, FILTER_VALIDATE_IP) ? gethostbyaddr($host) : $host;
-if (!preg_match('/^[A-Za-z0-9.-]+$/', $hostname) || !ctype_digit((string) $port)) {
-    echo 'Error: Invalid PVE host or port.';
+try {
+    $vnc = pvewhmcs_vnc_prepare($serviceid);
+} catch (Exception $e) {
+    echo 'Error: ' . htmlspecialchars($e->getMessage());
     exit;
 }
 
 // ---------------------------------------
-// Cookie domain = shared parent domain of WHMCS and PVE
-// e.g. billing.example.co.id + pve1.example.co.id => .example.co.id
-// (works for 2-part TLDs like .co.id / .co.uk)
+// Where the browser reaches vncproxy.php (Module Config > noVNC Proxy URL)
 // ---------------------------------------
-$whmcsParts = array_reverse(explode('.', strtolower(explode(':', $_SERVER['HTTP_HOST'])[0])));
-$pveParts   = array_reverse(explode('.', strtolower($hostname)));
-$common     = array();
-foreach ($whmcsParts as $i => $label) {
-    if (!isset($pveParts[$i]) || $pveParts[$i] !== $label) {
-        break;
-    }
-    $common[] = $label;
+$proxy_url = (string) Capsule::table('mod_pvewhmcs')->where('id', '1')->value('config');
+if ($proxy_url === '') {
+    $proxy_url = 'wss://' . parse_url($CONFIG['SystemURL'], PHP_URL_HOST) . '/pvewhmcs-vnc';
 }
-if (count($common) < 2) {
-    echo 'Error: WHMCS (' . htmlspecialchars($_SERVER['HTTP_HOST']) . ') and PVE (' . htmlspecialchars($hostname) . ') must be subdomains of the same domain for noVNC.';
-    exit;
-}
-$mainDomain = implode('.', array_reverse($common));
+$proxy   = parse_url($proxy_url);
+$encrypt = (($proxy['scheme'] ?? 'wss') !== 'ws');
+$port    = $proxy['port'] ?? ($encrypt ? 443 : 80);
+$path    = ltrim($proxy['path'] ?? '', '/') . '?token=' . $vnc['token'];
 
 // ---------------------------------------
-// Set the PVEAuthCookie for Proxmox
+// Redirect to noVNC (served by WHMCS)
 // ---------------------------------------
-setrawcookie('PVEAuthCookie', $pveticket, [
-    'expires'  => 0,
-    'path'     => '/',
-    'domain'   => '.' . $mainDomain,
-    'secure'   => true,
-    'httponly' => false,
-    'samesite' => 'None',
-]);
-
-// ---------------------------------------
-// Build final noVNC URL
-// ---------------------------------------
-$redirect_url  = './novnc/vnc.html?autoconnect=true&encrypt=true'
-               . '&host=' . $hostname
-               . '&port=' . $port
-               . '&password=' . urlencode($vncticket)
-               . '&path=' . urlencode($path);
-
-// ---------------------------------------
-// Redirect to noVNC
-// ---------------------------------------
-header('Location: ' . $redirect_url);
+header('Cache-Control: no-store');
+header('Location: ./novnc/vnc.html?autoconnect=true&resize=scale'
+    . '&encrypt=' . ($encrypt ? 'true' : 'false')
+    . '&host=' . urlencode($proxy['host'])
+    . '&port=' . (int) $port
+    . '&password=' . urlencode($vnc['password'])
+    . '&path=' . urlencode($path));
 exit;
-
-?>

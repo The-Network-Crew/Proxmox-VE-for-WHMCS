@@ -54,10 +54,10 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 
 - **(WHMCS)** v8.x.x stable (HTTPS)
 - **(NET)** WAN Access: WHMCS to PVE
-- **(VNC)** Special Requirements: PTR, etc.
+- **(VNC)** PHP CLI on WHMCS server (runs `vncproxy.php`)
 - **(PHP)** v8.x.x (latest stable version)
 - **(PHP)** max_execution_time = 300
-- **(Proxmox)** 2 users (API & VNC)
+- **(Proxmox)** 1 user: `root@pam` (API)
 - **(Proxmox)** VE v8.4/v9 (latest)
 
 Please note specific VNC & Network requirements below - read 100% of the README.md. :-)
@@ -71,19 +71,11 @@ Please note specific VNC & Network requirements below - read 100% of the README.
 
 **First, read the above System Requirements, and resolve any blockers to using Proxmox VE for WHMCS.**
 
-### 👥 PVE: User x2 Requirement (API & VNC users)
+### 👥 PVE: One root API account
 
-#### Credentials: root account for each PVE host
+**You must have a root account to use the Module at all.** Configured via WHMCS > Servers (`pam` realm).
 
-**You must have a root account to use the Module at all.** Configured via WHMCS > Servers.
-
-This is configured in the `pam` realm. 
-
-#### Credentials: VNC user for Console Access only
-
-Additionally, to improve security, for VNC you must also have a Restricted User. 
-
-Configured in the _Module_ as detailed below, once you've added/restricted it in PVE.
+The same account is used for provisioning, power actions, stats and the noVNC console. No other PVE users are needed.
 
 ### 🏃‍♂️ Installing the WHMCS Module `pvewhmcs`
 
@@ -99,9 +91,8 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 
 **Once you've done all of that, in order to get the module working properly, you need to:**
 
-0. Proxmox VE > Create an additional VNC-only user, per instructions below
 1. WHMCS Admin > Config > Servers > Add (Advanced) > PVE Host/s (User: `root`; IPv4: `PVE's`; no port suffix!)
-2. WHMCS Admin > Addons > Proxmox VE for WHMCS > Module Config > VNC Secret (see below)
+2. WHMCS server > Run the noVNC proxy (`vncproxy.php`), per instructions below
 3. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add QEMU/LXC Plan/s
 4. WHMCS Admin > Addons > Proxmox VE for WHMCS > Add an IPv4 Pool
 5. WHMCS Admin > Config > Products/Services > New Service (create offering)
@@ -122,63 +113,68 @@ Configured in the _Module_ as detailed below, once you've added/restricted it in
 
 ## 🥽 2. noVNC: Console Tunnel (Client Area)
 
-After forking the module, we considered how to improve security of Console Tunneling via WHMCS. We decided to implement a routing method which uses a secondary user in Proxmox VE with very restrictive permissions. 
+Clients only ever connect to **WHMCS**, never to Proxmox, so PVE can stay on a private network/firewalled. It works like this:
 
-**This is due to be re-built again in 2026 to further enhance security.**
+1. Client clicks **noVNC** → `novnc_router.php` checks they are logged in and own the (Active) service.
+2. WHMCS opens a VNC session on PVE with the root API account and stores a one-time token (valid 30s).
+3. The browser loads noVNC from WHMCS and connects to `vncproxy.php` on the WHMCS server with that token.
+4. `vncproxy.php` connects to PVE (TCP/8006, from the WHMCS server) and relays the console.
 
-### How to offer VNC via WHMCS Client Area!
+### Step 1: Run `vncproxy.php` on the WHMCS server
 
-1. Install & configure the module properly
-2. Follow the PVE User Requirement info below
-3. Routed IPv4 for PVE (or TLS-proxy to LAN)
-4. PVE and WHMCS on the same 1x Domain Name*
-5. Have valid PTR/rDNS set on the PVE Address
+It is a small PHP CLI daemon with no extra dependencies. It reads the DB login from WHMCS `configuration.php`.
 
-> **If proxying, that is your sole responsibility to configure & diagnose.**
-> 
-> Otherwise, PVE must be WAN-accessible and all other configs/reqs satisfied.
+```
+# /etc/systemd/system/pvewhmcs-vnc.service
+[Unit]
+Description=Proxmox VE for WHMCS - noVNC proxy
+After=network.target mysql.service
 
-### Creating the VNC User within Proxmox VE
+[Service]
+ExecStart=/usr/bin/php /path/to/whmcs/modules/servers/pvewhmcs/vncproxy.php --listen=127.0.0.1:8100
+User=www-data
+Restart=always
 
-1. Create User Group "VNC" via PVE > ` Datacenter / Permissions / Group`
-2. Create new User "vnc" > `Datacenter / Permissions / Users` - Group: "VNC", Realm: pve
-3. Create new Role -> `Datacenter / Permissions / Roles` - Name: "VNC", Privileges: VM.Console (only)
-4. Permit VNC Access -> `Datacenter / Permissions / Add Group Permissions` - Group: "VNC", Role: "VNC"
-5. WHMCS > Modules > Proxmox VE for WHMCS > Module Config > VNC Secret = 'vnc' password (PVE) you set
+[Install]
+WantedBy=multi-user.target
+```
 
-> [!CAUTION]
-> Do NOT set less restrictive permissions. The above is designed for interim security.
-> 
-> **However, if you wish for proper security: wait for VNC to be further improved.**
+`systemctl daemon-reload && systemctl enable --now pvewhmcs-vnc` (set `User` to the account that runs WHMCS, e.g. `apache` or the cPanel user).
 
-<img alt="Client Area GUI showing the reply which links off to the VNC Console/Client" src="_images/zConsoleReady.png">
+### Step 2: Expose it over HTTPS (pick one)
 
-### Important info about Console Access
+**A) Same HTTPS site as WHMCS (recommended)** – browsers use `wss://billing.example.com/pvewhmcs-vnc`. Leave Module Config > noVNC Proxy URL blank.
 
-**noVNC has been overhauled. It isn't guaranteed, nor the project at all. :-)**
+nginx (inside WHMCS's `server { }` block):
 
-Once you have it configured, clicking noVNC in Client Area provides direct link - click it:
+```
+location /pvewhmcs-vnc {
+    proxy_pass http://127.0.0.1:8100;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 1h;
+}
+```
 
-<img alt="Client Area is ready for you to click into noVNC terminal console" src="_images/zVNCprepared.png">
+Apache 2.4.47+ (`a2enmod proxy proxy_http proxy_wstunnel`, inside WHMCS's HTTPS VirtualHost):
 
-**Here are most of the critical requirements for VNC tunnelling:**
+```
+ProxyPass "/pvewhmcs-vnc" "http://127.0.0.1:8100/pvewhmcs-vnc" upgrade=websocket timeout=3600
+```
 
-1. Set the PVE FQDN in `WHMCS > Servers > Hostname` (e.g. `pve1.example.co.id`), with a valid TLS cert on PVE :8006. If blank, the PTR of the Server IP is used instead.
-2. WHMCS and PVE must be Subdomains of the same Domain Name (e.g. `billing.example.co.id` + `pve1.example.co.id`), for the cookie (anti-CSRF). 2-part TLDs (co.id, co.uk) are supported.
-3. The client's browser must be able to reach PVE on that hostname and port (8006).
-4. You must configure a VNC Secret in the Module Settings, after creating it in PVE.
-5. You must have a stable and "relatively" static IPv4 fixed/routed WAN address for each PVE host. **CGNAT, Cellular & other "fast DHCP" style configurations cannot be worked with due to a variety of external network issues.** We will not support anything except a perfectly-configured `pvewhmcs`. Thank you!
-6. Cookies must be properly usable and not manipulated by htaccess or similar rules, to ensure that `PVEAuthCookie` is properly set in-browser, for same-domain cross-subdomain access.
+**B) Own TLS port** (e.g. cPanel, where you cannot edit the vhost) – run with the WHMCS domain certificate and open the port in the firewall:
 
-<img alt="Admin GUI of the Module Config (VNC Secret, Start VMID, Debug Log y/n)" src="_images/zConfiguration.png">
+```
+php vncproxy.php --listen=0.0.0.0:8100 --cert=/path/fullchain.pem --key=/path/privkey.pem
+```
+
+Then set Module Config > noVNC Proxy URL to `wss://billing.example.com:8100`.
 
 > [!TIP]
-> **To troubleshoot noVNC errors like "Connection Closed (1006)":**
-> 
-> Load noVNC with `logging=debug` added to the query string, ie. `vnc.html?logging=debug`<br>
-> _Or in Settings change Logging to debug-level, then open JS Console before reloading noVNC._
-> 
-> Typically, 401 No Ticket from PVE (1006 Connection Closed via noVNC) is due to cross-domain attempts being made, ie. WHMCS on domain1.com and PVE on domain2.com. You must use subdomains on the same Domain, with PTR, etc - else it won't work. **Please take the time to read this documentation.**
+> **Troubleshooting:** `journalctl -u pvewhmcs-vnc -f` shows each console opened or refused.
+> "Connection closed (1006)" usually means the proxy is not running or the web server is not forwarding `/pvewhmcs-vnc`.
+> A "PVE refused WebSocket" log line means WHMCS cannot reach PVE on 8006, or the console was opened >10s after the click.
 
 ## 🌐 3. Networking: IPv4 Pools, IPv6, vmbr/SDN
 
@@ -188,7 +184,7 @@ Please make sure you create an IPv4 Pool with sufficient scope/size to be able t
 
 #### Private IPs for PVE Hosts
 
-Note that VNC may be problematic without work due to the strict requirements introduced in Proxmox v8.0 (strict same-site attribute). Just as SSL/TLS Certificates are no longer trusted for Public IP Addresses, there is increasing work to make the web secure-by-default which makes VNC/etc safer. 
+PVE hosts may use private IPs, as long as the WHMCS server can reach them on TCP/8006. Clients never connect to PVE directly (noVNC is relayed by `vncproxy.php`).
 
 #### Existing Guest Imports from PVE
 
