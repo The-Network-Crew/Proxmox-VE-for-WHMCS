@@ -835,7 +835,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VMID Start</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value=\"' . htmlspecialchars((string) $config->start_vmid) . '\">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="' . htmlspecialchars((string) $config->start_vmid) . '">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">For Guests. Increments until a vacant VMID found. Default is <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">100</code></p>
 		</td>
 	</tr>
@@ -1473,35 +1473,35 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">CPU Cores</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cores" id="cores" value=\"' . htmlspecialchars((string) $plan->cores) . '\" required>
+	<input type="text" size="8" name="cores" id="cores" value="' . htmlspecialchars((string) $plan->cores) . '" required>
 	Number of vCPU cores.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM (MB)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value=\"' . htmlspecialchars((string) $plan->memory) . '\">
+	<input type="text" size="8" name="memory" id="memory" required value="' . htmlspecialchars((string) $plan->memory) . '">
 	1024 = 1 GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk (GB)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" required value=\"' . htmlspecialchars((string) $plan->disk) . '\">
+	<input type="text" size="8" name="disk" id="disk" required value="' . htmlspecialchars((string) $plan->disk) . '">
 	Boot disk size in GB, e.g. 20. The template disk is grown to this size.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Port Speed (Mbit/s)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value=\"' . htmlspecialchars((string) $plan->netrate) . '\">
+	<input type="text" size="8" name="netrate" id="netrate" value="' . htmlspecialchars((string) $plan->netrate) . '">
 	0 = unlimited
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Bandwidth (GB/month)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value=\"' . htmlspecialchars((string) $plan->bw) . '\">
+	<input type="text" size="8" name="bw" id="bw" value="' . htmlspecialchars((string) $plan->bw) . '">
 	Blank = unlimited
 	</td>
 	</tr>
@@ -1613,28 +1613,28 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpus" id="cpus" value=\"' . htmlspecialchars((string) $plan->cpus) . '\" required>
+	<input type="text" size="8" name="cpus" id="cpus" value="' . htmlspecialchars((string) $plan->cpus) . '" required>
 	The number of CPU Sockets (typically 1-4). Governed by your physical Server.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpulimit" id="cpulimit" value=\"' . htmlspecialchars((string) $plan->cpulimit) . '\" required>
+	<input type="text" size="8" name="cpulimit" id="cpulimit" value="' . htmlspecialchars((string) $plan->cpulimit) . '" required>
 	Limit of CPU usage. Note if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpuunits" id="cpuunits" value=\"' . htmlspecialchars((string) $plan->cpuunits) . '\" required>
+	<input type="text" size="8" name="cpuunits" id="cpuunits" value="' . htmlspecialchars((string) $plan->cpuunits) . '" required>
 	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. Disable fair-scheduler by setting this to 0.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="balloon" id="balloon" required value=\"' . htmlspecialchars((string) $plan->balloon) . '\">
+	<input type="text" size="8" name="balloon" id="balloon" required value="' . htmlspecialchars((string) $plan->balloon) . '">
 	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
@@ -1677,14 +1677,14 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" required value=\"' . htmlspecialchars((string) $plan->diskio) . '\">
+	<input type="text" size="8" name="diskio" id="diskio" required value="' . htmlspecialchars((string) $plan->diskio) . '">
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" required value=\"' . htmlspecialchars((string) $plan->storage) . '\">
+	<input type="text" size="8" name="storage" id="storage" required value="' . htmlspecialchars((string) $plan->storage) . '">
 	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
@@ -1726,21 +1726,21 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bridge" id="bridge" value=\"' . htmlspecialchars((string) $plan->bridge) . '\">
+	<input type="text" size="8" name="bridge" id="bridge" value="' . htmlspecialchars((string) $plan->bridge) . '">
 	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value=\"' . htmlspecialchars((string) $plan->vmbr) . '\">
+	<input type="text" size="8" name="vmbr" id="vmbr" value="' . htmlspecialchars((string) $plan->vmbr) . '">
 	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid" value=\"' . htmlspecialchars((string) $plan->vlanid) . '\">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="' . htmlspecialchars((string) $plan->vlanid) . '">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
@@ -1931,84 +1931,84 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpulimit" id="cpulimit" value=\"' . htmlspecialchars((string) $plan->cpulimit) . '\" required>
+	<input type="text" size="8" name="cpulimit" id="cpulimit" value="' . htmlspecialchars((string) $plan->cpulimit) . '" required>
 	Limit of CPU usage. Default is 1. If the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpuunits" id="cpuunits" value=\"' . htmlspecialchars((string) $plan->cpuunits) . '\" required>
+	<input type="text" size="8" name="cpuunits" id="cpuunits" value="' . htmlspecialchars((string) $plan->cpuunits) . '" required>
 	Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value=\"' . htmlspecialchars((string) $plan->memory) . '\">
+	<input type="text" size="8" name="memory" id="memory" required value="' . htmlspecialchars((string) $plan->memory) . '">
 	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Swap - Space</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="swap" id="swap" value=\"' . htmlspecialchars((string) $plan->swap) . '\">
+	<input type="text" size="8" name="swap" id="swap" value="' . htmlspecialchars((string) $plan->swap) . '">
 	Swap capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" value=\"' . htmlspecialchars((string) $plan->disk) . '\" required>
+	<input type="text" size="8" name="disk" id="disk" value="' . htmlspecialchars((string) $plan->disk) . '" required>
 	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value=\"' . htmlspecialchars((string) $plan->diskio) . '\" required>
+	<input type="text" size="8" name="diskio" id="diskio" value="' . htmlspecialchars((string) $plan->diskio) . '" required>
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" value=\"' . htmlspecialchars((string) $plan->storage) . '\" required>
+	<input type="text" size="8" name="storage" id="storage" value="' . htmlspecialchars((string) $plan->storage) . '" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bridge" id="bridge" value=\"' . htmlspecialchars((string) $plan->bridge) . '\">
+	<input type="text" size="8" name="bridge" id="bridge" value="' . htmlspecialchars((string) $plan->bridge) . '">
 	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value=\"' . htmlspecialchars((string) $plan->vmbr) . '\">
+	<input type="text" size="8" name="vmbr" id="vmbr" value="' . htmlspecialchars((string) $plan->vmbr) . '">
 	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid">
+	<input type="text" size="8" name="vlanid" id="vlanid" value="' . htmlspecialchars((string) $plan->vlanid) . '">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value=\"' . htmlspecialchars((string) $plan->netrate) . '\">
+	<input type="text" size="8" name="netrate" id="netrate" value="' . htmlspecialchars((string) $plan->netrate) . '">
 	Network Rate Limit in Megabits/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value=\"' . htmlspecialchars((string) $plan->bw) . '\">
+	<input type="text" size="8" name="bw" id="bw" value="' . htmlspecialchars((string) $plan->bw) . '">
 	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>

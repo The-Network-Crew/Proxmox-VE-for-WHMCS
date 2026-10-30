@@ -57,6 +57,8 @@ https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/
 - **(VNC)** PHP CLI on WHMCS server (runs `vncproxy.php`)
 - **(PHP)** v8.x.x (latest stable version)
 - **(PHP)** max_execution_time = 300
+- **(PHP)** Extensions: curl, openssl, json, pdo_mysql (all already required by WHMCS)
+- **(Deps)** None: no Composer/npm packages, no doctrine/dbal. Uses only what WHMCS ships.
 - **(Proxmox)** 1 user: `root@pam` (API)
 - **(Proxmox)** VE v8.4/v9 (latest)
 
