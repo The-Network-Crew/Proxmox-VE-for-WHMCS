@@ -115,7 +115,7 @@ The same account is used for provisioning, power actions, stats and the noVNC co
 
 Clients only ever connect to **WHMCS**, never to Proxmox, so PVE can stay on a private network/firewalled. It works like this:
 
-1. Client clicks **noVNC** → `novnc_router.php` checks they are logged in and own the (Active) service.
+1. Client clicks **noVNC** → WHMCS runs the module button (with its own permission checks) and returns a signed link valid for 2 minutes → `novnc_router.php` verifies it, plus that they are logged in and own the (Active) service. Max 3 console opens per service per 30s.
 2. WHMCS opens a VNC session on PVE with the root API account and stores a one-time token (valid 30s).
 3. The browser loads noVNC from WHMCS and connects to `vncproxy.php` on the WHMCS server with that token.
 4. `vncproxy.php` connects to PVE (TCP/8006, from the WHMCS server) and relays the console.
@@ -220,6 +220,9 @@ This needs configuring for each `WHMCS Admin > Products & Services` entry.
 Firstly, create the Template VM in PVE (Cloud-Init image + `qemu-guest-agent` installed). You need its unique PVE ID.
 
 Secondly, add a dropdown named `KVMTemplate` with options as `ID|Name` (e.g. `9000|Ubuntu 24.04`). It can be a Custom Field or a Configurable Option.
+
+> [!IMPORTANT]
+> Fields that select a PVE resource (`KVMTemplate`, `Template`, `ISO`, `TPL_Node_QEMU`, `TPL_Node_LXC`) must be a **Dropdown** (or an **Admin Only** Custom Field). Values not in the list are refused at Create, so a client cannot point provisioning at another VM, backup or volume. Only real PVE Templates can be cloned.
 
 > **Note**: `ID` is the Unique ID that your Template VM has in PVE.<br>
 > **Note**: `Name` is what will be displayed to your Clients in WHMCS.

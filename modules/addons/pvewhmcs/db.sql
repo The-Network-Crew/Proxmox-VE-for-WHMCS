@@ -130,4 +130,13 @@ CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vms` (
   `created` datetime DEFAULT NULL,
   `v6prefix` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`id`)
+);CREATE TABLE IF NOT EXISTS `mod_pvewhmcs_vnc_tokens` (
+  `token_hash` char(64) NOT NULL,
+  `serviceid` int(11) NOT NULL,
+  `pve_host` varchar(255) NOT NULL,
+  `pve_port` int(11) NOT NULL,
+  `payload` text NOT NULL,
+  `expires` datetime NOT NULL,
+  PRIMARY KEY (`token_hash`),
+  KEY `serviceid` (`serviceid`)
 );

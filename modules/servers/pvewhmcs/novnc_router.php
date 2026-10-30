@@ -30,9 +30,21 @@ require_once __DIR__ . '/pvewhmcs.php';
 use WHMCS\Database\Capsule;
 
 // ---------------------------------------
-// Only the owning client (or a WHMCS admin) may open the console
+// The link must be signed by pvewhmcs_noVNC(), which WHMCS only runs for
+// users allowed to manage this service (incl. sub-user permissions)
 // ---------------------------------------
 $serviceid = isset($_GET['serviceid']) ? (int) $_GET['serviceid'] : 0;
+$expires   = isset($_GET['expires']) ? (int) $_GET['expires'] : 0;
+$sig       = isset($_GET['sig']) ? (string) $_GET['sig'] : '';
+if ($expires < time() || !hash_equals(pvewhmcs_vnc_link_sig($serviceid, $expires), $sig)) {
+    http_response_code(403);
+    echo 'Error: This console link has expired. Please click noVNC in the Client Area again.';
+    exit;
+}
+
+// ---------------------------------------
+// ...and still be used by the owning client (or a WHMCS admin) in this session
+// ---------------------------------------
 $service   = Capsule::table('tblhosting')->where('id', $serviceid)->first();
 $clientid  = (int) WHMCS\Session::get('uid');
 $adminid   = (int) WHMCS\Session::get('adminid');
@@ -70,13 +82,16 @@ $port    = $proxy['port'] ?? ($encrypt ? 443 : 80);
 $path    = ltrim($proxy['path'] ?? '', '/') . '?token=' . $vnc['token'];
 
 // ---------------------------------------
-// Redirect to noVNC (served by WHMCS)
+// Redirect to noVNC (served by WHMCS). Settings go in the #fragment, which
+// browsers never send to a server, so the VNC ticket and token stay out of
+// access logs and Referer headers.
 // ---------------------------------------
 header('Cache-Control: no-store');
-header('Location: ./novnc/vnc.html?autoconnect=true&resize=scale'
+header('Referrer-Policy: no-referrer');
+header('Location: ./novnc/vnc.html#autoconnect=true&resize=scale'
     . '&encrypt=' . ($encrypt ? 'true' : 'false')
-    . '&host=' . urlencode($proxy['host'])
+    . '&host=' . rawurlencode($proxy['host'])
     . '&port=' . (int) $port
-    . '&password=' . urlencode($vnc['password'])
-    . '&path=' . urlencode($path));
+    . '&password=' . rawurlencode($vnc['password'])
+    . '&path=' . rawurlencode($path));
 exit;

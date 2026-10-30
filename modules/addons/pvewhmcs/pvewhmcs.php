@@ -156,20 +156,35 @@ function pvewhmcs_upgrade($vars) {
 
 // UPDATE CHECKER: live vs repo
 function is_pvewhmcs_outdated(){
-	if(get_pvewhmcs_latest_version() > pvewhmcs_version()){
+	if(version_compare(get_pvewhmcs_latest_version(), pvewhmcs_version(), '>')){
 		return "<br><span style='float:right;'><b>Proxmox VE for WHMCS is outdated: <a style='color:red' href='https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS/releases/latest'>Download the new version!</a></span>";
 	}
 }
 
-// UPDATE CHECKER: return latest ver
+// Latest released version, checked at most once a day (cached in tbladdonmodules)
+// with a short timeout, so a slow GitHub never slows the WHMCS admin area.
 function get_pvewhmcs_latest_version(){
+	$cached = Capsule::table('tbladdonmodules')->where('module', 'pvewhmcs')->where('setting', 'latest_version_cache')->value('value');
+	if ($cached && strpos($cached, '|') !== false) {
+		list($version, $checked) = explode('|', $cached, 2);
+		if (time() - (int) $checked < 86400) {
+			return $version;
+		}
+	}
 	$ch = curl_init();
 	curl_setopt($ch, CURLOPT_URL, "https://raw.githubusercontent.com/The-Network-Crew/Proxmox-VE-for-WHMCS/master/version");
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-	$result = curl_exec($ch);
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+	curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+	$result = trim((string) curl_exec($ch));
 	curl_close ($ch);
-
-	return str_replace("\n", "", $result);
+	// Only accept a plain version number
+	$version = preg_match('/^\d+(\.\d+){1,3}$/', $result) ? $result : (isset($version) ? $version : '');
+	Capsule::table('tbladdonmodules')->updateOrInsert(
+		['module' => 'pvewhmcs', 'setting' => 'latest_version_cache'],
+		['value' => $version . '|' . time()]
+	);
+	return $version;
 }
 
 /**
@@ -246,14 +261,14 @@ function pvewhmcs_output($vars) {
 	echo '
 	<div id="clienttabs">
 	<ul class="nav nav-tabs admin-tabs">
-	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" data-toggle="tab" role="tab" href="#nodes">Nodes</a></li>
-	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" data-toggle="tab" role="tab" href="#guests">Guests</a></li>
+	<li class="'.($_GET['tab']=="nodes" ? "active" : "").'"><a id="tabLink1" href="'. pvewhmcs_BASEURL .'&amp;tab=nodes">Nodes</a></li>
+	<li class="'.($_GET['tab']=="guests" ? "active" : "").'"><a id="tabLink2" href="'. pvewhmcs_BASEURL .'&amp;tab=guests">Guests</a></li>
 	<li class="'.($_GET['tab']=="vmplans" ? "active" : "").'"><a id="tabLink3" data-toggle="tab" role="tab" href="#plans">Plans</a></li>
 	<li class="'.($_GET['tab']=="ippools" ? "active" : "").'"><a id="tabLink4" data-toggle="tab" role="tab" href="#ippools">IPv4</a></li>
 	<li class="'.($_GET['tab']=="actions" ? "active" : "").'"><a id="tabLink5" data-toggle="tab" role="tab" href="#actions">Actions</a></li>
 	<li class="'.($_GET['tab']=="support" ? "active" : "").'"><a id="tabLink6" data-toggle="tab" role="tab" href="#support">Support</a></li>
 	<li class="'.($_GET['tab']=="config" ? "active" : "").'"><a id="tabLink7" data-toggle="tab" role="tab" href="#config">Config</a></li>
-	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" data-toggle="tab" role="tab" href="#logs">Logs</a></li>
+	<li class="'.($_GET['tab']=="logs" ? "active" : "").'"><a id="tabLink8" href="'. pvewhmcs_BASEURL .'&amp;tab=logs">Logs</a></li>
 	</ul>
 	</div>
 	<style>
@@ -301,6 +316,11 @@ function pvewhmcs_output($vars) {
 	</style>
 	<div class="tab-content admin-tabs">';
 
+	// CSRF: every POST to this module must carry the WHMCS admin token
+	if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+		check_token('WHMCS.admin.default');
+	}
+
 	// Handle form submissions for saving or updating plans
 	if (isset($_POST['plan_save_qemu']))
 	{
@@ -325,156 +345,159 @@ function pvewhmcs_output($vars) {
 	// NODES / GUESTS tab in ADMIN GUI
 	echo '<div id="nodes" class="tab-pane '.($_GET['tab']=="nodes" ? "active" : "").'" >' ;
 
-	// Fetch all enabled Servers that use pvewhmcs
-	$servers = Capsule::table('tblservers')
-		->where('type', '=', 'pvewhmcs')
-		->where('disabled', '=', 0)
-		->orderBy('id', 'asc')
-		->get();
+	// Live PVE data: only fetched when this tab is open (its link reloads the page)
+	if ($_GET['tab'] == 'nodes') {
+		// Fetch all enabled Servers that use pvewhmcs
+		$servers = Capsule::table('tblservers')
+			->where('type', '=', 'pvewhmcs')
+			->where('disabled', '=', 0)
+			->orderBy('id', 'asc')
+			->get();
 
-	// Catch no-servers case early
-	if ($servers->isEmpty()) {
-		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
-	} else {
-		foreach ($servers as $pve) {
-			// Decrypt server password (same approach as ClientArea)
-			$api_data = array('password2' => $pve->password);
-			$serverpassword = localAPI('DecryptPassword', $api_data);
-			$serverip       = $pve->ipaddress;
-			$serverusername = $pve->username;
-			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
+		// Catch no-servers case early
+		if ($servers->isEmpty()) {
+			echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>. Add/enable a server in <em>Setup &gt; Products/Services &gt; Servers</em>.</div>';
+		} else {
+			foreach ($servers as $pve) {
+				// Decrypt server password (same approach as ClientArea)
+				$api_data = array('password2' => $pve->password);
+				$serverpassword = localAPI('DecryptPassword', $api_data);
+				$serverip       = $pve->ipaddress;
+				$serverusername = $pve->username;
+				$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
 
-			// Login + get cluster/resources
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
-			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
-				continue;
-			}
-
-			$cluster_resources = $proxmox->get('/cluster/resources'); // returns nodes, qemu, lxc, storage, pools, etc.
-
-			// Debug logging (same style as ClientArea)
-			if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-				logModuleCall(
-					'pvewhmcs',
-					__FUNCTION__,
-					'CLUSTER RESOURCES [' . $serverlabel . ']:',
-					json_encode($cluster_resources)
-				);
-			}
-
-			if (!is_array($cluster_resources) || empty($cluster_resources)) {
-				echo '<div class="alert alert-info">No resources returned.</div>';
-				continue;
-			}
-
-			// Split resources
-			$nodes = [];
-			$guests = []; // qemu + lxc
-			foreach ($cluster_resources as $resource) {
-				if (!isset($resource['type'])) {
+				// Login + get cluster/resources
+				$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+				if (!$proxmox->login()) {
+					echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
 					continue;
 				}
-				if ($resource['type'] === 'node') {
-					$nodes[] = $resource;
-				} elseif ($resource['type'] === 'qemu' || $resource['type'] === 'lxc') {
-					$guests[] = $resource;
+
+				$cluster_resources = $proxmox->get('/cluster/resources'); // returns nodes, qemu, lxc, storage, pools, etc.
+
+				// Debug logging (same style as ClientArea)
+				if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+					logModuleCall(
+						'pvewhmcs',
+						__FUNCTION__,
+						'CLUSTER RESOURCES [' . $serverlabel . ']:',
+						json_encode($cluster_resources)
+					);
 				}
-			}
 
-			// Count running guests
-			$running_guests = array_filter($guests, function($g) {
-				return isset($g['status']) && $g['status'] === 'running';
-			});
+				if (!is_array($cluster_resources) || empty($cluster_resources)) {
+					echo '<div class="alert alert-info">No resources returned.</div>';
+					continue;
+				}
 
-			// ======== CLUSTER HEADER PANEL ========
-			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
-			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
-			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-server"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ccc;">('.htmlspecialchars($serverip).')</small></h3>';
-			echo '</div>';
-			echo '<div class="panel-body">';
+				// Split resources
+				$nodes = [];
+				$guests = []; // qemu + lxc
+				foreach ($cluster_resources as $resource) {
+					if (!isset($resource['type'])) {
+						continue;
+					}
+					if ($resource['type'] === 'node') {
+						$nodes[] = $resource;
+					} elseif ($resource['type'] === 'qemu' || $resource['type'] === 'lxc') {
+						$guests[] = $resource;
+					}
+				}
 
-			// -------- Per-Node Info with RRD Graphs --------
-			foreach ($nodes as $n) {
-				$n_name    = isset($n['node']) ? $n['node'] : '(node)';
-				$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
-				$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
-				$n_version = $proxmox->get_version();
-				$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 1) : 0;
-				$n_maxcpu  = isset($n['maxcpu']) ? $n['maxcpu'] : 0;
-				$n_mem_pct = (isset($n['mem']) && isset($n['maxmem']) && $n['maxmem'] > 0)
-					? round($n['mem'] * 100 / $n['maxmem'], 1)
-					: 0;
-				$n_mem_used = isset($n['mem']) ? round($n['mem'] / 1073741824, 1) : 0;
-				$n_mem_max  = isset($n['maxmem']) ? round($n['maxmem'] / 1073741824, 1) : 0;
+				// Count running guests
+				$running_guests = array_filter($guests, function($g) {
+					return isset($g['status']) && $g['status'] === 'running';
+				});
 
-				$status_color = ($n_status === 'online') ? '#5cb85c' : '#d9534f';
+				// ======== CLUSTER HEADER PANEL ========
+				echo '<div class="panel panel-default" style="margin-bottom:20px;">';
+				echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
+				echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-server"></i> '.htmlspecialchars($serverlabel).' <small style="color:#ccc;">('.htmlspecialchars($serverip).')</small></h3>';
+				echo '</div>';
+				echo '<div class="panel-body">';
 
-				echo '<div style="border:1px solid #ddd;border-radius:4px;padding:15px;margin-bottom:15px;background:#fafafa;">';
+				// -------- Per-Node Info with RRD Graphs --------
+				foreach ($nodes as $n) {
+					$n_name    = isset($n['node']) ? $n['node'] : '(node)';
+					$n_status  = isset($n['status']) ? $n['status'] : 'unknown';
+					$n_uptime  = isset($n['uptime']) ? time2format($n['uptime']) : '—';
+					$n_version = $proxmox->get_version();
+					$n_cpu_pct = isset($n['cpu']) ? round($n['cpu'] * 100, 1) : 0;
+					$n_maxcpu  = isset($n['maxcpu']) ? $n['maxcpu'] : 0;
+					$n_mem_pct = (isset($n['mem']) && isset($n['maxmem']) && $n['maxmem'] > 0)
+						? round($n['mem'] * 100 / $n['maxmem'], 1)
+						: 0;
+					$n_mem_used = isset($n['mem']) ? round($n['mem'] / 1073741824, 1) : 0;
+					$n_mem_max  = isset($n['maxmem']) ? round($n['maxmem'] / 1073741824, 1) : 0;
+
+					$status_color = ($n_status === 'online') ? '#5cb85c' : '#d9534f';
+
+					echo '<div style="border:1px solid #ddd;border-radius:4px;padding:15px;margin-bottom:15px;background:#fafafa;">';
 				
-				// Node Header Row
-				echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
-				echo '<div>';
-				echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> <strong>' . htmlspecialchars($n_name) . '</strong> [<code>v' . htmlspecialchars($n_version) . '</code>]</h4>';
-				echo '<span style="color:#555;font-size:12px;"><strong>Last Booted:</strong> <code>' . htmlspecialchars($n_uptime) . '</code></span>';
-				echo '</div>';
-				echo '<div style="text-align:right;">';
-				echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:' . $status_color . ';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">' . htmlspecialchars($n_status) . '</span>';
-				echo '</div>';
-				echo '</div>';
+					// Node Header Row
+					echo '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;border-bottom:1px solid #eee;padding-bottom:10px;">';
+					echo '<div>';
+					echo '<h4 style="margin:0 0 5px 0;"><i class="fa fa-cube" style="color:#5c3d7a;"></i> <strong>' . htmlspecialchars($n_name) . '</strong> [<code>v' . htmlspecialchars($n_version) . '</code>]</h4>';
+					echo '<span style="color:#555;font-size:12px;"><strong>Last Booted:</strong> <code>' . htmlspecialchars($n_uptime) . '</code></span>';
+					echo '</div>';
+					echo '<div style="text-align:right;">';
+					echo '<span style="display:inline-block;padding:4px 12px;border-radius:3px;background:' . $status_color . ';color:#fff;font-weight:bold;text-transform:uppercase;font-size:11px;">' . htmlspecialchars($n_status) . '</span>';
+					echo '</div>';
+					echo '</div>';
 
-				// Live Stats Row
-				echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
-				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">CPU: <code>' . $n_cpu_pct . '%</code></div>';
-				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_maxcpu . ' Cores</strong></div>';
-				echo '</div>';
-				echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
-				echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">RAM: <code>' . $n_mem_pct . '%</code></div>';
-				echo '<div style="font-size:11px;color:#555;"><strong>' . $n_mem_used . ' of ' . $n_mem_max . 'GB</strong></div>';
-				echo '</div>';
-				echo '</div>';
+					// Live Stats Row
+					echo '<div style="display:flex;gap:20px;margin-bottom:15px;">';
+					echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+					echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">CPU: <code>' . $n_cpu_pct . '%</code></div>';
+					echo '<div style="font-size:11px;color:#555;"><strong>' . $n_maxcpu . ' Cores</strong></div>';
+					echo '</div>';
+					echo '<div style="flex:1;text-align:center;padding:10px;background:#fff;border-radius:4px;border:1px solid #eee;">';
+					echo '<div style="font-size:24px;font-weight:bold;color:#5c3d7a;">RAM: <code>' . $n_mem_pct . '%</code></div>';
+					echo '<div style="font-size:11px;color:#555;"><strong>' . $n_mem_used . ' of ' . $n_mem_max . 'GB</strong></div>';
+					echo '</div>';
+					echo '</div>';
 
-				// RRD Graphs Section
-				$rrd_path = '/nodes/' . $n_name . '/rrd';
-				$rrd_cpu = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'cpu');
-				$rrd_mem = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'memused');
-				$rrd_net = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'netin,netout');
-				$rrd_io  = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'iowait');
+					// RRD Graphs Section
+					$rrd_path = '/nodes/' . $n_name . '/rrd';
+					$rrd_cpu = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'cpu');
+					$rrd_mem = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'memused');
+					$rrd_net = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'netin,netout');
+					$rrd_io  = pvewhmcs_addon_fetch_rrd($proxmox, $rrd_path, 'hour', 'iowait');
 
-				if ($rrd_cpu || $rrd_mem || $rrd_net || $rrd_io) {
-					echo '<div style="margin-top:10px;">';
-					echo '<div style="font-size:12px;color:#555;margin-bottom:8px;"><i class="fa fa-line-chart"></i> <strong>Performance Graphs</strong> (Last Hour)</div>';
-					// Row 1: CPU and Memory
-					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
-					if ($rrd_cpu) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_cpu . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+					if ($rrd_cpu || $rrd_mem || $rrd_net || $rrd_io) {
+						echo '<div style="margin-top:10px;">';
+						echo '<div style="font-size:12px;color:#555;margin-bottom:8px;"><i class="fa fa-line-chart"></i> <strong>Performance Graphs</strong> (Last Hour)</div>';
+						// Row 1: CPU and Memory
+						echo '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;">';
+						if ($rrd_cpu) {
+							echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_cpu . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						}
+						if ($rrd_mem) {
+							echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_mem . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						}
+						echo '</div>';
+						// Row 2: Network and I/O
+						echo '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+						if ($rrd_net) {
+							echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_net . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						}
+						if ($rrd_io) {
+							echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_io . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
+						}
+						echo '</div>';
+						echo '</div>';
+					} else {
+						echo '<div class="alert alert-warning" style="margin:10px 0 0 0;padding:10px;font-size:12px;">';
+						echo '<i class="fa fa-exclamation-triangle"></i> RRD data unavailable. Please ask Support to upgrade RRD stored data from 2.x to 9.0 format on their Nodes.';
+						echo '</div>';
 					}
-					if ($rrd_mem) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_mem . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
-					}
-					echo '</div>';
-					// Row 2: Network and I/O
-					echo '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
-					if ($rrd_net) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_net . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
-					}
-					if ($rrd_io) {
-						echo '<div style="flex:1;min-width:45%;"><img src="data:image/png;base64,' . $rrd_io . '" style="width:100%;border-radius:3px;border:1px solid #ddd;"/></div>';
-					}
-					echo '</div>';
-					echo '</div>';
-				} else {
-					echo '<div class="alert alert-warning" style="margin:10px 0 0 0;padding:10px;font-size:12px;">';
-					echo '<i class="fa fa-exclamation-triangle"></i> RRD data unavailable. Please ask Support to upgrade RRD stored data from 2.x to 9.0 format on their Nodes.';
-					echo '</div>';
+
+					echo '</div>'; // End node panel
 				}
 
-				echo '</div>'; // End node panel
+				echo '</div>'; // panel-body
+				echo '</div>'; // panel
 			}
-
-			echo '</div>'; // panel-body
-			echo '</div>'; // panel
 		}
 	}
 	echo '</div>';
@@ -482,103 +505,106 @@ function pvewhmcs_output($vars) {
 	// ======== GUESTS TAB ========
 	echo '<div id="guests" class="tab-pane '.($_GET['tab']=="guests" ? "active" : "").'" >';
 
-	// Re-use servers data for guests tab
-	$servers = Capsule::table('tblservers')
-		->where('type', '=', 'pvewhmcs')
-		->where('disabled', '=', 0)
-		->orderBy('id', 'asc')
-		->get();
+	// Live PVE data: only fetched when this tab is open (its link reloads the page)
+	if ($_GET['tab'] == 'guests') {
+		// Re-use servers data for guests tab
+		$servers = Capsule::table('tblservers')
+			->where('type', '=', 'pvewhmcs')
+			->where('disabled', '=', 0)
+			->orderBy('id', 'asc')
+			->get();
 
-	if ($servers->isEmpty()) {
-		echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>.</div>';
-	} else {
-		foreach ($servers as $pve) {
-			$api_data = array('password2' => $pve->password);
-			$serverpassword = localAPI('DecryptPassword', $api_data);
-			$serverip       = $pve->ipaddress;
-			$serverusername = $pve->username;
-			$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
+		if ($servers->isEmpty()) {
+			echo '<div class="alert alert-warning">No enabled WHMCS servers found for module type <code>pvewhmcs</code>.</div>';
+		} else {
+			foreach ($servers as $pve) {
+				$api_data = array('password2' => $pve->password);
+				$serverpassword = localAPI('DecryptPassword', $api_data);
+				$serverip       = $pve->ipaddress;
+				$serverusername = $pve->username;
+				$serverlabel    = !empty($pve->name) ? $pve->name : ('Server #' . $pve->id);
 
-			$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
-			if (!$proxmox->login()) {
-				echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
-				continue;
-			}
-
-			$cluster_resources = $proxmox->get('/cluster/resources');
-			if (!is_array($cluster_resources) || empty($cluster_resources)) {
-				echo '<div class="alert alert-info">No resources returned.</div>';
-				continue;
-			}
-
-			// Filter guests only
-			$guests = [];
-			foreach ($cluster_resources as $resource) {
-				if (isset($resource['type']) && ($resource['type'] === 'qemu' || $resource['type'] === 'lxc')) {
-					$guests[] = $resource;
+				$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password']);
+				if (!$proxmox->login()) {
+					echo '<div class="alert alert-danger">Unable to log in to PVE API on ' . htmlspecialchars($serverip) . '. Check credentials, connectivity & configurations.</div><center><img src="../modules/addons/pvewhmcs/img/forbidden.png"><br><a href="https://github.com/The-Network-Crew/Proxmox-VE-for-WHMCS" target="_blank"><img src="../modules/addons/pvewhmcs/img/logo-stacked.png" style="max-height:150px;"></a></center>';
+					continue;
 				}
-			}
 
-			$running_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'running'; }));
-			$stopped_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'stopped'; }));
-
-			echo '<div class="panel panel-default" style="margin-bottom:20px;">';
-			echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
-			echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> ' . htmlspecialchars($serverlabel) . ' <small style="color:#ddd;">(' . count($guests) . ' guests: ' . $running_count . ' running, ' . $stopped_count . ' stopped)</small></h3>';
-			echo '</div>';
-			echo '<div class="panel-body" style="padding:0;padding-top:8px;">';
-
-			if (count($guests) > 0) {
-				echo '<table class="pve-table">';
-				echo '<thead><tr>
-						<th>VMID</th>
-						<th>Name</th>
-						<th>Status</th>
-						<th>Type</th>
-						<th>Node</th>
-						<th>CPU %</th>
-						<th>RAM %</th>
-						<th>Disk %</th>
-						<th>Uptime</th>
-					</tr></thead><tbody>';
-
-				foreach ($guests as $g) {
-					$g_node   = $g['node']  ?? '—';
-					$g_type   = $g['type']  ?? '—';
-					$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
-					$g_name   = $g['name']  ?? '';
-					$g_status = $g['status'] ?? 'unknown';
-					$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
-					$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 1) : 0;
-					$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
-						? round(($g['mem'] ?? 0) * 100 / $g['maxmem'], 1)
-						: 0;
-					$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
-						? round(($g['disk'] ?? 0) * 100 / $g['maxdisk'], 1)
-						: 0;
-
-					$type_icon = ($g_type === 'qemu') ? 'fa-desktop' : 'fa-cube';
-					$status_color = ($g_status === 'running') ? '#5cb85c' : '#999';
-
-					echo '<tr>';
-					echo '<td><code>' . $g_vmid . '</code></td>';
-					echo '<td><i class="fa ' . $type_icon . '" style="color:#666;"></i> <strong>' . htmlspecialchars($g_name) . '</strong></td>';
-					echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:' . $status_color . ';color:#fff;font-size:10px;text-transform:uppercase;">' . htmlspecialchars($g_status) . '</span></td>';
-					echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">' . htmlspecialchars($g_type) . '</span></td>';
-					echo '<td>' . htmlspecialchars($g_node) . '</td>';
-					echo '<td>' . $g_cpu_pct . '%</td>';
-					echo '<td>' . $g_mem_pct . '%</td>';
-					echo '<td>' . $g_dsk_pct . '%</td>';
-					echo '<td>' . htmlspecialchars($g_uptime) . '</td>';
-					echo '</tr>';
+				$cluster_resources = $proxmox->get('/cluster/resources');
+				if (!is_array($cluster_resources) || empty($cluster_resources)) {
+					echo '<div class="alert alert-info">No resources returned.</div>';
+					continue;
 				}
-				echo '</tbody></table>';
-			} else {
-				echo '<div class="alert alert-info" style="margin:15px;">No guests found on this cluster.</div>';
-			}
 
-			echo '</div>'; // panel-body
-			echo '</div>'; // panel
+				// Filter guests only
+				$guests = [];
+				foreach ($cluster_resources as $resource) {
+					if (isset($resource['type']) && ($resource['type'] === 'qemu' || $resource['type'] === 'lxc')) {
+						$guests[] = $resource;
+					}
+				}
+
+				$running_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'running'; }));
+				$stopped_count = count(array_filter($guests, function($g) { return ($g['status'] ?? '') === 'stopped'; }));
+
+				echo '<div class="panel panel-default" style="margin-bottom:20px;">';
+				echo '<div class="panel-heading" style="background:#5c3d7a;color:#fff;">';
+				echo '<h3 class="panel-title" style="margin:0;"><i class="fa fa-desktop"></i> ' . htmlspecialchars($serverlabel) . ' <small style="color:#ddd;">(' . count($guests) . ' guests: ' . $running_count . ' running, ' . $stopped_count . ' stopped)</small></h3>';
+				echo '</div>';
+				echo '<div class="panel-body" style="padding:0;padding-top:8px;">';
+
+				if (count($guests) > 0) {
+					echo '<table class="pve-table">';
+					echo '<thead><tr>
+							<th>VMID</th>
+							<th>Name</th>
+							<th>Status</th>
+							<th>Type</th>
+							<th>Node</th>
+							<th>CPU %</th>
+							<th>RAM %</th>
+							<th>Disk %</th>
+							<th>Uptime</th>
+						</tr></thead><tbody>';
+
+					foreach ($guests as $g) {
+						$g_node   = $g['node']  ?? '—';
+						$g_type   = $g['type']  ?? '—';
+						$g_vmid   = isset($g['vmid']) ? (int)$g['vmid'] : 0;
+						$g_name   = $g['name']  ?? '';
+						$g_status = $g['status'] ?? 'unknown';
+						$g_uptime = isset($g['uptime']) ? time2format($g['uptime']) : '—';
+						$g_cpu_pct = isset($g['cpu']) ? round($g['cpu'] * 100, 1) : 0;
+						$g_mem_pct = (isset($g['maxmem']) && $g['maxmem'] > 0)
+							? round(($g['mem'] ?? 0) * 100 / $g['maxmem'], 1)
+							: 0;
+						$g_dsk_pct = (isset($g['maxdisk']) && $g['maxdisk'] > 0)
+							? round(($g['disk'] ?? 0) * 100 / $g['maxdisk'], 1)
+							: 0;
+
+						$type_icon = ($g_type === 'qemu') ? 'fa-desktop' : 'fa-cube';
+						$status_color = ($g_status === 'running') ? '#5cb85c' : '#999';
+
+						echo '<tr>';
+						echo '<td><code>' . $g_vmid . '</code></td>';
+						echo '<td><i class="fa ' . $type_icon . '" style="color:#666;"></i> <strong>' . htmlspecialchars($g_name) . '</strong></td>';
+						echo '<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;background:' . $status_color . ';color:#fff;font-size:10px;text-transform:uppercase;">' . htmlspecialchars($g_status) . '</span></td>';
+						echo '<td><span style="text-transform:uppercase;font-size:10px;background:#eee;padding:2px 6px;border-radius:3px;">' . htmlspecialchars($g_type) . '</span></td>';
+						echo '<td>' . htmlspecialchars($g_node) . '</td>';
+						echo '<td>' . $g_cpu_pct . '%</td>';
+						echo '<td>' . $g_mem_pct . '%</td>';
+						echo '<td>' . $g_dsk_pct . '%</td>';
+						echo '<td>' . htmlspecialchars($g_uptime) . '</td>';
+						echo '</tr>';
+					}
+					echo '</tbody></table>';
+				} else {
+					echo '<div class="alert alert-info" style="margin:15px;">No guests found on this cluster.</div>';
+				}
+
+				echo '</div>'; // panel-body
+				echo '</div>'; // panel
+			}
 		}
 	}
 	echo '</div>';
@@ -659,27 +685,27 @@ function pvewhmcs_output($vars) {
 		</tr>';
 		foreach (Capsule::table('mod_pvewhmcs_plans')->get() as $vm) {
 			echo '<tr>';
-			echo '<td>' . $vm->id . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->id) . '</td>';
 			echo '<td>' . htmlspecialchars($vm->title) . '</td>';
-			echo '<td>' . $vm->vmtype . '</td>';
-			echo '<td>' . $vm->ostype . '</td>';
-			echo '<td>' . $vm->cpus . '</td>';
-			echo '<td>' . $vm->cores . '</td>';
-			echo '<td>' . $vm->memory . '</td>';
-			echo '<td>' . $vm->balloon . '</td>';
-			echo '<td>' . $vm->swap . '</td>';
-			echo '<td>' . $vm->disk . '</td>';
-			echo '<td>' . $vm->disktype . '</td>';
-			echo '<td>' . $vm->diskio . '</td>';
-			echo '<td>' . $vm->storage . '</td>';
-			echo '<td>' . $vm->netmode . '</td>';
-			echo '<td>' . $vm->bridge . $vm->vmbr . '</td>';
-			echo '<td>' . $vm->netmodel . '</td>';
-			echo '<td>' . $vm->vlanid . '</td>';
-			echo '<td>' . $vm->netrate . '</td>';
-			echo '<td>' . $vm->bw . '</td>';
-			echo '<td>' . $vm->ipv6 . '</td>';
-			echo '<td>' . $vm->unpriv . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->vmtype) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->ostype) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->cpus) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->cores) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->memory) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->balloon) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->swap) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->disk) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->disktype) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->diskio) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->storage) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netmode) . '</td>';
+			echo '<td>' . htmlspecialchars($vm->bridge . $vm->vmbr) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netmodel) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->vlanid) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->netrate) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->bw) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->ipv6) . '</td>';
+			echo '<td>' . htmlspecialchars((string) $vm->unpriv) . '</td>';
 			echo '<td>
 			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=editplan&amp;id=' . $vm->id . '&amp;vmtype=' . $vm->vmtype . '"><img height="16" width="16" border="0" alt="Edit" src="images/edit.gif"></a>
 			<a href="' . pvewhmcs_BASEURL . '&amp;tab=vmplans&amp;action=removeplan&amp;id=' . $vm->id . generate_token('link') . '" onclick="return confirm(\'Plan will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Edit" src="images/delete.gif"></a>
@@ -747,7 +773,7 @@ function pvewhmcs_output($vars) {
 			<h3 style="margin:0 0 15px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> System Environment</h3>
 			<table style="width:100%;font-size:14px;">
 				<tr><td style="padding:6px 0;color:#666;width:150px;"><strong>Module Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . pvewhmcs_version() . '</code></td></tr>
-				<tr><td style="padding:6px 0;color:#666;"><strong>Latest Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . get_pvewhmcs_latest_version() . '</code></td></tr>
+				<tr><td style="padding:6px 0;color:#666;"><strong>Latest Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . htmlspecialchars(get_pvewhmcs_latest_version()) . '</code></td></tr>
 				<tr><td style="padding:6px 0;color:#666;"><strong>Web Server</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_SOFTWARE']) . '</code></td></tr>
 				<tr><td style="padding:6px 0;color:#666;"><strong>PHP Version</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">v' . phpversion() . '</code></td></tr>
 				<tr><td style="padding:6px 0;color:#666;"><strong>Server Name</strong></td><td style="padding:6px 0;"><code style="background:#f4f0f7;padding:3px 8px;border-radius:3px;color:#5c3d7a;">' . htmlspecialchars($_SERVER['SERVER_NAME']) . '</code></td></tr>
@@ -793,7 +819,7 @@ function pvewhmcs_output($vars) {
 	<div style="max-width:800px;">
 	<div style="background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:25px;">
 	<h3 style="margin:0 0 20px 0;color:#5c3d7a;font-weight:600;"><span style="font-size:24px;">&#9881;</span> Module Configuration</h3>
-	<form method="post">
+	<form method="post">' . generate_token('form') . '
 	<table style="width:100%;border-collapse:collapse;">
 	<tr>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;width:150px;vertical-align:top;">
@@ -809,7 +835,7 @@ function pvewhmcs_output($vars) {
 			<label style="font-weight:600;color:#333;">VMID Start</label>
 		</td>
 		<td style="padding:15px 0;border-bottom:1px solid #eee;">
-			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value="' . $config->start_vmid . '">
+			<input type="text" style="width:100%;max-width:300px;padding:8px 12px;border:1px solid #ddd;border-radius:4px;font-size:14px;" name="start_vmid" id="start_vmid" value=\"' . htmlspecialchars((string) $config->start_vmid) . '\">
 			<p style="margin:8px 0 0 0;font-size:13px;color:#666;">For Guests. Increments until a vacant VMID found. Default is <code style="background:#f4f0f7;padding:2px 6px;border-radius:3px;color:#5c3d7a;">100</code></p>
 		</td>
 	</tr>
@@ -840,113 +866,116 @@ function pvewhmcs_output($vars) {
 	// LOGS tab in ADMIN GUI
 	echo '<div id="logs" class="tab-pane ' . (isset($_GET['tab']) && $_GET['tab'] === 'logs' ? 'active' : '') . '">';
 
-	try {
-	    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
-	    if (!isset($proxmox)) {
-	        $pve = Capsule::table('tblservers')
-	            ->where('type', 'pvewhmcs')
-	            ->where('disabled', 0)
-	            ->orderBy('id', 'asc')
-	            ->first();
+	// Live PVE data: only fetched when this tab is open (its link reloads the page)
+	if ($_GET['tab'] == 'logs') {
+		try {
+		    // If a client exists already, reuse it; else initialise once from the first enabled pvewhmcs server
+		    if (!isset($proxmox)) {
+		        $pve = Capsule::table('tblservers')
+		            ->where('type', 'pvewhmcs')
+		            ->where('disabled', 0)
+		            ->orderBy('id', 'asc')
+		            ->first();
 
-	        if (!$pve) {
-	            throw new Exception('No enabled WHMCS server found for module type pvewhmcs.');
-	        }
+		        if (!$pve) {
+		            throw new Exception('No enabled WHMCS server found for module type pvewhmcs.');
+		        }
 
-	        $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
-	        $serverpassword = $dec['password'] ?? '';
-	        if (!$serverpassword) {
-	            throw new Exception('Could not decrypt Proxmox server password.');
-	        }
+		        $dec = localAPI('DecryptPassword', ['password2' => $pve->password]);
+		        $serverpassword = $dec['password'] ?? '';
+		        if (!$serverpassword) {
+		            throw new Exception('Could not decrypt Proxmox server password.');
+		        }
 
-	        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
-	        if (!$proxmox->login()) {
-	            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials, connectivity & configurations.');
-	        }
-	    }
+		        $proxmox = new PVE2_API($pve->ipaddress, $pve->username, "pam", $serverpassword);
+		        if (!$proxmox->login()) {
+		            throw new Exception('Unable to log in to PVE API on ' . htmlspecialchars($pve->ipaddress) . '. Check credentials, connectivity & configurations.');
+		        }
+		    }
 
-	    // Fetch recent cluster-wide tasks once
-	    $limit = 150;
-	    $tasks = $proxmox->get('/cluster/tasks', ['limit' => $limit]);
+		    // Fetch recent cluster-wide tasks once
+		    $limit = 150;
+		    $tasks = $proxmox->get('/cluster/tasks', ['limit' => $limit]);
 
-	    // Optional debug logging
-	    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
-	        logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
-	    }
+		    // Optional debug logging
+		    if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
+		        logModuleCall('pvewhmcs', 'ADMIN LOGS: /cluster/tasks', 'limit=' . $limit, json_encode($tasks));
+		    }
 
-	    if (!is_array($tasks) || empty($tasks)) {
-	        echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
-	    } else {
-	        // Sort newest first (defensive)
-	        usort($tasks, function ($a, $b) {
-	            return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
-	        });
+		    if (!is_array($tasks) || empty($tasks)) {
+		        echo '<div class="alert alert-info">No recent cluster tasks were returned.</div>';
+		    } else {
+		        // Sort newest first (defensive)
+		        usort($tasks, function ($a, $b) {
+		            return (intval($b['starttime'] ?? 0)) <=> (intval($a['starttime'] ?? 0));
+		        });
 
-	        echo '<table class="pve-table">';
-	        echo '<thead><tr>
-	                <th>Task</th>
-	                <th>VMID</th>
-	                <th>Status</th>
-	                <th>Node</th>
-	                <th>User</th>
-	                <th>Duration</th>
-	                <th>Start</th>
-	                <th>End</th>
-	              </tr></thead><tbody>';
+		        echo '<table class="pve-table">';
+		        echo '<thead><tr>
+		                <th>Task</th>
+		                <th>VMID</th>
+		                <th>Status</th>
+		                <th>Node</th>
+		                <th>User</th>
+		                <th>Duration</th>
+		                <th>Start</th>
+		                <th>End</th>
+		              </tr></thead><tbody>';
 
-	        foreach ($tasks as $t) {
-	            $node   = $t['node'] ?? '—';
-	            $type   = $t['type'] ?? '';
-	            $user   = $t['user'] ?? '';
-	            $upid   = $t['upid'] ?? '';
+		        foreach ($tasks as $t) {
+		            $node   = $t['node'] ?? '—';
+		            $type   = $t['type'] ?? '';
+		            $user   = $t['user'] ?? '';
+		            $upid   = $t['upid'] ?? '';
 
-	            // Derive VMID:
-	            // 1) Prefer numeric $t['id'] when available
-	            // 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
-	            $vmid = '—';
-	            if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
-	                $vmid = (string)$t['id'];
-	            } elseif (is_string($upid) && $upid !== '') {
-	                // UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
-	                if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
-	                    if ($m[1] !== '' && ctype_digit($m[1])) {
-	                        $vmid = $m[1];
-	                    }
-	                }
-	            }
+		            // Derive VMID:
+		            // 1) Prefer numeric $t['id'] when available
+		            // 2) Otherwise parse from UPID ("...:type:<vmid>:user@realm:")
+		            $vmid = '—';
+		            if (isset($t['id']) && preg_match('/^\d+$/', (string)$t['id'])) {
+		                $vmid = (string)$t['id'];
+		            } elseif (is_string($upid) && $upid !== '') {
+		                // UPID format: UPID:node:pid:pstart:starttime:type:vmid:user@realm:
+		                if (preg_match('/^UPID:[^:]*:[^:]*:[^:]*:[^:]*:[^:]*:([^:]*):/', $upid, $m)) {
+		                    if ($m[1] !== '' && ctype_digit($m[1])) {
+		                        $vmid = $m[1];
+		                    }
+		                }
+		            }
 
-	            $startTs = (int)($t['starttime'] ?? 0);
-	            $endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
+		            $startTs = (int)($t['starttime'] ?? 0);
+		            $endTs   = isset($t['endtime']) ? (int)$t['endtime'] : null;
 
-	            $start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
-	            $end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
+		            $start = $startTs ? date('Y-m-d H:i:s', $startTs) : '—';
+		            $end   = $endTs   ? date('Y-m-d H:i:s', $endTs)   : '—';
 
-	            $durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
-	            $durH   = is_null($durSec)
-	                ? '—'
-	                : sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
+		            $durSec = $startTs ? (is_null($endTs) ? (time() - $startTs) : max(0, $endTs - $startTs)) : null;
+		            $durH   = is_null($durSec)
+		                ? '—'
+		                : sprintf('%02d:%02d:%02d', intdiv($durSec, 3600), intdiv($durSec % 3600, 60), $durSec % 60);
 
-	            $status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
-	            $badge  = ($status === 'OK')
-	                ? '✅'
-	                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
+		            $status = $t['status'] ?? (is_null($endTs) ? 'running' : '');
+		            $badge  = ($status === 'OK')
+		                ? '✅'
+		                : ((preg_match('/(error|fail|aborted|unknown)/i', (string)$status)) ? '❌' : '⏳');
 
-	            echo '<tr>';
-	            echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
-	            echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
-	            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
-	            echo '<td>' . htmlspecialchars($node) . '</td>';
-	            echo '<td>' . htmlspecialchars($user) . '</td>';
-	            echo '<td>' . htmlspecialchars($durH) . '</td>';
-	            echo '<td>' . htmlspecialchars($start) . '</td>';
-	            echo '<td>' . htmlspecialchars($end) . '</td>';
-	            echo '</tr>';
-	        }
-	        echo '</tbody></table>';
-	    }
-	} catch (Throwable $e) {
-	    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
-	        . htmlspecialchars($e->getMessage()) . '</div>';
+		            echo '<tr>';
+		            echo '<td><code>' . htmlspecialchars($type) . '</code></td>';
+		            echo '<td><code>' . htmlspecialchars($vmid) . '</code></td>';
+		            echo '<td>' . $badge . ' ' . htmlspecialchars($status) . '</td>';
+		            echo '<td>' . htmlspecialchars($node) . '</td>';
+		            echo '<td>' . htmlspecialchars($user) . '</td>';
+		            echo '<td>' . htmlspecialchars($durH) . '</td>';
+		            echo '<td>' . htmlspecialchars($start) . '</td>';
+		            echo '<td>' . htmlspecialchars($end) . '</td>';
+		            echo '</tr>';
+		        }
+		        echo '</tbody></table>';
+		    }
+		} catch (Throwable $e) {
+		    echo '<div class="alert alert-danger">Could not retrieve PVE Cluster history: '
+		        . htmlspecialchars($e->getMessage()) . '</div>';
+		}
 	}
 	echo '</div></div>'; 
 	// End of tabbed content
@@ -1047,7 +1076,7 @@ function import_guest() {
 
 	// Always show the form for easy further imports
 	if (!empty($resultMsg)) echo $resultMsg;
-	echo '<form method="post">';
+	echo '<form method="post">' . generate_token('form') . '';
 	echo '<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">';
 	echo '<tr><td class="fieldlabel">PVE VMID</td><td class="fieldarea"><input type="text" name="import_vmid" required></td></tr>';
 	echo '<tr><td class="fieldlabel">Hostname</td><td class="fieldarea"><input type="text" name="import_hostname" required></td></tr>';
@@ -1105,14 +1134,14 @@ function save_config() {
 		$_SESSION['pvewhmcs']['infomsg']['message']='New options have been successfully saved.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=config");
 	} catch (\Exception $e) {
-		echo "Uh oh! That didn't work, but I was able to rollback. {$e->getMessage()}";
+		echo "Uh oh! That didn't work, but I was able to rollback. " . htmlspecialchars($e->getMessage());
 	}
 }
 
 // MODULE FORM: Add new QEMU Plan
 function qemu_plan_add() {
 	echo '
-	<form method="post">
+	<form method="post">' . generate_token('form') . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Name</td>
@@ -1433,7 +1462,7 @@ function qemu_plan_edit($id) {
 		return false ;
 	}
 	echo '
-	<form method="post">
+	<form method="post">' . generate_token('form') . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Name</td>
@@ -1444,35 +1473,35 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">CPU Cores</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cores" id="cores" value="' . $plan->cores . '" required>
+	<input type="text" size="8" name="cores" id="cores" value=\"' . htmlspecialchars((string) $plan->cores) . '\" required>
 	Number of vCPU cores.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM (MB)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value="' . $plan->memory . '">
+	<input type="text" size="8" name="memory" id="memory" required value=\"' . htmlspecialchars((string) $plan->memory) . '\">
 	1024 = 1 GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk (GB)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" required value="' . $plan->disk . '">
+	<input type="text" size="8" name="disk" id="disk" required value=\"' . htmlspecialchars((string) $plan->disk) . '\">
 	Boot disk size in GB, e.g. 20. The template disk is grown to this size.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Port Speed (Mbit/s)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
+	<input type="text" size="8" name="netrate" id="netrate" value=\"' . htmlspecialchars((string) $plan->netrate) . '\">
 	0 = unlimited
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Bandwidth (GB/month)</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
+	<input type="text" size="8" name="bw" id="bw" value=\"' . htmlspecialchars((string) $plan->bw) . '\">
 	Blank = unlimited
 	</td>
 	</tr>
@@ -1584,28 +1613,28 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">CPU - Sockets</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpus" id="cpus" value="' . $plan->cpus . '" required>
+	<input type="text" size="8" name="cpus" id="cpus" value=\"' . htmlspecialchars((string) $plan->cpus) . '\" required>
 	The number of CPU Sockets (typically 1-4). Governed by your physical Server.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpulimit" id="cpulimit" value="' . $plan->cpulimit . '" required>
+	<input type="text" size="8" name="cpulimit" id="cpulimit" value=\"' . htmlspecialchars((string) $plan->cpulimit) . '\" required>
 	Limit of CPU usage. Note if the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpuunits" id="cpuunits" value="' . $plan->cpuunits . '" required>
+	<input type="text" size="8" name="cpuunits" id="cpuunits" value=\"' . htmlspecialchars((string) $plan->cpuunits) . '\" required>
 	Number is relative to weights of all the other running VMs. 8 - 500000 recommended 1024. Disable fair-scheduler by setting this to 0.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Balloon</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="balloon" id="balloon" required value="' . $plan->balloon . '">
+	<input type="text" size="8" name="balloon" id="balloon" required value=\"' . htmlspecialchars((string) $plan->balloon) . '\">
 	Balloon capacity in Megabytes eg. 1024 = 1GB (0 = disabled)
 	</td>
 	</tr>
@@ -1648,14 +1677,14 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" required value="' . $plan->diskio . '">
+	<input type="text" size="8" name="diskio" id="diskio" required value=\"' . htmlspecialchars((string) $plan->diskio) . '\">
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" required value="' . $plan->storage . '">
+	<input type="text" size="8" name="storage" id="storage" required value=\"' . htmlspecialchars((string) $plan->storage) . '\">
 	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
@@ -1697,21 +1726,21 @@ function qemu_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bridge" id="bridge" value="' . $plan->bridge . '">
+	<input type="text" size="8" name="bridge" id="bridge" value=\"' . htmlspecialchars((string) $plan->bridge) . '\">
 	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '">
+	<input type="text" size="8" name="vmbr" id="vmbr" value=\"' . htmlspecialchars((string) $plan->vmbr) . '\">
 	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - VLAN ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vlanid" id="vlanid" value="' . $plan->vlanid . '">
+	<input type="text" size="8" name="vlanid" id="vlanid" value=\"' . htmlspecialchars((string) $plan->vlanid) . '\">
 	VLAN ID for Plan Services. Default forgoes tagging (VLAN ID), blank for untagged.
 	</td>
 	</tr>
@@ -1749,7 +1778,7 @@ function qemu_plan_edit($id) {
 // MODULE FORM: Add an LXC Plan
 function lxc_plan_add() {
 	echo '
-	<form method="post">
+	<form method="post">' . generate_token('form') . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
@@ -1891,7 +1920,7 @@ function lxc_plan_edit($id) {
 		return false ;
 	}
 	echo '
-	<form method="post">
+	<form method="post">' . generate_token('form') . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Plan Title</td>
@@ -1902,63 +1931,63 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">CPU - Limit</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpulimit" id="cpulimit" value="' . $plan->cpulimit . '" required>
+	<input type="text" size="8" name="cpulimit" id="cpulimit" value=\"' . htmlspecialchars((string) $plan->cpulimit) . '\" required>
 	Limit of CPU usage. Default is 1. If the computer has 2 CPUs, it has total of "2" CPU time. Value "0" indicates no CPU limit.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">CPU - Weighting</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="cpuunits" id="cpuunits" value="' . $plan->cpuunits . '" required>
+	<input type="text" size="8" name="cpuunits" id="cpuunits" value=\"' . htmlspecialchars((string) $plan->cpuunits) . '\" required>
 	Number is relative to weights of all the other running VMs. 8 - 500000, recommend 1024.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">RAM - Memory</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="memory" id="memory" required value="' . $plan->memory . '">
+	<input type="text" size="8" name="memory" id="memory" required value=\"' . htmlspecialchars((string) $plan->memory) . '\">
 	RAM capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Swap - Space</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="swap" id="swap" value="' . $plan->swap . '">
+	<input type="text" size="8" name="swap" id="swap" value=\"' . htmlspecialchars((string) $plan->swap) . '\">
 	Swap capacity in Megabytes eg. 1024 = 1GB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - Capacity</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="disk" id="disk" value="' . $plan->disk . '" required>
+	<input type="text" size="8" name="disk" id="disk" value=\"' . htmlspecialchars((string) $plan->disk) . '\" required>
 	HDD/SSD storage in Gigabytes eg. 1024 = 1TB
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Disk - I/O Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="diskio" id="diskio" value="' . $plan->diskio . '" required>
+	<input type="text" size="8" name="diskio" id="diskio" value=\"' . htmlspecialchars((string) $plan->diskio) . '\" required>
 	Limit of Disk I/O in KiB/s. 0 for unrestricted storage access for Guests.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">PVE Store - Name</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="storage" id="storage" value="' . $plan->storage . '" required>
+	<input type="text" size="8" name="storage" id="storage" value=\"' . htmlspecialchars((string) $plan->storage) . '\" required>
 	Name of VM/CT Storage on Proxmox VE hypervisor. <code>local/local-lvm/etc</code>
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Interface</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bridge" id="bridge" value="' . $plan->bridge . '">
+	<input type="text" size="8" name="bridge" id="bridge" value=\"' . htmlspecialchars((string) $plan->bridge) . '\">
 	Network / Bridge / NIC name. PVE default bridge prefix is "vmbr".
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Bridge/NIC ID</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="vmbr" id="vmbr" value="' . $plan->vmbr . '">
+	<input type="text" size="8" name="vmbr" id="vmbr" value=\"' . htmlspecialchars((string) $plan->vmbr) . '\">
 	Interface ID. PVE Bridge default is 0, for "vmbr0". PVE SDN, leave blank.
 	</td>
 	</tr>
@@ -1972,14 +2001,14 @@ function lxc_plan_edit($id) {
 	<tr>
 	<td class="fieldlabel">Network - Rate</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="netrate" id="netrate" value="' . $plan->netrate . '">
+	<input type="text" size="8" name="netrate" id="netrate" value=\"' . htmlspecialchars((string) $plan->netrate) . '\">
 	Network Rate Limit in Megabits/Second. Zero for unlimited.
 	</td>
 	</tr>
 	<tr>
 	<td class="fieldlabel">Network - Cap</td>
 	<td class="fieldarea">
-	<input type="text" size="8" name="bw" id="bw" value="' . $plan->bw . '">
+	<input type="text" size="8" name="bw" id="bw" value=\"' . htmlspecialchars((string) $plan->bw) . '\">
 	Monthly Data Transfer Cap in Gigabytes. Blank for unlimited.
 	</td>
 	</tr>
@@ -2068,7 +2097,7 @@ function save_qemu_plan() {
 		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the QEMU Plan successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	} catch (\Exception $e) {
-		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
+		echo "Uh oh! Inserting didn't work, but I was able to rollback. " . htmlspecialchars($e->getMessage());
 	}
 }
 
@@ -2155,7 +2184,7 @@ function save_lxc_plan() {
 		$_SESSION['pvewhmcs']['infomsg']['message']='Saved the LXC Plan successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=vmplans&action=planlist");
 	} catch (\Exception $e) {
-		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
+		echo "Uh oh! Inserting didn't work, but I was able to rollback. " . htmlspecialchars($e->getMessage());
 	}
 }
 
@@ -2199,7 +2228,7 @@ function list_ip_pools() {
 		echo '<tr>';
 		echo '<td>' . $pool->id . '</td>';
 		echo '<td>' . htmlspecialchars($pool->title) . '</td>';
-		echo '<td>' . $pool->gateway . '</td>';
+		echo '<td>' . htmlspecialchars((string) $pool->gateway) . '</td>';
 		echo '<td>
 		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=list_ips&amp;id=' . $pool->id . '"><img height="16" width="16" border="0" alt="Info" src="images/edit.gif"></a>
 		<a href="' . pvewhmcs_BASEURL . '&amp;tab=ippools&amp;action=removeippool&amp;id=' . $pool->id . generate_token('link') . '" onclick="return confirm(\'Pool and all IPv4 Addresses assigned to it will be deleted, continue?\')"><img height="16" width="16" border="0" alt="Remove" src="images/delete.gif"></a>
@@ -2212,7 +2241,7 @@ function list_ip_pools() {
 // IP POOL FORM: Add IP Pool
 function add_ip_pool() {
 	echo '
-	<form method="post">
+	<form method="post">' . generate_token('form') . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">Pool Title</td>
@@ -2250,7 +2279,7 @@ function save_ip_pool() {
 		$_SESSION['pvewhmcs']['infomsg']['message']='New IPv4 Pool saved successfully.' ;
 		header("Location: ".pvewhmcs_BASEURL."&tab=ippools&action=list_ip_pools");
 	} catch (\Exception $e) {
-		echo "Uh oh! Inserting didn't work, but I was able to rollback. {$e->getMessage()}";
+		echo "Uh oh! Inserting didn't work, but I was able to rollback. " . htmlspecialchars($e->getMessage());
 	}
 }
 
@@ -2267,7 +2296,7 @@ function removeIpPool($id) {
 // IP POOL FORM ACTION: Add IP to Pool
 function add_ip_2_pool() {
 	require_once(ROOTDIR.'/modules/addons/pvewhmcs/Ipv4/Subnet.php');
-	echo '<form method="post">
+	echo '<form method="post">' . generate_token('form') . '
 	<table class="form" border="0" cellpadding="3" cellspacing="1" width="100%">
 	<tr>
 	<td class="fieldlabel">IPv4 Pool</td>

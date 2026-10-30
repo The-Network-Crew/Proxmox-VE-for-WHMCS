@@ -97,6 +97,8 @@ class PVE2_API {
 		curl_setopt($prox_ch, CURLOPT_POSTFIELDS, $login_postfields_string);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, $this->verify_ssl);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, $this->verify_ssl);
+		curl_setopt($prox_ch, CURLOPT_CONNECTTIMEOUT, 10);
+		curl_setopt($prox_ch, CURLOPT_TIMEOUT, 60);
 
 		$login_ticket = curl_exec($prox_ch);
 		$login_request_info = curl_getinfo($prox_ch);
@@ -127,7 +129,6 @@ class PVE2_API {
 			// so we can identify when we need a new one expiration-wise later
 			// on...
 			$this->login_ticket_timestamp = time();
-			$this->reload_node_list();
 			return true;
 		}
 	}
@@ -245,6 +246,8 @@ class PVE2_API {
 		curl_setopt($prox_ch, CURLOPT_COOKIE, "PVEAuthCookie=" . $this->login_ticket['ticket']);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($prox_ch, CURLOPT_SSL_VERIFYHOST, false);
+		curl_setopt($prox_ch, CURLOPT_CONNECTTIMEOUT, 10);
+		curl_setopt($prox_ch, CURLOPT_TIMEOUT, 60);
 
 		$action_response = curl_exec($prox_ch);
 
@@ -606,9 +609,13 @@ class PVE2_API {
 	}
 
 	/*
-	 * bool delete (string action_path)
+	 * bool delete (string action_path[, array parameters])
+	 * Parameters are sent as the query string.
 	 */
-	public function delete ($action_path) {
+	public function delete ($action_path, $parameters = array()) {
+		if (!empty($parameters)) {
+			$action_path .= '?' . http_build_query($parameters);
+		}
 		return $this->action($action_path, "DELETE");
 	}
 

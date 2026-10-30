@@ -125,6 +125,13 @@ function pvewhmcs_CreateAccount($params) {
 		return $e->getMessage();
 	}
 
+	// OS Template: Custom Field or Configurable Option "KVMTemplate" (value = PVE VMID)
+	try {
+		$template_vmid = pvewhmcs_get_template_vmid($params);
+	} catch (Exception $e) {
+		return $e->getMessage();
+	}
+
 	// PVE Host - Connection Info
 	$serverip = $params["serverip"];
 	$serverusername = $params["serverusername"];
@@ -134,30 +141,36 @@ function pvewhmcs_CreateAccount($params) {
 	// Prepare the service config array
 	$vm_settings = array();
 
-	// Select an IP Address from Pool
-	$result = Capsule::select(
-    'SELECT i.ipaddress, i.mask, p.gateway 
-     FROM mod_pvewhmcs_ip_addresses i 
-     INNER JOIN mod_pvewhmcs_ip_pools p ON (i.pool_id = p.id AND p.id = :pool_id) 
-     WHERE i.ipaddress NOT IN (
-        SELECT dedicatedip 
-        FROM tblhosting 
-        WHERE domainstatus IN ("Active", "Suspended", "Completed", "Pending")
-        AND dedicatedip != ""
-     ) 
-     LIMIT 1',
-    ['pool_id' => $params['configoption2']]
-	);
+	// Select + reserve an IP Address from the Pool. A MySQL named lock makes this
+	// atomic, so two services provisioning at the same time cannot get the same IP.
+	Capsule::select("SELECT GET_LOCK('pvewhmcs_ip_pick', 30) AS l");
+	try {
+		$result = Capsule::select(
+	    'SELECT i.ipaddress, i.mask, p.gateway 
+	     FROM mod_pvewhmcs_ip_addresses i 
+	     INNER JOIN mod_pvewhmcs_ip_pools p ON (i.pool_id = p.id AND p.id = :pool_id) 
+	     WHERE i.ipaddress NOT IN (
+	        SELECT dedicatedip 
+	        FROM tblhosting 
+	        WHERE domainstatus IN ("Active", "Suspended", "Completed", "Pending")
+	        AND dedicatedip != ""
+	     ) 
+	     LIMIT 1',
+	    ['pool_id' => $params['configoption2']]
+		);
 
-	// Check if we actually found an IP before trying to access index [0]
-	if (!empty($result)) {
-		$ip = $result[0];
-		// Reserve early to avoid concurrent selection during long clones
-		Capsule::table('tblhosting')
-			->where('id', $params['serviceid'])
-			->update(['dedicatedip' => $ip->ipaddress]);
-	} else {
-		throw new Exception("No free IP addresses available in the selected pool.");
+		// Check if we actually found an IP before trying to access index [0]
+		if (!empty($result)) {
+			$ip = $result[0];
+			// Reserve early to avoid concurrent selection during long clones
+			Capsule::table('tblhosting')
+				->where('id', $params['serviceid'])
+				->update(['dedicatedip' => $ip->ipaddress]);
+		} else {
+			throw new Exception("No free IP addresses available in the selected pool.");
+		}
+	} finally {
+		Capsule::select("SELECT RELEASE_LOCK('pvewhmcs_ip_pick') AS l");
 	}
 	// Get the starting VMID from the config options
 	$vmid = Capsule::table('mod_pvewhmcs')->where('id', '1')->value('start_vmid');
@@ -165,8 +178,6 @@ function pvewhmcs_CreateAccount($params) {
 	////////////////////
 	// CREATE IF QEMU //
 	////////////////////
-	// OS Template: Custom Field or Configurable Option "KVMTemplate" (value = PVE VMID)
-	$template_vmid = pvewhmcs_get_template_vmid($params);
 	if (!empty($template_vmid)) {
 		try {
 			return pvewhmcs_create_from_template($params, $plan, $ip, $vmid, $template_vmid);
@@ -465,12 +476,34 @@ function pvewhmcs_check_customfield(array $params, $fieldname) {
  * @return int|null Template VMID, or null if not set
  */
 function pvewhmcs_get_template_vmid(array $params) {
-	foreach (array($params['customfields']['KVMTemplate'] ?? '', $params['configoptions']['KVMTemplate'] ?? '') as $value) {
+	foreach (array('customfields', 'configoptions') as $source) {
 		// Tolerate "9000|Name" leaking through, keep only the VMID part
-		$value = trim(explode('|', (string) $value)[0]);
-		if (ctype_digit($value) && (int) $value > 0) {
-			return (int) $value;
+		$value = trim(explode('|', (string) ($params[$source]['KVMTemplate'] ?? ''))[0]);
+		if (!ctype_digit($value) || (int) $value <= 0) {
+			continue;
 		}
+		// Custom Field values are whitelisted by pvewhmcs_check_customfield(). A
+		// Configurable Option must be a dropdown/radio and the value one of its
+		// options: a quantity-type option would let the client type any VMID.
+		if ($source === 'configoptions') {
+			$allowed = Capsule::table('tblproductconfigoptionssub as s')
+				->join('tblproductconfigoptions as o', 'o.id', '=', 's.configid')
+				->join('tblproductconfiglinks as l', 'l.gid', '=', 'o.gid')
+				->where('l.pid', $params['pid'])
+				->whereIn('o.optiontype', array(1, 2))
+				->where(function ($q) {
+					$q->where('o.optionname', 'KVMTemplate')->orWhere('o.optionname', 'like', 'KVMTemplate|%');
+				})
+				->pluck('s.optionname');
+			$ok = false;
+			foreach ($allowed as $option) {
+				$ok = $ok || trim(explode('|', $option)[0]) === $value;
+			}
+			if (!$ok) {
+				throw new Exception("PVEWHMCS Error: KVMTemplate {$value} is not one of the product's options. Use a dropdown Configurable Option.");
+			}
+		}
+		return (int) $value;
 	}
 	return null;
 }
@@ -755,7 +788,7 @@ function pvewhmcs_find_next_available_vmid($proxmox, $node, $start_vmid) {
 		try {
 			// Ask Proxmox if this specific VMID is available
 			// If available, it returns the same VMID; if not, it throws an error
-			$resp = $proxmox->get('/cluster/nextid', ['vmid' => $vmid]);
+			$resp = $proxmox->get('/cluster/nextid?vmid=' . $vmid);
 			$data = (is_array($resp) && array_key_exists('data', $resp)) ? $resp['data'] : $resp;
 
 			// Proxmox confirmed this VMID is available
@@ -954,8 +987,12 @@ function pvewhmcs_TerminateAccount(array $params) {
 		$pve_cmdparam = array();
 		$guest_specific = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/current');
 		if ($guest_specific['status'] != 'stopped') {
-			$proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
-			sleep(30);
+			$stop_upid = $proxmox->post('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/status/stop', $pve_cmdparam);
+			if (is_string($stop_upid) && strpos($stop_upid, 'UPID:') === 0) {
+				pvewhmcs_wait_for_task($proxmox, $guest_node, trim($stop_upid), 60, 2);
+			} else {
+				sleep(30);
+			}
 		}
 		$delete_response = $proxmox->delete('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid, array('skiplock' => 1));
 		if ($delete_response) {
@@ -1279,8 +1316,9 @@ function pvewhmcs_ClientArea($params) {
 	$proxmox = new PVE2_API($serverip, $serverusername, "pam", $serverpassword['password'], $serverport);
 	if ($proxmox->login()) {
 		//$proxmox->setCookie();
-		// Where node lives ? 
-		$guest_node = pvewhmcs_find_guest_node($proxmox, $guest, $params['serviceid']);
+		// Where node lives + status/usage, from a single /cluster/resources call
+		$vm_status = pvewhmcs_find_guest_resource($proxmox, $guest, $params['serviceid']);
+		$guest_node = $vm_status === null ? null : $vm_status['node'];
 		if (empty($guest_node)) {
 			throw new Exception(
 			"PVEWHMCS Error: Unable to determine node for VMID {$guest->vmid} (Service #{$params['serviceid']})."
@@ -1289,34 +1327,14 @@ function pvewhmcs_ClientArea($params) {
 
 		# Get and set VM variables
 		$vm_config = $proxmox->get('/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid . '/config');
-		$cluster_resources = $proxmox->get('/cluster/resources');
-		$vm_status = null;
-		// DEBUG - Log the /cluster/resources and /config for the VM/CT, if enabled
-		$cluster_encoded = json_encode($cluster_resources);
-		$vmspecs_encoded = json_encode($vm_config);
+		// DEBUG - Log the guest's resource row and /config, if enabled
 		if (Capsule::table('mod_pvewhmcs')->where('id', '1')->value('debug_mode') == 1) {
 			logModuleCall(
 				'pvewhmcs',
 				__FUNCTION__,
-				'CLUSTER INFO: ' . $cluster_encoded,
-				'GUEST CONFIG (Service #' . $params['serviceid'] . ' / PVE ID #' . $guest->vmid . ' / Client #' . $params['clientsdetails']['userid'] . '): ' . $vmspecs_encoded
+				'GUEST RESOURCE: ' . json_encode($vm_status),
+				'GUEST CONFIG (Service #' . $params['serviceid'] . ' / PVE ID #' . $guest->vmid . ' / Client #' . $params['clientsdetails']['userid'] . '): ' . json_encode($vm_config)
 			);
-		}
-
-		# Loop through data, find ID
-		$vm_status = null;
-		foreach ($cluster_resources as $vm) {
-			// Using vmid directly, from Module Table against API Response (ignoring Service ID now)
-			if ($vm['vmid'] == $guest->vmid && $vm['type'] == $guest->vtype) {
-				$vm_status = $vm;
-				break;
-			}
-
-			// If the vmid is not found, check against serviceid (<v1.2.9 case)
-			if ($vm['vmid'] == $params['serviceid'] && $vm['type'] == $guest->vtype) {
-				$vm_status = $vm;
-				break;
-			}
 		}
 
 		# Retrieve & set usage data appropriately
@@ -1348,29 +1366,34 @@ function pvewhmcs_ClientArea($params) {
 		// RRD data may be unavailable for new VMs or during PVE migration.
 		// ----------------------------------------------------------------
 
-		// CPU usage statistics (day/week/month/year)
-		$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
-		$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
-		$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
-		$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
+		// Graphs are only shown after the client clicks Statistics, so only fetch them then
+		// (16 PVE requests that every normal page view used to make)
+		$vm_statistics = array();
+		if (isset($_GET['a']) && $_GET['a'] === 'vmStat') {
+			// CPU usage statistics (day/week/month/year)
+			$vm_statistics['cpu']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'cpu');
+			$vm_statistics['cpu']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'cpu');
+			$vm_statistics['cpu']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'cpu');
+			$vm_statistics['cpu']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'cpu');
 
-		// Memory usage statistics (day/week/month/year)
-		$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'mem');
-		$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'mem');
-		$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'mem');
-		$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'mem');
+			// Memory usage statistics (day/week/month/year)
+			$vm_statistics['mem']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'mem');
+			$vm_statistics['mem']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'mem');
+			$vm_statistics['mem']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'mem');
+			$vm_statistics['mem']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'mem');
 
-		// Network I/O statistics (day/week/month/year)
-		$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
-		$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
-		$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
-		$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
+			// Network I/O statistics (day/week/month/year)
+			$vm_statistics['netinout']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'netin,netout');
+			$vm_statistics['netinout']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'netin,netout');
+			$vm_statistics['netinout']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'netin,netout');
+			$vm_statistics['netinout']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'netin,netout');
 
-		// Disk I/O statistics (day/week/month/year)
-		$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
-		$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
+			// Disk I/O statistics (day/week/month/year)
+			$vm_statistics['diskrw']['year']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'year', 'diskread,diskwrite');
+			$vm_statistics['diskrw']['month'] = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'month', 'diskread,diskwrite');
+			$vm_statistics['diskrw']['week']  = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'week', 'diskread,diskwrite');
+			$vm_statistics['diskrw']['day']   = pvewhmcs_fetch_rrd_stat($proxmox, $guest_node, $guest->vtype, $guest->vmid, 'day', 'diskread,diskwrite');
+		}
 
 		$vm_config['vtype'] = $guest->vtype ;
 		$vm_config['ipv4'] = $guest->ipaddress ;
@@ -1391,7 +1414,6 @@ function pvewhmcs_ClientArea($params) {
 			'vm_config' => $vm_config,
 			'vm_status' => $vm_status,
 			'vm_statistics' => $vm_statistics,
-			'vm_vncproxy' => $vm_vncproxy,
 		),
 	);
 }
@@ -1404,16 +1426,37 @@ function pvewhmcs_vmStat($params) {
 // VNC: Console access to VM/CT via noVNC
 // The browser only talks to WHMCS: novnc_router.php checks the login, then
 // vncproxy.php (on the WHMCS server) relays the console from PVE.
+// WHMCS only runs this custom button for users allowed to manage the service,
+// so the router requires the short-lived signed link created here.
 function pvewhmcs_noVNC($params) {
 	global $CONFIG;
-	$url = rtrim($CONFIG['SystemURL'], '/') . '/modules/servers/pvewhmcs/novnc_router.php?serviceid=' . (int) $params['serviceid'];
+	$expires = time() + 120;
+	$url = rtrim($CONFIG['SystemURL'], '/') . '/modules/servers/pvewhmcs/novnc_router.php?serviceid=' . (int) $params['serviceid']
+		. '&expires=' . $expires . '&sig=' . pvewhmcs_vnc_link_sig($params['serviceid'], $expires);
 	return '<center style="background-color: green;"><strong style="color: white;">Console (noVNC) ready!<br><a href="' . htmlspecialchars($url) . '" target="_blank" style="color: Khaki;"><u>Click here to launch noVNC.</u></a></strong></center>';
+}
+
+/**
+ * Keys for the noVNC link signature and the stored-ticket encryption, derived
+ * from $cc_encryption_hash in WHMCS configuration.php (vncproxy.php reads the
+ * same file and derives the same encryption key).
+ */
+function pvewhmcs_vnc_key($purpose) {
+	include ROOTDIR . '/configuration.php';
+	return hash('sha256', $purpose . '|' . $cc_encryption_hash, true);
+}
+
+function pvewhmcs_vnc_link_sig($serviceid, $expires) {
+	return hash_hmac('sha256', (int) $serviceid . '|' . (int) $expires, pvewhmcs_vnc_key('pvewhmcs-vnc-link'));
 }
 
 /**
  * Open a VNC session on PVE (root API user) and hand it to vncproxy.php
  * via a one-time token. The PVE side only waits ~10s for the connection,
  * so call this right before the browser loads noVNC.
+ *
+ * Only a SHA-256 of the token is stored; the PVE path, VNC ticket and root
+ * ticket are stored AES-GCM encrypted and bound to that row.
  *
  * @param int $serviceid WHMCS Service ID
  * @return array ['token' => one-time token for vncproxy.php, 'password' => VNC ticket]
@@ -1429,8 +1472,32 @@ function pvewhmcs_vnc_prepare($serviceid) {
 	if ($pveserver === null) {
 		throw new Exception('Failed to prepare noVNC. Service is not on a Proxmox VE server.');
 	}
-	$serverpassword = localAPI('DecryptPassword', array('password2' => $pveserver->password));
 
+	// One-time tokens (also in db.sql); recreate if left from an older layout, rows are transient
+	$schema = Capsule::schema();
+	if ($schema->hasTable('mod_pvewhmcs_vnc_tokens') && !$schema->hasColumn('mod_pvewhmcs_vnc_tokens', 'token_hash')) {
+		$schema->drop('mod_pvewhmcs_vnc_tokens');
+	}
+	if (!$schema->hasTable('mod_pvewhmcs_vnc_tokens')) {
+		$schema->create('mod_pvewhmcs_vnc_tokens', function ($table) {
+			$table->char('token_hash', 64)->primary();
+			$table->integer('serviceid')->index();
+			$table->string('pve_host', 255);
+			$table->integer('pve_port');
+			$table->text('payload');
+			$table->dateTime('expires');
+		});
+	}
+	// Expiry uses the DB clock only (vncproxy.php compares against NOW() too)
+	Capsule::table('mod_pvewhmcs_vnc_tokens')->where('expires', '<', Capsule::raw('NOW()'))->delete();
+
+	// Rate limit: each console open costs a root login and a PVE vncproxy process
+	$recent = Capsule::table('mod_pvewhmcs_vnc_tokens')->where('serviceid', $serviceid)->count();
+	if ($recent >= 3) {
+		throw new Exception('Too many console requests. Please wait 30 seconds and try again.');
+	}
+
+	$serverpassword = localAPI('DecryptPassword', array('password2' => $pveserver->password));
 	$proxmox = new PVE2_API($pveserver->ipaddress, $pveserver->username, "pam", $serverpassword['password'], $pveserver->port);
 	if (!$proxmox->login()) {
 		throw new Exception('Failed to prepare noVNC. Unable to connect to server.');
@@ -1443,29 +1510,22 @@ function pvewhmcs_vnc_prepare($serviceid) {
 	$guest_path = '/nodes/' . $guest_node . '/' . $guest->vtype . '/' . $guest->vmid;
 	$vm_vncproxy = $proxmox->post($guest_path . '/vncproxy', array('websocket' => '1'));
 
-	// One-time tokens, created on first use
-	$schema = Capsule::schema();
-	if (!$schema->hasTable('mod_pvewhmcs_vnc_tokens')) {
-		$schema->create('mod_pvewhmcs_vnc_tokens', function ($table) {
-			$table->string('token', 64)->primary();
-			$table->string('pve_host', 255);
-			$table->integer('pve_port');
-			$table->text('path');
-			$table->text('pveticket');
-			$table->dateTime('expires');
-		});
-	}
-	Capsule::table('mod_pvewhmcs_vnc_tokens')->where('expires', '<', date('Y-m-d H:i:s'))->delete();
-
 	$token = bin2hex(random_bytes(32));
+	$token_hash = hash('sha256', $token);
+	$pve_host = $pveserver->ipaddress;
+	$pve_port = (int) ($pveserver->port ?: 8006);
+	$payload = json_encode(array(
+		'path' => '/api2/json' . $guest_path . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . rawurlencode($vm_vncproxy['ticket']),
+		'pveticket' => $proxmox->getTicket(),
+	));
 	Capsule::table('mod_pvewhmcs_vnc_tokens')->insert(
 		[
-			'token' => $token,
-			'pve_host' => $pveserver->ipaddress,
-			'pve_port' => $pveserver->port ?: 8006,
-			'path' => '/api2/json' . $guest_path . '/vncwebsocket?port=' . $vm_vncproxy['port'] . '&vncticket=' . rawurlencode($vm_vncproxy['ticket']),
-			'pveticket' => pvewhmcs_vnc_encrypt($proxmox->getTicket()),
-			'expires' => date('Y-m-d H:i:s', time() + 30),
+			'token_hash' => $token_hash,
+			'serviceid' => $serviceid,
+			'pve_host' => $pve_host,
+			'pve_port' => $pve_port,
+			'payload' => pvewhmcs_vnc_encrypt($payload, $token_hash . '|' . $pve_host . '|' . $pve_port),
+			'expires' => Capsule::raw('NOW() + INTERVAL 30 SECOND'),
 		]
 	);
 
@@ -1473,15 +1533,12 @@ function pvewhmcs_vnc_prepare($serviceid) {
 }
 
 /**
- * Encrypt the PVE ticket stored with a noVNC token, so a database leak alone
- * does not expose a root session. vncproxy.php derives the same key from
- * $cc_encryption_hash in WHMCS configuration.php.
+ * AES-256-GCM encrypt the token payload. $aad binds it to its row (token hash,
+ * PVE host, port), so a ciphertext copied into another row will not decrypt.
  */
-function pvewhmcs_vnc_encrypt($plaintext) {
-	include ROOTDIR . '/configuration.php';
-	$key = hash('sha256', 'pvewhmcs-vnc|' . $cc_encryption_hash, true);
+function pvewhmcs_vnc_encrypt($plaintext, $aad) {
 	$iv = random_bytes(12);
-	$ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+	$ciphertext = openssl_encrypt($plaintext, 'aes-256-gcm', pvewhmcs_vnc_key('pvewhmcs-vnc'), OPENSSL_RAW_DATA, $iv, $tag, $aad);
 	return base64_encode($iv . $tag . $ciphertext);
 }
 
@@ -1725,29 +1782,31 @@ function pvewhmcs_find_node_by_vmid($proxmox, $vmid) {
  */
 function pvewhmcs_find_guest_node(PVE2_API $proxmox, $guest, $serviceId)
 {
-    // Where does the Guest live?
-    $cluster_resources = $proxmox->get('/cluster/resources');
+	$resource = pvewhmcs_find_guest_resource($proxmox, $guest, $serviceId);
+	return $resource === null ? null : $resource['node'];
+}
 
-    if (is_array($cluster_resources)) {
-        foreach ($cluster_resources as $res) {
-			// Ensure required keys exist before accessing
-            if (!isset($res['type'], $res['vmid'], $res['node'])) {
-                continue;
-            }
-
-            // Match the vmid + Guest type (most reliable)
-            if ($res['vmid'] == $guest->vmid && $res['type'] === $guest->vtype) {
-                return $res['node'];
-            }
-
-            // Legacy (<1.2.9): vmid == serviceid
-            if ($res['vmid'] == $serviceId && $res['type'] === $guest->vtype) {
-                return $res['node'];
-            }
-        }
-    }
-
-    return null;
+/**
+ * Find the guest's row in /cluster/resources (node, status, usage) in one call.
+ *
+ * Matches the stored VMID + type. The legacy (<1.2.9) "VMID == Service ID"
+ * match is only used when no VMID is stored, so it can never pick another
+ * client's guest that happens to have that VMID.
+ *
+ * @return array|null
+ */
+function pvewhmcs_find_guest_resource(PVE2_API $proxmox, $guest, $serviceId)
+{
+	$cluster_resources = $proxmox->get('/cluster/resources?type=vm');
+	$wanted = !empty($guest->vmid) ? $guest->vmid : $serviceId;
+	if (is_array($cluster_resources)) {
+		foreach ($cluster_resources as $res) {
+			if (isset($res['type'], $res['vmid'], $res['node']) && $res['vmid'] == $wanted && $res['type'] === $guest->vtype) {
+				return $res;
+			}
+		}
+	}
+	return null;
 }
 
 // CLIENT AREA: REFRESH TO CHECK STATUS ON-CLICK
